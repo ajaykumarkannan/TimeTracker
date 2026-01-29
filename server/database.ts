@@ -1,14 +1,32 @@
-import Database from 'better-sqlite3';
+import initSqlJs, { Database as SqlJsDatabase } from 'sql.js';
 import { logger } from './logger';
+import * as fs from 'fs';
+import * as path from 'path';
 
 const DB_PATH = process.env.DB_PATH || './data/timetracker.db';
 
-export const db = new Database(DB_PATH);
+let db: SqlJsDatabase;
 
-export function initDatabase() {
+export async function initDatabase(): Promise<SqlJsDatabase> {
   logger.info('Initializing database', { path: DB_PATH });
 
-  db.exec(`
+  const SQL = await initSqlJs();
+  
+  // Ensure data directory exists
+  const dir = path.dirname(DB_PATH);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+
+  // Load existing database or create new one
+  if (fs.existsSync(DB_PATH)) {
+    const buffer = fs.readFileSync(DB_PATH);
+    db = new SQL.Database(buffer);
+  } else {
+    db = new SQL.Database();
+  }
+
+  db.run(`
     CREATE TABLE IF NOT EXISTS categories (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL UNIQUE,
@@ -17,7 +35,7 @@ export function initDatabase() {
     )
   `);
 
-  db.exec(`
+  db.run(`
     CREATE TABLE IF NOT EXISTS time_entries (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       category_id INTEGER NOT NULL,
@@ -30,7 +48,21 @@ export function initDatabase() {
     )
   `);
 
+  saveDatabase();
   logger.info('Database initialized successfully');
+  return db;
+}
+
+export function getDb(): SqlJsDatabase {
+  return db;
+}
+
+export function saveDatabase() {
+  if (db) {
+    const data = db.export();
+    const buffer = Buffer.from(data);
+    fs.writeFileSync(DB_PATH, buffer);
+  }
 }
 
 export interface Category {

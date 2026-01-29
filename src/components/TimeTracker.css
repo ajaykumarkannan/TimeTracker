@@ -1,99 +1,167 @@
 .time-tracker {
-  background: white;
-  padding: 2rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  margin-bottom: 2rem;
-}
-
-.active-tracker {
   text-align: center;
 }
 
+.active-tracker {
+  padding: 24px 0;
+}
+
 .timer-display {
-  margin-bottom: 2rem;
+  margin-bottom: 32px;
 }
 
 .timer-time {
-  font-size: 4rem;
-  font-weight: bold;
-  color: #007bff;
+  font-size: 72px;
+  font-weight: 200;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
   font-variant-numeric: tabular-nums;
+  line-height: 1;
+  margin-bottom: 16px;
 }
 
 .timer-category {
-  font-size: 1.5rem;
-  margin-top: 0.5rem;
+  font-size: 22px;
   font-weight: 500;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.category-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
 }
 
 .timer-note {
-  margin-top: 0.5rem;
-  color: #666;
-  font-style: italic;
+  margin-top: 8px;
+  color: var(--text-secondary);
+  font-size: 17px;
 }
 
-.start-tracker h2 {
-  margin-bottom: 1.5rem;
-  color: #333;
+.start-tracker {
+  padding: 8px 0;
+}
+
+.tracker-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
 .form-group {
-  margin-bottom: 1rem;
+  text-align: left;
 }
 
 .form-group label {
   display: block;
-  margin-bottom: 0.5rem;
-  font-weight: 500;
-  color: #333;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  margin-bottom: 8px;
 }
 
-.form-group select,
+.form-group label .optional {
+  font-weight: 400;
+  text-transform: none;
+}
+
+.category-select-wrapper select {
+  width: 100%;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2386868b' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 16px center;
+  padding-right: 40px;
+}
+
+.form-group input[type="text"],
 .form-group textarea {
   width: 100%;
-  padding: 0.75rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 1rem;
-  font-family: inherit;
 }
 
-.form-group select:focus,
-.form-group textarea:focus {
-  outline: none;
-  border-color: #007bff;
+/* New category inline form */
+.new-category-form {
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  margin-top: -8px;
 }
 
-.btn {
-  padding: 0.75rem 2rem;
-  border: none;
-  border-radius: 4px;
-  font-size: 1rem;
-  font-weight: 500;
+.new-category-inputs {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.new-category-inputs input[type="text"] {
+  flex: 1;
+}
+
+.color-picker {
+  width: 48px;
+  height: 48px;
+  padding: 4px;
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: all 0.2s;
 }
 
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.new-category-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
 }
 
-.btn-start {
-  background: #28a745;
-  color: white;
+.new-category-actions button {
+  padding: 8px 16px;
+  font-size: 15px;
 }
 
-.btn-start:hover:not(:disabled) {
-  background: #218838;
+/* Autocomplete */
+.autocomplete-wrapper {
+  position: relative;
 }
 
-.btn-stop {
-  background: #dc3545;
-  color: white;
+.suggestions-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  margin-top: 4px;
+  overflow: hidden;
+  z-index: 10;
 }
 
-.btn-stop:hover {
-  background: #c82333;
+.suggestion-item {
+  display: block;
+  width: 100%;
+  padding: 12px 16px;
+  text-align: left;
+  background: none;
+  border: none;
+  font-size: 17px;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.suggestion-item:hover {
+  background: var(--bg-tertiary);
+}
+
+.suggestion-item:not(:last-child) {
+  border-bottom: 1px solid var(--border);
+}
+
+.start-button {
+  margin-top: 8px;
+  width: 100%;
 }

@@ -34,21 +34,23 @@ function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <h1>⏱️ Time Tracker</h1>
-        <nav>
-          <button 
-            className={view === 'tracker' ? 'active' : ''}
-            onClick={() => setView('tracker')}
-          >
-            Tracker
-          </button>
-          <button 
-            className={view === 'categories' ? 'active' : ''}
-            onClick={() => setView('categories')}
-          >
-            Categories
-          </button>
-        </nav>
+        <div className="app-header-content">
+          <h1>Time Tracker</h1>
+          <nav>
+            <button 
+              className={view === 'tracker' ? 'active' : ''}
+              onClick={() => setView('tracker')}
+            >
+              Tracker
+            </button>
+            <button 
+              className={view === 'categories' ? 'active' : ''}
+              onClick={() => setView('categories')}
+            >
+              Categories
+            </button>
+          </nav>
+        </div>
       </header>
 
       <main className="app-main">
@@ -57,6 +59,7 @@ function App() {
             <TimeTracker 
               categories={categories}
               activeEntry={activeEntry}
+              entries={timeEntries}
               onUpdate={loadData}
             />
             <TimeEntryList 

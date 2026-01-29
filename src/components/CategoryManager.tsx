@@ -10,7 +10,7 @@ interface Props {
 
 export function CategoryManager({ categories, onUpdate }: Props) {
   const [name, setName] = useState('');
-  const [color, setColor] = useState('#007bff');
+  const [color, setColor] = useState('#007aff');
   const [editingId, setEditingId] = useState<number | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -25,7 +25,7 @@ export function CategoryManager({ categories, onUpdate }: Props) {
         await api.createCategory(name, color);
       }
       setName('');
-      setColor('#007bff');
+      setColor('#007aff');
       onUpdate();
     } catch (error) {
       console.error('Failed to save category:', error);
@@ -34,7 +34,7 @@ export function CategoryManager({ categories, onUpdate }: Props) {
 
   const handleEdit = (category: Category) => {
     setName(category.name);
-    setColor(category.color || '#007bff');
+    setColor(category.color || '#007aff');
     setEditingId(category.id);
   };
 
@@ -52,54 +52,54 @@ export function CategoryManager({ categories, onUpdate }: Props) {
 
   const handleCancel = () => {
     setName('');
-    setColor('#007bff');
+    setColor('#007aff');
     setEditingId(null);
   };
 
   return (
     <div className="category-manager">
-      <div className="category-form">
-        <h2>{editingId ? 'Edit Category' : 'Add Category'}</h2>
-        <form onSubmit={handleSubmit}>
+      <div className="card">
+        <h2 className="card-title">{editingId ? 'Edit Category' : 'New Category'}</h2>
+        <form onSubmit={handleSubmit} className="category-form">
           <div className="form-row">
-            <div className="form-group">
-              <label>Name</label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g., Meetings, Development, Break"
-                required
-              />
-            </div>
-            <div className="form-group">
-              <label>Color</label>
-              <input
-                type="color"
-                value={color}
-                onChange={(e) => setColor(e.target.value)}
-              />
-            </div>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Category name"
+              className="category-name-input"
+              required
+            />
+            <input
+              type="color"
+              value={color}
+              onChange={(e) => setColor(e.target.value)}
+              className="color-picker"
+            />
           </div>
           <div className="form-actions">
-            <button type="submit" className="btn btn-primary">
-              {editingId ? 'Update' : 'Add'} Category
-            </button>
             {editingId && (
-              <button type="button" className="btn btn-secondary" onClick={handleCancel}>
+              <button type="button" className="btn-secondary" onClick={handleCancel}>
                 Cancel
               </button>
             )}
+            <button type="submit" className="btn-primary">
+              {editingId ? 'Update' : 'Add Category'}
+            </button>
           </div>
         </form>
       </div>
 
-      <div className="category-list">
-        <h2>Categories</h2>
+      <div className="card">
+        <h2 className="card-title">Categories</h2>
         {categories.length === 0 ? (
-          <p className="empty-state">No categories yet. Add one above to get started!</p>
+          <div className="empty-state">
+            <div className="empty-icon">📁</div>
+            <p>No categories yet</p>
+            <p className="empty-hint">Create one above to get started</p>
+          </div>
         ) : (
-          <div className="categories">
+          <div className="categories-list">
             {categories.map(category => (
               <div key={category.id} className="category-item">
                 <div className="category-info">

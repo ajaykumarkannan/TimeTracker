@@ -28,7 +28,7 @@ describe('CategoryManager', () => {
     const input = screen.getByPlaceholderText(/e.g., Meetings/);
     fireEvent.change(input, { target: { value: 'New Category' } });
     
-    const button = screen.getByText('Add Category');
+    const button = screen.getByRole('button', { name: /add category/i });
     fireEvent.click(button);
     
     await waitFor(() => {

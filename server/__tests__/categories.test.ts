@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { db } from '../database';
+import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
+import initSqlJs, { Database } from 'sql.js';
 
 vi.mock('../logger', () => ({
   logger: {
@@ -8,17 +8,51 @@ vi.mock('../logger', () => ({
   }
 }));
 
-describe('Categories Database', () => {
-  beforeEach(() => {
-    db.exec('DELETE FROM time_entries');
-    db.exec('DELETE FROM categories');
-  });
+let db: Database;
 
+beforeAll(async () => {
+  const SQL = await initSqlJs();
+  db = new SQL.Database();
+  
+  db.run(`
+    CREATE TABLE IF NOT EXISTS categories (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL UNIQUE,
+      color TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  
+  db.run(`
+    CREATE TABLE IF NOT EXISTS time_entries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      category_id INTEGER NOT NULL,
+      note TEXT,
+      start_time DATETIME NOT NULL,
+      end_time DATETIME,
+      duration_minutes INTEGER,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE
+    )
+  `);
+});
+
+beforeEach(() => {
+  db.run('DELETE FROM time_entries');
+  db.run('DELETE FROM categories');
+});
+
+describe('Categories Database', () => {
   it('creates a category', () => {
-    const result = db.prepare('INSERT INTO categories (name, color) VALUES (?, ?)').run('Development', '#007bff');
-    expect(result.lastInsertRowid).toBeDefined();
+    db.run('INSERT INTO categories (name, color) VALUES (?, ?)', ['Development', '#007bff']);
+    const lastId = db.exec('SELECT last_insert_rowid() as id')[0].values[0][0];
     
-    const category = db.prepare('SELECT * FROM categories WHERE id = ?').get(result.lastInsertRowid);
+    const stmt = db.prepare('SELECT * FROM categories WHERE id = ?');
+    stmt.bind([lastId]);
+    stmt.step();
+    const category = stmt.getAsObject();
+    stmt.free();
+    
     expect(category).toMatchObject({
       name: 'Development',
       color: '#007bff'
@@ -26,30 +60,41 @@ describe('Categories Database', () => {
   });
 
   it('prevents duplicate category names', () => {
-    db.prepare('INSERT INTO categories (name, color) VALUES (?, ?)').run('Development', '#007bff');
+    db.run('INSERT INTO categories (name, color) VALUES (?, ?)', ['Development', '#007bff']);
     
     expect(() => {
-      db.prepare('INSERT INTO categories (name, color) VALUES (?, ?)').run('Development', '#28a745');
+      db.run('INSERT INTO categories (name, color) VALUES (?, ?)', ['Development', '#28a745']);
     }).toThrow();
   });
 
   it('retrieves all categories', () => {
-    db.prepare('INSERT INTO categories (name, color) VALUES (?, ?)').run('Development', '#007bff');
-    db.prepare('INSERT INTO categories (name, color) VALUES (?, ?)').run('Meetings', '#28a745');
+    db.run('INSERT INTO categories (name, color) VALUES (?, ?)', ['Development', '#007bff']);
+    db.run('INSERT INTO categories (name, color) VALUES (?, ?)', ['Meetings', '#28a745']);
     
-    const categories = db.prepare('SELECT * FROM categories ORDER BY name').all();
+    const stmt = db.prepare('SELECT * FROM categories ORDER BY name');
+    const categories = [];
+    while (stmt.step()) {
+      categories.push(stmt.getAsObject());
+    }
+    stmt.free();
+    
     expect(categories).toHaveLength(2);
     expect(categories[0]).toMatchObject({ name: 'Development' });
     expect(categories[1]).toMatchObject({ name: 'Meetings' });
   });
 
   it('updates a category', () => {
-    const result = db.prepare('INSERT INTO categories (name, color) VALUES (?, ?)').run('Development', '#007bff');
-    const id = result.lastInsertRowid;
+    db.run('INSERT INTO categories (name, color) VALUES (?, ?)', ['Development', '#007bff']);
+    const id = db.exec('SELECT last_insert_rowid() as id')[0].values[0][0];
     
-    db.prepare('UPDATE categories SET name = ?, color = ? WHERE id = ?').run('Dev Work', '#ff0000', id);
+    db.run('UPDATE categories SET name = ?, color = ? WHERE id = ?', ['Dev Work', '#ff0000', id]);
     
-    const category = db.prepare('SELECT * FROM categories WHERE id = ?').get(id);
+    const stmt = db.prepare('SELECT * FROM categories WHERE id = ?');
+    stmt.bind([id]);
+    stmt.step();
+    const category = stmt.getAsObject();
+    stmt.free();
+    
     expect(category).toMatchObject({
       name: 'Dev Work',
       color: '#ff0000'
@@ -57,12 +102,16 @@ describe('Categories Database', () => {
   });
 
   it('deletes a category', () => {
-    const result = db.prepare('INSERT INTO categories (name, color) VALUES (?, ?)').run('Development', '#007bff');
-    const id = result.lastInsertRowid;
+    db.run('INSERT INTO categories (name, color) VALUES (?, ?)', ['Development', '#007bff']);
+    const id = db.exec('SELECT last_insert_rowid() as id')[0].values[0][0];
     
-    db.prepare('DELETE FROM categories WHERE id = ?').run(id);
+    db.run('DELETE FROM categories WHERE id = ?', [id]);
     
-    const category = db.prepare('SELECT * FROM categories WHERE id = ?').get(id);
-    expect(category).toBeUndefined();
+    const stmt = db.prepare('SELECT * FROM categories WHERE id = ?');
+    stmt.bind([id]);
+    const hasRow = stmt.step();
+    stmt.free();
+    
+    expect(hasRow).toBe(false);
   });
 });

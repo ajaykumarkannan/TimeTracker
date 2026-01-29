@@ -14,8 +14,12 @@ WORKDIR /app
 
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/node_modules ./node_modules
+
+RUN npm ci --omit=dev
 
 EXPOSE 3001
 
-CMD ["npm", "start"]
+ENV NODE_ENV=production
+ENV DB_PATH=/app/data/timetracker.db
+
+CMD ["node", "dist/server/index.js"]

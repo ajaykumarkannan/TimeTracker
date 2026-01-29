@@ -8,7 +8,7 @@ interface Props {
   onUpdate: () => void;
 }
 
-export function TimeEntryList({ entries, categories, onUpdate }: Props) {
+export function TimeEntryList({ entries, onUpdate }: Props) {
   const handleDelete = async (id: number) => {
     if (!confirm('Delete this time entry?')) return;
     try {
@@ -19,16 +19,28 @@ export function TimeEntryList({ entries, categories, onUpdate }: Props) {
     }
   };
 
-  const formatDate = (dateStr: string) => {
+  const formatTime = (dateStr: string) => {
     const date = new Date(dateStr);
-    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   };
 
   const formatDuration = (minutes: number | null) => {
-    if (!minutes) return 'In progress...';
+    if (!minutes) return 'In progress';
     const h = Math.floor(minutes / 60);
     const m = minutes % 60;
+    if (h === 0) return `${m}m`;
     return `${h}h ${m}m`;
+  };
+
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    if (date.toDateString() === today.toDateString()) return 'Today';
+    if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
+    return date.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
   };
 
   const getTotalMinutes = () => {
@@ -38,7 +50,7 @@ export function TimeEntryList({ entries, categories, onUpdate }: Props) {
   const groupByDate = () => {
     const groups: { [key: string]: TimeEntry[] } = {};
     entries.forEach(entry => {
-      const date = new Date(entry.start_time).toLocaleDateString();
+      const date = new Date(entry.start_time).toDateString();
       if (!groups[date]) groups[date] = [];
       groups[date].push(entry);
     });
@@ -49,44 +61,48 @@ export function TimeEntryList({ entries, categories, onUpdate }: Props) {
   const totalMinutes = getTotalMinutes();
 
   return (
-    <div className="time-entry-list">
-      <div className="list-header">
-        <h2>Time Entries</h2>
-        <div className="total-time">
-          Total: {formatDuration(totalMinutes)}
+    <div className="time-entry-list card">
+      <div className="card-header">
+        <h2 className="card-title">History</h2>
+        <div className="total-badge">
+          {formatDuration(totalMinutes)} total
         </div>
       </div>
 
       {entries.length === 0 ? (
-        <p className="empty-state">No time entries yet. Start tracking to see your history!</p>
+        <div className="empty-state">
+          <div className="empty-icon">⏱️</div>
+          <p>No time entries yet</p>
+          <p className="empty-hint">Start tracking to see your history</p>
+        </div>
       ) : (
         <div className="entries-by-date">
-          {Object.entries(grouped).map(([date, dateEntries]) => (
-            <div key={date} className="date-group">
-              <h3 className="date-header">{date}</h3>
+          {Object.entries(grouped).map(([dateKey, dateEntries]) => (
+            <div key={dateKey} className="date-group">
+              <div className="date-header">{formatDate(dateEntries[0].start_time)}</div>
               <div className="entries">
                 {dateEntries.map(entry => (
                   <div key={entry.id} className="entry-item">
                     <div 
-                      className="entry-color" 
-                      style={{ backgroundColor: entry.category_color || '#ccc' }}
+                      className="entry-indicator" 
+                      style={{ backgroundColor: entry.category_color || '#007aff' }}
                     />
                     <div className="entry-content">
                       <div className="entry-main">
                         <span className="entry-category">{entry.category_name}</span>
-                        <span className="entry-time">{formatDate(entry.start_time)}</span>
+                        {entry.note && <span className="entry-note">{entry.note}</span>}
                       </div>
-                      {entry.note && <div className="entry-note">{entry.note}</div>}
-                    </div>
-                    <div className="entry-duration">
-                      {formatDuration(entry.duration_minutes)}
+                      <div className="entry-meta">
+                        <span className="entry-time">{formatTime(entry.start_time)}</span>
+                        <span className="entry-duration">{formatDuration(entry.duration_minutes)}</span>
+                      </div>
                     </div>
                     <button 
-                      className="btn-delete" 
+                      className="btn-icon delete-btn" 
                       onClick={() => handleDelete(entry.id)}
                       title="Delete"
                     >
-                      🗑️
+                      ×
                     </button>
                   </div>
                 ))}

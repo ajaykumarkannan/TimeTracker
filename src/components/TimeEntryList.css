@@ -1,67 +1,75 @@
-.time-entry-list {
-  background: white;
-  padding: 2rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+.time-entry-list .card-header {
+  margin-bottom: 16px;
 }
 
-.list-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1.5rem;
+.total-badge {
+  background: var(--bg-tertiary);
+  padding: 6px 12px;
+  border-radius: var(--radius-lg);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-secondary);
 }
 
-.list-header h2 {
-  color: #333;
+.empty-state {
+  padding: 48px 24px;
 }
 
-.total-time {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: #007bff;
+.empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.empty-hint {
+  font-size: 15px;
+  color: var(--text-tertiary);
+  margin-top: 4px;
 }
 
 .entries-by-date {
-  display: grid;
-  gap: 2rem;
-}
-
-.date-group {
-  display: grid;
-  gap: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 }
 
 .date-header {
-  font-size: 1rem;
+  font-size: 13px;
   font-weight: 600;
-  color: #666;
-  padding-bottom: 0.5rem;
-  border-bottom: 2px solid #eee;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  margin-bottom: 12px;
 }
 
 .entries {
-  display: grid;
-  gap: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
 }
 
 .entry-item {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 1rem;
-  border: 1px solid #eee;
-  border-radius: 4px;
-  transition: background 0.2s;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--bg-secondary);
+  transition: background 0.15s ease;
 }
 
 .entry-item:hover {
-  background: #f8f9fa;
+  background: var(--bg-tertiary);
 }
 
-.entry-color {
+.entry-item:hover .delete-btn {
+  opacity: 1;
+}
+
+.entry-indicator {
   width: 4px;
-  height: 40px;
+  height: 36px;
   border-radius: 2px;
   flex-shrink: 0;
 }
@@ -69,50 +77,59 @@
 .entry-content {
   flex: 1;
   min-width: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
 }
 
 .entry-main {
   display: flex;
-  gap: 1rem;
-  align-items: center;
-  margin-bottom: 0.25rem;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 }
 
 .entry-category {
+  font-size: 17px;
   font-weight: 500;
-  color: #333;
-}
-
-.entry-time {
-  color: #999;
-  font-size: 0.875rem;
+  color: var(--text-primary);
 }
 
 .entry-note {
-  color: #666;
-  font-size: 0.875rem;
-  font-style: italic;
+  font-size: 15px;
+  color: var(--text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.entry-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.entry-time {
+  font-size: 15px;
+  color: var(--text-secondary);
+}
+
 .entry-duration {
+  font-size: 15px;
   font-weight: 600;
-  color: #007bff;
-  white-space: nowrap;
+  color: var(--accent);
 }
 
-.btn-delete {
-  background: none;
-  border: none;
-  font-size: 1.2rem;
-  cursor: pointer;
-  padding: 0.25rem;
-  opacity: 0.4;
-  transition: opacity 0.2s;
+.delete-btn {
+  font-size: 24px;
+  font-weight: 300;
+  opacity: 0;
+  color: var(--text-secondary);
 }
 
-.btn-delete:hover {
-  opacity: 1;
+.delete-btn:hover {
+  color: var(--danger);
 }
