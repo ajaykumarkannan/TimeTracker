@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  time-tracker:
+    build: .
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - NODE_ENV=production
+      - DB_PATH=/app/data/timetracker.db
+    restart: unless-stopped

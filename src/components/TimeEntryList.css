@@ -1,0 +1,118 @@
+.time-entry-list {
+  background: white;
+  padding: 2rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.list-header h2 {
+  color: #333;
+}
+
+.total-time {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #007bff;
+}
+
+.entries-by-date {
+  display: grid;
+  gap: 2rem;
+}
+
+.date-group {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.date-header {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #666;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #eee;
+}
+
+.entries {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.entry-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid #eee;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.entry-item:hover {
+  background: #f8f9fa;
+}
+
+.entry-color {
+  width: 4px;
+  height: 40px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.entry-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.entry-main {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 0.25rem;
+}
+
+.entry-category {
+  font-weight: 500;
+  color: #333;
+}
+
+.entry-time {
+  color: #999;
+  font-size: 0.875rem;
+}
+
+.entry-note {
+  color: #666;
+  font-size: 0.875rem;
+  font-style: italic;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.entry-duration {
+  font-weight: 600;
+  color: #007bff;
+  white-space: nowrap;
+}
+
+.btn-delete {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 0.25rem;
+  opacity: 0.4;
+  transition: opacity 0.2s;
+}
+
+.btn-delete:hover {
+  opacity: 1;
+}
