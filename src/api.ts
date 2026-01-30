@@ -85,11 +85,11 @@ async function apiFetch(url: string, options: RequestInit = {}): Promise<Respons
 
 export const api = {
   // Auth
-  async register(email: string, username: string, password: string): Promise<AuthResponse> {
+  async register(email: string, name: string, password: string): Promise<AuthResponse> {
     const res = await fetch(`${API_BASE}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, username, password })
+      body: JSON.stringify({ email, name, password })
     });
     if (!res.ok) {
       const error = await res.json();
@@ -239,15 +239,15 @@ export const api = {
   },
 
   // Settings
-  async convertGuestToAccount(email: string, username: string, password: string): Promise<AuthResponse> {
-    const sessionId = getSessionId();
+  async convertGuestToAccount(email: string, name: string, password: string): Promise<AuthResponse> {
+    const currentSessionId = getSessionId();
     const res = await fetch(`${API_BASE}/auth/convert`, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
-        'X-Session-ID': sessionId
+        'X-Session-ID': currentSessionId
       },
-      body: JSON.stringify({ email, username, password })
+      body: JSON.stringify({ email, name, password })
     });
     if (!res.ok) {
       const error = await res.json();
@@ -257,7 +257,8 @@ export const api = {
     setTokens(data.accessToken, data.refreshToken);
     setStoredUser(data.user);
     // Clear session ID since we're now a registered user
-    sessionId && localStorage.removeItem('sessionId');
+    sessionId = null;
+    localStorage.removeItem('sessionId');
     return data;
   },
 
@@ -268,7 +269,7 @@ export const api = {
     if (!res.ok) throw new Error('Failed to reset data');
   },
 
-  async updateAccount(data: { username?: string; email?: string; currentPassword?: string; newPassword?: string }): Promise<User> {
+  async updateAccount(data: { name?: string; email?: string; currentPassword?: string; newPassword?: string }): Promise<User> {
     const res = await apiFetch(`${API_BASE}/auth/update`, {
       method: 'PUT',
       body: JSON.stringify(data)
