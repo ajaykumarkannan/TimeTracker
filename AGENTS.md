@@ -77,10 +77,30 @@ Both modes use the same server-side SQLite database - there is no localStorage-b
 
 ### Git Workflow
 
+- **Always work on `develop` branch**: All development happens on the `develop` branch, not `main`
+- **Create feature branches from develop**: For new features, branch off `develop` (`git checkout -b feature/my-feature develop`)
 - **Commit frequently**: Make small, incremental commits as you work rather than one large commit at the end
-- **Use feature branches**: Create a branch for new features or significant changes (`git checkout -b feature/my-feature`)
-- **Merge to main when stable**: Only merge to main after tests pass and the feature is complete
 - **Write meaningful commit messages**: Describe what changed and why
+- **Merge back to develop**: When a feature is complete, merge it back to `develop`
+- **Ask before merging to main**: Never merge to `main` without explicit human approval
+- **Use Pull Requests for main**: When ready to release, create a PR from `develop` to `main` and wait for human review
+
+#### Branch Strategy
+
+```
+main (production-ready)
+  └── develop (integration branch)
+        ├── feature/feature-a
+        ├── feature/feature-b
+        └── fix/bug-fix
+```
+
+#### Agent Rules for Branching
+
+1. **Check current branch first**: Before making changes, verify you're on `develop` or a feature branch
+2. **Never commit directly to main**: All changes must go through `develop` first
+3. **Create PRs for main merges**: Use `gh pr create --base main --head develop` when ready to merge
+4. **Wait for human approval**: After creating a PR to main, stop and ask the human to review and approve
 
 ### Commands
 
