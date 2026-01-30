@@ -30,6 +30,10 @@ export function Settings({ onLogout, onConvertSuccess }: SettingsProps) {
 
   // Export/Reset state
   const [exporting, setExporting] = useState(false);
+  const [exportingCSV, setExportingCSV] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{ imported: number; skipped: number; errors: string[] } | null>(null);
+  const [importError, setImportError] = useState('');
   const [resetting, setResetting] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -93,6 +97,45 @@ export function Settings({ onLogout, onConvertSuccess }: SettingsProps) {
       console.error('Export failed:', error);
     }
     setExporting(false);
+  };
+
+  const handleExportCSV = async () => {
+    setExportingCSV(true);
+    try {
+      const csv = await api.exportCSV();
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `chronoflow-export-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('CSV export failed:', error);
+    }
+    setExportingCSV(false);
+  };
+
+  const handleImportCSV = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImporting(true);
+    setImportError('');
+    setImportResult(null);
+
+    try {
+      const csv = await file.text();
+      const result = await api.importCSV(csv);
+      setImportResult(result);
+    } catch (error) {
+      setImportError(error instanceof Error ? error.message : 'Import failed');
+    }
+    setImporting(false);
+    // Reset file input
+    e.target.value = '';
   };
 
   const handleReset = async () => {
@@ -231,11 +274,51 @@ export function Settings({ onLogout, onConvertSuccess }: SettingsProps) {
         <div className="settings-actions">
           <div className="settings-action">
             <div className="action-info">
-              <h3>Export Data</h3>
+              <h3>Export as CSV</h3>
+              <p>Download your time entries as a CSV file for use in spreadsheets.</p>
+            </div>
+            <button className="btn-secondary" onClick={handleExportCSV} disabled={exportingCSV}>
+              {exportingCSV ? 'Exporting...' : 'Export CSV'}
+            </button>
+          </div>
+          <div className="settings-action">
+            <div className="action-info">
+              <h3>Import from CSV</h3>
+              <p>Import time entries from a CSV file. New categories will be created automatically.</p>
+            </div>
+            <label className="btn-secondary import-btn">
+              {importing ? 'Importing...' : 'Import CSV'}
+              <input
+                type="file"
+                accept=".csv"
+                onChange={handleImportCSV}
+                disabled={importing}
+                style={{ display: 'none' }}
+              />
+            </label>
+          </div>
+          {importResult && (
+            <div className="import-result">
+              <p className="import-success">
+                Imported {importResult.imported} entries{importResult.skipped > 0 && `, skipped ${importResult.skipped}`}
+              </p>
+              {importResult.errors.length > 0 && (
+                <ul className="import-errors">
+                  {importResult.errors.map((err, i) => (
+                    <li key={i}>{err}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+          {importError && <div className="form-error">{importError}</div>}
+          <div className="settings-action">
+            <div className="action-info">
+              <h3>Export as JSON</h3>
               <p>Download all your time entries and categories as JSON.</p>
             </div>
             <button className="btn-secondary" onClick={handleExport} disabled={exporting}>
-              {exporting ? 'Exporting...' : 'Export'}
+              {exporting ? 'Exporting...' : 'Export JSON'}
             </button>
           </div>
           <div className="settings-action danger">

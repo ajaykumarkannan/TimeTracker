@@ -1,104 +1,111 @@
 import initSqlJs, { Database as SqlJsDatabase } from 'sql.js';
 import { logger } from './logger';
+import { config } from './config';
+import { runMigrations, getCurrentVersion, LATEST_VERSION } from './migrations';
 import * as fs from 'fs';
 import * as path from 'path';
 
-const DB_PATH = process.env.DB_PATH || './data/timetracker.db';
-
 let db: SqlJsDatabase;
+let autoSaveTimer: NodeJS.Timeout | null = null;
+let pendingSave = false;
 
 export async function initDatabase(): Promise<SqlJsDatabase> {
-  logger.info('Initializing database', { path: DB_PATH });
+  logger.info('Initializing database', { path: config.dbPath });
 
   const SQL = await initSqlJs();
   
-  const dir = path.dirname(DB_PATH);
+  // Ensure data directory exists
+  const dir = path.dirname(config.dbPath);
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
 
-  if (fs.existsSync(DB_PATH)) {
-    const buffer = fs.readFileSync(DB_PATH);
+  // Load existing database or create new one
+  if (fs.existsSync(config.dbPath)) {
+    const buffer = fs.readFileSync(config.dbPath);
     db = new SQL.Database(buffer);
+    logger.info('Loaded existing database');
   } else {
     db = new SQL.Database();
+    logger.info('Created new database');
   }
 
-  // Users table for authentication
-  db.run(`
-    CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      email TEXT NOT NULL UNIQUE,
-      username TEXT NOT NULL UNIQUE,
-      password_hash TEXT NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
+  // Run migrations
+  runMigrations(db);
+  
+  const currentVersion = getCurrentVersion(db);
+  logger.info(`Database ready at version ${currentVersion}/${LATEST_VERSION}`);
 
-  // Refresh tokens for persistent login
-  db.run(`
-    CREATE TABLE IF NOT EXISTS refresh_tokens (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      token TEXT NOT NULL UNIQUE,
-      expires_at DATETIME NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-    )
-  `);
-
-  db.run(`
-    CREATE TABLE IF NOT EXISTS categories (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      name TEXT NOT NULL,
-      color TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-      UNIQUE(user_id, name)
-    )
-  `);
-
-  db.run(`
-    CREATE TABLE IF NOT EXISTS time_entries (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      category_id INTEGER NOT NULL,
-      note TEXT,
-      start_time DATETIME NOT NULL,
-      end_time DATETIME,
-      duration_minutes INTEGER,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-      FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE
-    )
-  `);
-
-  // Create indexes for better query performance
-  db.run(`CREATE INDEX IF NOT EXISTS idx_time_entries_user ON time_entries(user_id)`);
-  db.run(`CREATE INDEX IF NOT EXISTS idx_time_entries_start ON time_entries(start_time)`);
-  db.run(`CREATE INDEX IF NOT EXISTS idx_categories_user ON categories(user_id)`);
-  db.run(`CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id)`);
-  db.run(`CREATE INDEX IF NOT EXISTS idx_refresh_tokens_token ON refresh_tokens(token)`);
-
-  saveDatabase();
-  logger.info('Database initialized successfully');
+  // Start auto-save timer
+  startAutoSave();
+  
+  // Initial save
+  saveDatabaseNow();
+  
   return db;
 }
 
 export function getDb(): SqlJsDatabase {
+  if (!db) {
+    throw new Error('Database not initialized. Call initDatabase() first.');
+  }
   return db;
 }
 
-export function saveDatabase() {
+// Mark database as needing save (batched)
+export function saveDatabase(): void {
+  pendingSave = true;
+}
+
+// Force immediate save
+export function saveDatabaseNow(): void {
   if (db) {
     const data = db.export();
     const buffer = Buffer.from(data);
-    fs.writeFileSync(DB_PATH, buffer);
+    fs.writeFileSync(config.dbPath, buffer);
+    pendingSave = false;
+    logger.debug('Database saved');
   }
 }
 
+function startAutoSave(): void {
+  if (autoSaveTimer) return;
+  
+  autoSaveTimer = setInterval(() => {
+    if (pendingSave && db) {
+      saveDatabaseNow();
+    }
+  }, config.dbAutoSaveInterval);
+}
+
+// Graceful shutdown
+export function shutdownDatabase(): void {
+  if (autoSaveTimer) {
+    clearInterval(autoSaveTimer);
+    autoSaveTimer = null;
+  }
+  if (pendingSave && db) {
+    saveDatabaseNow();
+    logger.info('Database saved on shutdown');
+  }
+}
+
+// Handle process signals
+process.on('SIGINT', () => {
+  shutdownDatabase();
+  process.exit(0);
+});
+
+process.on('SIGTERM', () => {
+  shutdownDatabase();
+  process.exit(0);
+});
+
+process.on('beforeExit', () => {
+  shutdownDatabase();
+});
+
+// Type exports for database entities
 export interface User {
   id: number;
   email: string;

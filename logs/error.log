@@ -6,3 +6,4 @@
 {"error":{},"level":"error","message":"Convert error","timestamp":"2026-01-30T19:58:00.781Z"}
 {"error":{},"level":"error","message":"Convert error","timestamp":"2026-01-30T19:58:07.370Z"}
 {"error":{},"level":"error","message":"Convert error","timestamp":"2026-01-30T19:58:15.715Z"}
+{"error":{},"level":"error","message":"Failed to initialize database","timestamp":"2026-01-30T20:48:19.008Z"}

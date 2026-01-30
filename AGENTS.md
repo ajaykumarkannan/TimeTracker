@@ -77,10 +77,30 @@ Both modes use the same server-side SQLite database - there is no localStorage-b
 
 ### Git Workflow
 
+- **Always work on `develop` branch**: All development happens on the `develop` branch, not `main`
+- **Create feature branches from develop**: For new features, branch off `develop` (`git checkout -b feature/my-feature develop`)
 - **Commit frequently**: Make small, incremental commits as you work rather than one large commit at the end
-- **Use feature branches**: Create a branch for new features or significant changes (`git checkout -b feature/my-feature`)
-- **Merge to main when stable**: Only merge to main after tests pass and the feature is complete
 - **Write meaningful commit messages**: Describe what changed and why
+- **Merge back to develop**: When a feature is complete, merge it back to `develop`
+- **Ask before merging to main**: Never merge to `main` without explicit human approval
+- **Use Pull Requests for main**: When ready to release, create a PR from `develop` to `main` and wait for human review
+
+#### Branch Strategy
+
+```
+main (production-ready)
+  └── develop (integration branch)
+        ├── feature/feature-a
+        ├── feature/feature-b
+        └── fix/bug-fix
+```
+
+#### Agent Rules for Branching
+
+1. **Check current branch first**: Before making changes, verify you're on `develop` or a feature branch
+2. **Never commit directly to main**: All changes must go through `develop` first
+3. **Create PRs for main merges**: Use `gh pr create --base main --head develop` when ready to merge
+4. **Wait for human approval**: After creating a PR to main, stop and ask the human to review and approve
 
 ### Commands
 
@@ -97,7 +117,7 @@ Both modes use the same server-side SQLite database - there is no localStorage-b
 docker-compose up --build  # Build and run
 ```
 
-App runs on `http://localhost:3001`
+App runs on `http://localhost:4739` (production port)
 
 ### Code Style
 
@@ -156,10 +176,43 @@ Winston logger configured in `server/logger.ts`:
 
 | Variable | Default | Description |
 | ------------ | ------------------------- | ------------------- |
-| `PORT` | 3001 | Server port |
+| `PORT` | 4847 (dev) / 4739 (prod) | Server port |
 | `DB_PATH` | ./data/timetracker.db | Database file path |
 | `JWT_SECRET` | (dev default) | JWT signing secret |
 | `NODE_ENV` | development | Environment |
+| `CORS_ORIGIN` | * | Allowed CORS origins |
+
+### Port Configuration
+
+- **Development**: Server runs on port 4847, Vite dev server on port 5173 (proxies API to 4847)
+- **Production**: Server runs on port 4739 (Docker exposes 4739)
+
+## Scalability Features
+
+The application includes several features to support growth:
+
+### Database
+- **Batched writes**: Database saves are batched every 5 seconds to reduce I/O
+- **Optimized indexes**: Composite indexes on frequently queried columns
+- **Graceful shutdown**: Pending writes are saved on process termination
+
+### API
+- **Rate limiting**: 100 requests per minute per IP address
+- **Pagination**: Time entries support `limit` and `offset` query parameters
+- **Date filtering**: Time entries can be filtered by `startDate` and `endDate`
+- **Request size limits**: JSON body limited to 1MB
+
+### Security
+- **Security headers**: X-Content-Type-Options, X-Frame-Options, X-XSS-Protection
+- **HSTS**: Strict-Transport-Security in production
+- **CORS configuration**: Configurable allowed origins
+
+### Future Scalability Path
+When the application needs to scale beyond a single server:
+1. Replace sql.js with PostgreSQL for multi-instance support
+2. Add Redis for session storage and caching
+3. Use a load balancer for horizontal scaling
+4. Consider read replicas for analytics queries
 
 ## Documentation Maintenance
 

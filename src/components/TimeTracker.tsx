@@ -30,6 +30,8 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   const [taskNamePrompt, setTaskNamePrompt] = useState<{ categoryId: number; categoryName: string; categoryColor: string | null } | null>(null);
   const [promptedTaskName, setPromptedTaskName] = useState('');
   const [showNewTaskForm, setShowNewTaskForm] = useState(false);
+  const [switchTaskPrompt, setSwitchTaskPrompt] = useState<{ categoryId: number; categoryName: string; categoryColor: string | null } | null>(null);
+  const [switchTaskName, setSwitchTaskName] = useState('');
 
   // Get recent tasks from entries (unique note + category combinations)
   const recentTasks = useMemo((): RecentTask[] => {
@@ -157,10 +159,26 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
       }
       await api.startEntry(categoryId, taskNote);
       setShowNewTaskForm(false);
+      setSwitchTaskPrompt(null);
+      setSwitchTaskName('');
       onEntryChange();
     } catch (error) {
       console.error('Failed to switch task:', error);
     }
+  };
+
+  const handleCategorySwitchPrompt = (cat: Category) => {
+    setSwitchTaskPrompt({
+      categoryId: cat.id,
+      categoryName: cat.name,
+      categoryColor: cat.color
+    });
+    setSwitchTaskName('');
+  };
+
+  const handlePromptedSwitch = async () => {
+    if (!switchTaskPrompt) return;
+    await handleSwitchTask(switchTaskPrompt.categoryId, switchTaskName || undefined);
   };
 
   const handleCreateCategory = async () => {
@@ -229,6 +247,48 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
           
           {/* Switch task section while tracking */}
           <div className="switch-task-section">
+            {/* Switch task prompt modal */}
+            {switchTaskPrompt && (
+              <div className="task-prompt-overlay" onClick={() => setSwitchTaskPrompt(null)}>
+                <div className="task-prompt-modal" onClick={e => e.stopPropagation()}>
+                  <div className="task-prompt-header">
+                    <span className="task-prompt-title">Switch to</span>
+                    <span 
+                      className="category-badge" 
+                      style={{ 
+                        backgroundColor: `${switchTaskPrompt.categoryColor}20`,
+                        color: switchTaskPrompt.categoryColor || '#6366f1'
+                      }}
+                    >
+                      <span className="category-dot" style={{ backgroundColor: switchTaskPrompt.categoryColor || '#6366f1' }} />
+                      {switchTaskPrompt.categoryName}
+                    </span>
+                  </div>
+                  <input
+                    type="text"
+                    className="task-prompt-input"
+                    value={switchTaskName}
+                    onChange={(e) => setSwitchTaskName(e.target.value)}
+                    placeholder="What are you working on? (optional)"
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handlePromptedSwitch();
+                      if (e.key === 'Escape') setSwitchTaskPrompt(null);
+                    }}
+                  />
+                  <div className="task-prompt-actions">
+                    <button className="btn btn-ghost" onClick={() => setSwitchTaskPrompt(null)}>
+                      Cancel
+                    </button>
+                    <button className="btn btn-success" onClick={handlePromptedSwitch}>
+                      <span className="play-icon">▶</span>
+                      Switch
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="switch-task-header">
               <span className="switch-label">Switch to:</span>
               <button 
@@ -289,7 +349,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                     key={cat.id}
                     className="switch-category-btn"
                     style={{ borderColor: cat.color || '#6366f1', color: cat.color || '#6366f1' }}
-                    onClick={() => handleSwitchTask(cat.id)}
+                    onClick={() => handleCategorySwitchPrompt(cat)}
                   >
                     <span className="category-dot" style={{ backgroundColor: cat.color || '#6366f1' }} />
                     {cat.name}

@@ -3,17 +3,18 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 1rem;
-  background: var(--bg-gradient);
+  padding: 1.5rem;
+  background: var(--bg-gradient-hero);
 }
 
 .login-card {
   width: 100%;
   max-width: 400px;
   background: var(--card-bg);
-  border-radius: 16px;
+  border-radius: var(--radius-xl);
   padding: 2.5rem;
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-xl);
+  border: 1px solid var(--card-border);
 }
 
 .login-logo {
@@ -22,38 +23,40 @@
 }
 
 .logo-icon {
-  width: 64px;
-  height: 64px;
+  width: 56px;
+  height: 56px;
   color: var(--primary);
   margin-bottom: 0.75rem;
 }
 
 .login-logo h1 {
-  font-size: 1.75rem;
+  font-size: 1.625rem;
   font-weight: 700;
   color: var(--text-primary);
   margin: 0;
+  letter-spacing: -0.02em;
 }
 
 .login-logo .tagline {
   color: var(--text-secondary);
   font-size: 0.875rem;
-  margin-top: 0.25rem;
+  margin-top: 0.375rem;
 }
 
 .login-form h2 {
-  font-size: 1.25rem;
+  font-size: 1.125rem;
   font-weight: 600;
   color: var(--text-primary);
   margin-bottom: 1.5rem;
   text-align: center;
+  letter-spacing: -0.01em;
 }
 
 .error-message {
   background: var(--error-bg);
   color: var(--error);
   padding: 0.75rem 1rem;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   font-size: 0.875rem;
   margin-bottom: 1rem;
 }
@@ -64,7 +67,7 @@
 
 .form-group label {
   display: block;
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   font-weight: 500;
   color: var(--text-secondary);
   margin-bottom: 0.5rem;
@@ -73,12 +76,12 @@
 .form-group input {
   width: 100%;
   padding: 0.75rem 1rem;
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
   font-size: 1rem;
   background: var(--input-bg);
   color: var(--text-primary);
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition: all 0.15s ease;
 }
 
 .form-group input:focus {
@@ -97,19 +100,22 @@
   background: var(--primary);
   color: white;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s, transform 0.1s;
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.25);
 }
 
 .submit-btn:hover:not(:disabled) {
   background: var(--primary-hover);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.35);
+  transform: translateY(-1px);
 }
 
 .submit-btn:active:not(:disabled) {
-  transform: scale(0.98);
+  transform: translateY(0);
 }
 
 .submit-btn:disabled {
@@ -137,7 +143,6 @@
   text-decoration: underline;
 }
 
-
 .back-link {
   display: block;
   width: 100%;
@@ -149,6 +154,7 @@
   color: var(--text-muted);
   cursor: pointer;
   font-size: 0.875rem;
+  transition: color 0.15s ease;
 }
 
 .back-link:hover {

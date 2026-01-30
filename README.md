@@ -1,136 +1,112 @@
 # ChronoFlow ⏱️
 
-A beautiful, simple time tracking app to help you understand where your hours go.
-
-![ChronoFlow](https://img.shields.io/badge/version-1.0.0-blue)
+A simple, beautiful time tracking app to understand where your hours go.
 
 ## Features
 
-- **One-Click Tracking** - Start and stop timers instantly with quick-start buttons
-- **Custom Categories** - Organize time with color-coded categories
-- **Detailed Notes** - Add context to every time entry
-- **Insightful Analytics** - See where your time goes with charts and insights
-- **Dark Mode** - Easy on the eyes with light/dark/system themes
-- **Two Modes** - Use with an account (cloud) or locally in your browser
+- 🚀 **One-Click Tracking** - Start timers instantly with quick-start buttons
+- 🎨 **Color-Coded Categories** - Organize time visually (5 defaults included)
+- 📝 **Notes** - Add context to every entry
+- 📊 **Analytics** - Charts and insights on your time usage
+- 🌙 **Dark Mode** - Light, dark, or system theme
+- 👤 **Guest Mode** - No signup required, convert to account later
+- 📤 **Import/Export** - CSV and JSON data portability
+- 🔌 **Browser Extension** - Quick access from any tab
 
 ## Quick Start
 
-### Using Docker (Recommended)
+### Docker (Recommended)
 
 ```bash
-docker-compose up --build
+docker-compose up -d
 ```
 
 Visit http://localhost:3001
 
-### Manual Setup
+### Development
 
 ```bash
-# Install dependencies
 npm install
-
-# Development mode (hot reload)
 npm run dev
-
-# Production build
-npm run build
-npm start
 ```
+
+## Deployment
+
+For production deployment (Raspberry Pi, VPS, etc.), see **[DEPLOYMENT.md](DEPLOYMENT.md)**.
+
+Highlights:
+- Auto-updates via Watchtower when you push new tags
+- Cloudflare Tunnel support (no exposed ports)
+- Database migrations run automatically
+- Health checks at `/api/health` and `/api/version`
 
 ## Usage Modes
 
-### ☁️ Account Mode
-Create an account to sync your data across devices. Your tracking history is stored securely on the server with JWT authentication.
-
-### 👤 Guest Mode
-No account needed! Start tracking immediately with an anonymous session. Your data is stored server-side and you can convert to a full account later to preserve your history.
+| Mode | Description |
+|------|-------------|
+| **Guest** | Start immediately, no signup. Data stored server-side with session ID. Convert to account anytime. |
+| **Account** | Email/password login. Sync across devices via JWT auth. |
 
 ## Tech Stack
 
-- **Frontend**: React 18, TypeScript, Vite
-- **Backend**: Express.js, TypeScript
-- **Database**: SQLite (sql.js)
-- **Auth**: JWT with refresh tokens
-- **Styling**: CSS with CSS variables for theming
+| Layer | Technology |
+|-------|------------|
+| Frontend | React 18, TypeScript, Vite |
+| Backend | Express.js, TypeScript |
+| Database | SQLite (sql.js) |
+| Auth | JWT + refresh tokens |
+| Styling | CSS variables (no framework) |
 
-## API Reference
+## API
 
-### Authentication
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/auth/register` | Create account |
-| POST | `/api/auth/login` | Login |
-| POST | `/api/auth/refresh` | Refresh token |
-| POST | `/api/auth/logout` | Logout |
-| GET | `/api/auth/me` | Get current user |
+All routes prefixed with `/api/`:
 
-### Time Tracking
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/time-entries` | List entries |
-| GET | `/api/time-entries/active` | Get active entry |
-| POST | `/api/time-entries/start` | Start tracking |
-| POST | `/api/time-entries/:id/stop` | Stop tracking |
-| PUT | `/api/time-entries/:id` | Update entry |
-| DELETE | `/api/time-entries/:id` | Delete entry |
-
-### Categories
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/categories` | List categories |
-| POST | `/api/categories` | Create category |
-| PUT | `/api/categories/:id` | Update category |
-| DELETE | `/api/categories/:id` | Delete category |
-
-### Analytics
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/analytics` | Get analytics (requires `start` and `end` query params) |
-
-### Export & Settings
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/export` | Export all user data as JSON |
-| POST | `/api/settings/reset` | Reset all user data to defaults |
+| Endpoint | Description |
+|----------|-------------|
+| `POST /auth/register` | Create account |
+| `POST /auth/login` | Login |
+| `GET /time-entries` | List entries |
+| `POST /time-entries/start` | Start timer |
+| `POST /time-entries/:id/stop` | Stop timer |
+| `GET /categories` | List categories |
+| `GET /analytics?start=&end=` | Get analytics |
+| `GET /export` | Export JSON |
+| `GET /export/csv` | Export CSV |
+| `POST /export/csv` | Import CSV |
+| `GET /health` | Health check |
+| `GET /version` | App version |
 
 ## Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `PORT` | 3001 | Server port |
-| `DB_PATH` | ./data/timetracker.db | Database file path |
-| `JWT_SECRET` | (dev default) | JWT signing secret |
-| `NODE_ENV` | development | Environment |
+| `DB_PATH` | ./data/timetracker.db | Database path |
+| `JWT_SECRET` | dev-default | **Set in production!** |
+| `CORS_ORIGIN` | * | Allowed origins |
+| `TRUST_PROXY` | false | Enable behind reverse proxy |
 
 ## Development
 
 ```bash
-# Run tests
-npm test
-
-# Run E2E tests
-npm run test:e2e
-
-# Lint code
-npm run lint
+npm test          # Unit tests
+npm run test:e2e  # E2E tests  
+npm run lint      # Lint
+npm run build     # Production build
 ```
 
 ## Project Structure
 
 ```
-├── server/           # Backend Express server
-│   ├── routes/       # API route handlers
-│   ├── middleware/   # Auth middleware
-│   ├── database.ts   # SQLite database setup
-│   └── logger.ts     # Winston logger
-├── src/              # Frontend React app
-│   ├── components/   # React components with co-located CSS
-│   ├── contexts/     # Auth & Theme contexts
-│   ├── hooks/        # Custom hooks (useIdleDetection)
-│   ├── api.ts        # API client (handles guest sessions & JWT auth)
-│   └── types.ts      # TypeScript types
-├── e2e/              # Playwright E2E tests
-└── extension/        # Browser extension
+server/           # Express backend
+  routes/         # API endpoints
+  middleware/     # Auth, security
+  migrations/     # Database migrations
+src/              # React frontend
+  components/     # UI components + CSS
+  contexts/       # Auth, Theme providers
+e2e/              # Playwright tests
+extension/        # Browser extension
 ```
 
 ## License
