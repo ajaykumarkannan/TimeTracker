@@ -285,6 +285,71 @@ router.put('/:id', (req: AuthRequest, res: Response) => {
   }
 });
 
+// Create manual entry (for past tasks)
+router.post('/', (req: AuthRequest, res: Response) => {
+  try {
+    const { category_id, note, start_time, end_time } = req.body;
+    
+    if (!category_id || !start_time || !end_time) {
+      return res.status(400).json({ error: 'Category, start time, and end time are required' });
+    }
+
+    const db = getDb();
+
+    // Verify category belongs to user
+    const catCheck = db.exec(
+      `SELECT id FROM categories WHERE id = ? AND user_id = ?`,
+      [category_id, req.userId as number]
+    );
+    if (catCheck.length === 0 || catCheck[0].values.length === 0) {
+      return res.status(400).json({ error: 'Invalid category' });
+    }
+
+    // Calculate duration
+    const duration = Math.round((new Date(end_time).getTime() - new Date(start_time).getTime()) / 60000);
+    
+    if (duration < 0) {
+      return res.status(400).json({ error: 'End time must be after start time' });
+    }
+
+    db.run(
+      `INSERT INTO time_entries (user_id, category_id, note, start_time, end_time, duration_minutes) VALUES (?, ?, ?, ?, ?, ?)`,
+      [req.userId as number, category_id, note || null, start_time, end_time, duration]
+    );
+    saveDatabase();
+
+    const result = db.exec(`SELECT last_insert_rowid() as id`);
+    const newId = result[0].values[0][0] as number;
+
+    const entryResult = db.exec(`
+      SELECT te.id, te.user_id, te.category_id, c.name as category_name, c.color as category_color,
+             te.note, te.start_time, te.end_time, te.duration_minutes, te.created_at
+      FROM time_entries te
+      JOIN categories c ON te.category_id = c.id
+      WHERE te.id = ?
+    `, [newId]);
+
+    const row = entryResult[0].values[0];
+    logger.info('Manual time entry created', { entryId: newId, userId: req.userId as number });
+
+    res.status(201).json({
+      id: row[0] as number,
+      user_id: row[1] as number,
+      category_id: row[2] as number,
+      category_name: row[3] as string,
+      category_color: row[4] as string | null,
+      note: row[5] as string | null,
+      start_time: row[6] as string,
+      end_time: row[7] as string | null,
+      duration_minutes: row[8] as number | null,
+      created_at: row[9] as string
+    });
+  } catch (error) {
+    logger.error('Error creating manual time entry', { error, userId: req.userId as number });
+    res.status(500).json({ error: 'Failed to create time entry' });
+  }
+});
+
 // Delete entry
 router.delete('/:id', (req: AuthRequest, res: Response) => {
   try {

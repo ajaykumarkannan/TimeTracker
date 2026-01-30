@@ -26,6 +26,15 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  
+  // Manual entry form state
+  const [showManualEntry, setShowManualEntry] = useState(false);
+  const [manualCategory, setManualCategory] = useState<number | ''>('');
+  const [manualNote, setManualNote] = useState('');
+  const [manualStartTime, setManualStartTime] = useState('');
+  const [manualEndTime, setManualEndTime] = useState('');
+  const [manualError, setManualError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Check for overlaps with other entries
   const checkOverlap = (entryId: number, start: Date, end: Date | null): TimeEntry | null => {

@@ -215,6 +215,15 @@ export const api = {
     if (!res.ok) throw new Error('Failed to delete entry');
   },
 
+  async createManualEntry(category_id: number, start_time: string, end_time: string, note?: string): Promise<TimeEntry> {
+    const res = await apiFetch(`${API_BASE}/time-entries`, {
+      method: 'POST',
+      body: JSON.stringify({ category_id, start_time, end_time, note })
+    });
+    if (!res.ok) throw new Error('Failed to create entry');
+    return res.json();
+  },
+
   // Analytics
   async getAnalytics(start: string, end: string): Promise<AnalyticsData> {
     const res = await apiFetch(`${API_BASE}/analytics?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`);
