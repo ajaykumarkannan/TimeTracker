@@ -1,0 +1,149 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #0a0a0b;
+  color: #fafafa;
+  width: 320px;
+  padding: 16px;
+}
+
+#app {
+  min-height: 100px;
+}
+
+#loading, #error {
+  text-align: center;
+  padding: 24px;
+  color: #a1a1a6;
+}
+
+#error .hint {
+  font-size: 12px;
+  color: #6b6b70;
+  margin-top: 8px;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* Timer display */
+.timer-display {
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+#timer-time {
+  font-family: 'SF Mono', 'JetBrains Mono', monospace;
+  font-size: 36px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+.timer-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 16px;
+}
+
+.category-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.category-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.timer-note {
+  font-size: 12px;
+  color: #a1a1a6;
+}
+
+/* Form */
+#start-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+select, input {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 14px;
+  background: #1c1c1f;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 8px;
+  color: #fafafa;
+}
+
+select:focus, input:focus {
+  outline: none;
+  border-color: #6366f1;
+}
+
+/* Buttons */
+.btn {
+  width: 100%;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-success {
+  background: #22c55e;
+  color: white;
+}
+
+.btn-success:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.btn-danger {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+.btn-danger:hover {
+  background: #ef4444;
+  color: white;
+}
+
+/* Open app link */
+.open-app {
+  display: block;
+  text-align: center;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  font-size: 12px;
+  color: #6b6b70;
+  text-decoration: none;
+}
+
+.open-app:hover {
+  color: #a1a1a6;
+}

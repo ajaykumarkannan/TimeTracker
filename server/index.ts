@@ -5,6 +5,7 @@ import { initDatabase } from './database';
 import { logger } from './logger';
 import timeEntriesRouter from './routes/timeEntries';
 import categoriesRouter from './routes/categories';
+import analyticsRouter from './routes/analytics';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -26,6 +27,7 @@ app.use((req, res, next) => {
 // Routes
 app.use('/api/time-entries', timeEntriesRouter);
 app.use('/api/categories', categoriesRouter);
+app.use('/api/analytics', analyticsRouter);
 
 // Health check
 app.get('/api/health', (req, res) => {

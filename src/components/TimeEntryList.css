@@ -1,61 +1,47 @@
 .time-entry-list .card-header {
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .total-badge {
-  background: var(--bg-tertiary);
-  padding: 6px 12px;
-  border-radius: var(--radius-lg);
-  font-size: 15px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
   font-weight: 500;
-  color: var(--text-secondary);
+  color: var(--accent);
+  padding: 4px 10px;
+  background: var(--accent-muted);
+  border-radius: var(--radius-md);
 }
 
 .empty-state {
   padding: 48px 24px;
 }
 
-.empty-icon {
-  font-size: 48px;
-  margin-bottom: 16px;
-}
-
-.empty-hint {
-  font-size: 15px;
-  color: var(--text-tertiary);
-  margin-top: 4px;
-}
-
 .entries-by-date {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 20px;
 }
 
 .date-header {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
-  color: var(--text-secondary);
+  color: var(--text-tertiary);
   text-transform: uppercase;
-  letter-spacing: 0.02em;
-  margin-bottom: 12px;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
 }
 
 .entries {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  background: var(--bg-tertiary);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
 }
 
 .entry-item {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 14px 16px;
-  background: var(--bg-secondary);
+  padding: 12px;
+  border-radius: var(--radius-md);
   transition: background 0.15s ease;
 }
 
@@ -68,8 +54,8 @@
 }
 
 .entry-indicator {
-  width: 4px;
-  height: 36px;
+  width: 3px;
+  height: 32px;
   border-radius: 2px;
   flex-shrink: 0;
 }
@@ -91,13 +77,13 @@
 }
 
 .entry-category {
-  font-size: 17px;
+  font-size: 14px;
   font-weight: 500;
   color: var(--text-primary);
 }
 
 .entry-note {
-  font-size: 15px;
+  font-size: 13px;
   color: var(--text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -106,30 +92,144 @@
 
 .entry-meta {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
+  align-items: center;
+  gap: 16px;
   flex-shrink: 0;
 }
 
 .entry-time {
-  font-size: 15px;
-  color: var(--text-secondary);
+  font-size: 13px;
+  color: var(--text-tertiary);
 }
 
 .entry-duration {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--accent);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  min-width: 60px;
+  text-align: right;
+}
+
+.entry-duration.active {
+  color: var(--success);
 }
 
 .delete-btn {
-  font-size: 24px;
-  font-weight: 300;
   opacity: 0;
-  color: var(--text-secondary);
+  font-size: 18px;
+  color: var(--text-tertiary);
 }
 
 .delete-btn:hover {
   color: var(--danger);
+}
+
+.edit-btn {
+  opacity: 0;
+  font-size: 14px;
+  color: var(--text-tertiary);
+}
+
+.edit-btn:hover {
+  color: var(--accent);
+}
+
+.entry-item:hover .edit-btn {
+  opacity: 1;
+}
+
+/* Edit mode styles */
+.entry-item.editing {
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+}
+
+.entry-edit-form {
+  flex-direction: column !important;
+  gap: 10px !important;
+}
+
+.entry-edit-fields {
+  display: flex;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.edit-category-select {
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 13px;
+  min-width: 120px;
+  cursor: pointer;
+}
+
+.edit-category-select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.edit-note-input {
+  flex: 1;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 13px;
+  min-width: 0;
+}
+
+.edit-note-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.edit-note-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.entry-edit-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.btn-save,
+.btn-cancel {
+  padding: 4px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-save {
+  background: var(--accent);
+  color: white;
+  border: none;
+}
+
+.btn-save:hover {
+  background: var(--accent-hover);
+}
+
+.btn-cancel {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+
+.btn-cancel:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.entry-content {
+  cursor: pointer;
 }

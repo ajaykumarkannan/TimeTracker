@@ -1,4 +1,4 @@
-import { Category, TimeEntry } from './types';
+import { Category, TimeEntry, AnalyticsData } from './types';
 
 const API_BASE = '/api';
 
@@ -81,5 +81,11 @@ export const api = {
       method: 'DELETE'
     });
     if (!res.ok) throw new Error('Failed to delete entry');
+  },
+
+  async getAnalytics(start: string, end: string): Promise<AnalyticsData> {
+    const res = await fetch(`${API_BASE}/analytics?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`);
+    if (!res.ok) throw new Error('Failed to fetch analytics');
+    return res.json();
   }
 };

@@ -1,70 +1,78 @@
 .category-manager {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
 }
 
 .category-form {
   display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.form-row {
-  display: flex;
   gap: 12px;
+  align-items: flex-end;
 }
 
-.category-name-input {
+.category-form .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.category-form .form-group.flex-1 {
   flex: 1;
 }
 
+.category-form label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.category-name-input {
+  width: 100%;
+}
+
 .color-picker {
-  width: 48px;
-  height: 48px;
+  width: 42px;
+  height: 42px;
   padding: 4px;
   border-radius: var(--radius-md);
   cursor: pointer;
-  border: none;
+  border: 1px solid var(--border);
+  background: var(--bg-tertiary);
 }
 
 .form-actions {
   display: flex;
   gap: 8px;
-  justify-content: flex-end;
 }
 
 .empty-state .empty-icon {
-  font-size: 48px;
-  margin-bottom: 16px;
-}
-
-.empty-state .empty-hint {
-  font-size: 15px;
-  color: var(--text-tertiary);
-  margin-top: 4px;
+  font-size: 32px;
+  margin-bottom: 12px;
+  opacity: 0.5;
 }
 
 .categories-list {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  background: var(--bg-tertiary);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
 }
 
 .category-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 14px 16px;
-  background: var(--bg-secondary);
+  padding: 12px;
+  border-radius: var(--radius-md);
   transition: background 0.15s ease;
 }
 
 .category-item:hover {
   background: var(--bg-tertiary);
+}
+
+.category-item:hover .category-actions {
+  opacity: 1;
 }
 
 .category-info {
@@ -74,13 +82,13 @@
 }
 
 .category-color {
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   border-radius: 6px;
 }
 
 .category-name {
-  font-size: 17px;
+  font-size: 14px;
   font-weight: 500;
   color: var(--text-primary);
 }
@@ -88,4 +96,6 @@
 .category-actions {
   display: flex;
   gap: 4px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
 }

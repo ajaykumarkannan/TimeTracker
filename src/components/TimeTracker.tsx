@@ -16,7 +16,7 @@ export function TimeTracker({ categories, activeEntry, entries, onUpdate }: Prop
   const [elapsed, setElapsed] = useState(0);
   const [showNewCategory, setShowNewCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
-  const [newCategoryColor, setNewCategoryColor] = useState('#007aff');
+  const [newCategoryColor, setNewCategoryColor] = useState('#6366f1');
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const noteInputRef = useRef<HTMLInputElement>(null);
@@ -38,7 +38,6 @@ export function TimeTracker({ categories, activeEntry, entries, onUpdate }: Prop
     return () => clearInterval(interval);
   }, [activeEntry]);
 
-  // Get unique notes for autocomplete
   const getNoteSuggestions = (input: string) => {
     if (!input.trim()) return [];
     const uniqueNotes = [...new Set(
@@ -99,8 +98,19 @@ export function TimeTracker({ categories, activeEntry, entries, onUpdate }: Prop
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);
     const s = seconds % 60;
-    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    return (
+      <span className="timer-digits">
+        <span className="digit-group">{h.toString().padStart(2, '0')}</span>
+        <span className="digit-separator">:</span>
+        <span className="digit-group">{m.toString().padStart(2, '0')}</span>
+        <span className="digit-separator">:</span>
+        <span className="digit-group">{s.toString().padStart(2, '0')}</span>
+      </span>
+    );
   };
+
+  // Quick start from recent categories
+  const recentCategories = categories.slice(0, 4);
 
   return (
     <div className="time-tracker card">
@@ -108,25 +118,62 @@ export function TimeTracker({ categories, activeEntry, entries, onUpdate }: Prop
         <div className="active-tracker">
           <div className="timer-display">
             <div className="timer-time">{formatTime(elapsed)}</div>
-            <div className="timer-category">
+            <div className="timer-info">
               <span 
-                className="category-dot" 
-                style={{ backgroundColor: activeEntry.category_color || '#007aff' }}
-              />
-              {activeEntry.category_name}
+                className="category-badge" 
+                style={{ 
+                  backgroundColor: `${activeEntry.category_color}20`,
+                  color: activeEntry.category_color || '#6366f1'
+                }}
+              >
+                <span className="category-dot" style={{ backgroundColor: activeEntry.category_color || '#6366f1' }} />
+                {activeEntry.category_name}
+              </span>
+              {activeEntry.note && <span className="timer-note">{activeEntry.note}</span>}
             </div>
-            {activeEntry.note && <div className="timer-note">{activeEntry.note}</div>}
           </div>
-          <button className="btn-danger" onClick={handleStop}>
-            Stop Timer
-          </button>
+          <div className="timer-actions">
+            <button className="btn btn-danger" onClick={handleStop}>
+              <span className="stop-icon">■</span>
+              Stop
+            </button>
+            <span className="kbd-hint">
+              <span className="kbd">⌘</span>
+              <span className="kbd">K</span>
+            </span>
+          </div>
         </div>
       ) : (
         <div className="start-tracker">
+          {recentCategories.length > 0 && (
+            <div className="quick-start">
+              <span className="quick-start-label">Quick start</span>
+              <div className="quick-start-buttons">
+                {recentCategories.map(cat => (
+                  <button
+                    key={cat.id}
+                    className="quick-start-btn"
+                    style={{ 
+                      borderColor: cat.color || '#6366f1',
+                      color: cat.color || '#6366f1'
+                    }}
+                    onClick={() => {
+                      setSelectedCategory(cat.id);
+                      api.startEntry(cat.id).then(onUpdate);
+                    }}
+                  >
+                    <span className="category-dot" style={{ backgroundColor: cat.color || '#6366f1' }} />
+                    {cat.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="tracker-form">
-            <div className="form-group">
-              <label>Category</label>
-              <div className="category-select-wrapper">
+            <div className="form-row">
+              <div className="form-group flex-1">
+                <label>Category</label>
                 <select 
                   value={selectedCategory || ''} 
                   onChange={(e) => {
@@ -140,86 +187,92 @@ export function TimeTracker({ categories, activeEntry, entries, onUpdate }: Prop
                     }
                   }}
                 >
-                  <option value="">Select a category</option>
+                  <option value="">Select category...</option>
                   {categories.map(cat => (
                     <option key={cat.id} value={cat.id}>{cat.name}</option>
                   ))}
-                  <option value="new">+ Create new category</option>
+                  <option value="new">+ New category</option>
                 </select>
               </div>
+
+              <div className="form-group flex-2">
+                <label>Note <span className="optional">(optional)</span></label>
+                <div className="autocomplete-wrapper">
+                  <input 
+                    ref={noteInputRef}
+                    type="text"
+                    value={note}
+                    onChange={(e) => handleNoteChange(e.target.value)}
+                    onFocus={() => {
+                      if (suggestions.length > 0) setShowSuggestions(true);
+                    }}
+                    onBlur={() => {
+                      setTimeout(() => setShowSuggestions(false), 200);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && selectedCategory) {
+                        handleStart();
+                      }
+                    }}
+                    placeholder="What are you working on?"
+                  />
+                  {showSuggestions && (
+                    <div className="suggestions-dropdown animate-slide-in">
+                      {suggestions.map((suggestion, i) => (
+                        <button
+                          key={i}
+                          className="suggestion-item"
+                          onClick={() => selectSuggestion(suggestion)}
+                        >
+                          {suggestion}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <button 
+                className="btn btn-success start-btn" 
+                onClick={handleStart}
+                disabled={!selectedCategory}
+              >
+                <span className="play-icon">▶</span>
+                Start
+              </button>
             </div>
 
             {showNewCategory && (
-              <div className="new-category-form">
-                <div className="new-category-inputs">
-                  <input
-                    type="text"
-                    value={newCategoryName}
-                    onChange={(e) => setNewCategoryName(e.target.value)}
-                    placeholder="Category name"
-                    autoFocus
-                  />
-                  <input
-                    type="color"
-                    value={newCategoryColor}
-                    onChange={(e) => setNewCategoryColor(e.target.value)}
-                    className="color-picker"
-                  />
-                </div>
-                <div className="new-category-actions">
-                  <button className="btn-secondary" onClick={() => setShowNewCategory(false)}>
-                    Cancel
-                  </button>
-                  <button 
-                    className="btn-primary" 
-                    onClick={handleCreateCategory}
-                    disabled={!newCategoryName.trim()}
-                  >
-                    Create
-                  </button>
-                </div>
+              <div className="new-category-form animate-slide-in">
+                <input
+                  type="text"
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  placeholder="Category name"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleCreateCategory();
+                    if (e.key === 'Escape') setShowNewCategory(false);
+                  }}
+                />
+                <input
+                  type="color"
+                  value={newCategoryColor}
+                  onChange={(e) => setNewCategoryColor(e.target.value)}
+                  className="color-picker"
+                />
+                <button className="btn btn-ghost" onClick={() => setShowNewCategory(false)}>
+                  Cancel
+                </button>
+                <button 
+                  className="btn btn-primary" 
+                  onClick={handleCreateCategory}
+                  disabled={!newCategoryName.trim()}
+                >
+                  Create
+                </button>
               </div>
             )}
-
-            <div className="form-group">
-              <label>Note <span className="optional">(optional)</span></label>
-              <div className="autocomplete-wrapper">
-                <input 
-                  ref={noteInputRef}
-                  type="text"
-                  value={note}
-                  onChange={(e) => handleNoteChange(e.target.value)}
-                  onFocus={() => {
-                    if (suggestions.length > 0) setShowSuggestions(true);
-                  }}
-                  onBlur={() => {
-                    setTimeout(() => setShowSuggestions(false), 200);
-                  }}
-                  placeholder="What are you working on?"
-                />
-                {showSuggestions && (
-                  <div className="suggestions-dropdown">
-                    {suggestions.map((suggestion, i) => (
-                      <button
-                        key={i}
-                        className="suggestion-item"
-                        onClick={() => selectSuggestion(suggestion)}
-                      >
-                        {suggestion}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <button 
-              className="btn-success start-button" 
-              onClick={handleStart}
-              disabled={!selectedCategory}
-            >
-              Start Timer
-            </button>
           </div>
         </div>
       )}
