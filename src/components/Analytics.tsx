@@ -3,6 +3,14 @@ import { api } from '../api';
 import { AnalyticsData, Period, DailyTotal } from '../types';
 import './Analytics.css';
 
+type AggregatedTotal = {
+  label: string;
+  startDate: string;
+  endDate: string;
+  minutes: number;
+  byCategory: Record<string, number>;
+};
+
 export function Analytics() {
   const [period, setPeriod] = useState<Period>('week');
   const [data, setData] = useState<AnalyticsData | null>(null);
@@ -34,6 +42,39 @@ export function Analytics() {
     }
     
     return { start, end };
+  };
+
+  // Determine aggregation level based on period
+  const getAggregation = (p: Period): 'day' | 'week' | 'month' => {
+    switch (p) {
+      case 'week':
+        return 'day';
+      case 'month':
+      case 'quarter':
+        return 'week';
+      case 'year':
+      case 'all':
+        return 'month';
+    }
+  };
+
+  // Get ISO week number
+  const getWeekNumber = (date: Date): number => {
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const dayNum = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+  };
+
+  // Get week start date (Monday)
+  const getWeekStart = (date: Date): Date => {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    d.setDate(diff);
+    d.setHours(0, 0, 0, 0);
+    return d;
   };
 
   const handleExport = async () => {
@@ -90,6 +131,80 @@ export function Analytics() {
     return filled;
   }, [data, period]);
 
+  // Aggregate daily data into weeks or months based on period
+  const aggregatedData = useMemo((): AggregatedTotal[] => {
+    if (!data || filledDaily.length === 0) return [];
+    
+    const aggregation = getAggregation(period);
+    
+    if (aggregation === 'day') {
+      // No aggregation needed for week view
+      return filledDaily.map(d => ({
+        label: formatShortDate(d.date),
+        startDate: d.date,
+        endDate: d.date,
+        minutes: d.minutes,
+        byCategory: d.byCategory
+      }));
+    }
+    
+    const buckets = new Map<string, AggregatedTotal>();
+    
+    for (const day of filledDaily) {
+      const date = new Date(day.date + 'T12:00:00');
+      let bucketKey: string;
+      let label: string;
+      let startDate: string;
+      let endDate: string;
+      
+      if (aggregation === 'week') {
+        const weekStart = getWeekStart(date);
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekEnd.getDate() + 6);
+        bucketKey = weekStart.toISOString().split('T')[0];
+        startDate = bucketKey;
+        endDate = weekEnd.toISOString().split('T')[0];
+        
+        // Format: "Jan 6-12" or "Dec 30 - Jan 5"
+        const startMonth = weekStart.toLocaleDateString(undefined, { month: 'short' });
+        const endMonth = weekEnd.toLocaleDateString(undefined, { month: 'short' });
+        if (startMonth === endMonth) {
+          label = `${startMonth} ${weekStart.getDate()}-${weekEnd.getDate()}`;
+        } else {
+          label = `${startMonth} ${weekStart.getDate()} - ${endMonth} ${weekEnd.getDate()}`;
+        }
+      } else {
+        // Monthly aggregation
+        bucketKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
+        const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+        startDate = monthStart.toISOString().split('T')[0];
+        endDate = monthEnd.toISOString().split('T')[0];
+        label = date.toLocaleDateString(undefined, { month: 'short', year: period === 'all' ? '2-digit' : undefined });
+      }
+      
+      if (!buckets.has(bucketKey)) {
+        buckets.set(bucketKey, {
+          label,
+          startDate,
+          endDate,
+          minutes: 0,
+          byCategory: {}
+        });
+      }
+      
+      const bucket = buckets.get(bucketKey)!;
+      bucket.minutes += day.minutes;
+      
+      // Merge category data
+      for (const [catName, mins] of Object.entries(day.byCategory)) {
+        bucket.byCategory[catName] = (bucket.byCategory[catName] || 0) + mins;
+      }
+    }
+    
+    return Array.from(buckets.values());
+  }, [filledDaily, period, data]);
+
   // Build category color map for stacked bars
   const categoryColorMap = useMemo(() => {
     if (!data) return new Map<string, string>();
@@ -117,10 +232,46 @@ export function Analytics() {
     return date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
   };
 
+  const formatDateRange = (startDate: string, endDate: string) => {
+    if (startDate === endDate) {
+      return formatFullDate(startDate);
+    }
+    const start = new Date(startDate + 'T12:00:00');
+    const end = new Date(endDate + 'T12:00:00');
+    return `${start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} - ${end.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
+  };
+
   const getMaxMinutes = () => {
-    if (filledDaily.length === 0) return 60;
-    const max = Math.max(...filledDaily.map(d => d.minutes));
+    if (aggregatedData.length === 0) return 60;
+    const max = Math.max(...aggregatedData.map(d => d.minutes));
     return max > 0 ? max : 60;
+  };
+
+  const getChartTitle = () => {
+    const aggregation = getAggregation(period);
+    switch (aggregation) {
+      case 'day':
+        return 'Daily Breakdown';
+      case 'week':
+        return 'Weekly Breakdown';
+      case 'month':
+        return 'Monthly Breakdown';
+    }
+  };
+
+  const getChartHint = () => {
+    switch (period) {
+      case 'week':
+        return 'Last 7 days';
+      case 'month':
+        return 'Last 30 days (by week)';
+      case 'quarter':
+        return 'Last 3 months (by week)';
+      case 'year':
+        return 'Last 12 months (by month)';
+      case 'all':
+        return 'All time (by month)';
+    }
   };
 
   if (loading) {
@@ -189,33 +340,31 @@ export function Analytics() {
         </div>
       </div>
 
-      {/* Daily chart - stacked bars */}
+      {/* Daily/Weekly/Monthly chart - stacked bars */}
       <div className="card">
         <div className="card-header">
-          <h2 className="card-title">Daily Breakdown</h2>
+          <h2 className="card-title">{getChartTitle()}</h2>
           {hasData && (
-            <span className="chart-hint">
-              {period === 'week' ? 'Last 7 days' : period === 'month' ? 'Last 30 days' : period === 'quarter' ? 'Last 3 months' : period === 'year' ? 'Last 12 months' : 'All time'}
-            </span>
+            <span className="chart-hint">{getChartHint()}</span>
           )}
         </div>
         <div className={`daily-chart ${!hasData ? 'empty' : ''}`}>
-          {filledDaily.map(day => {
-            const isToday = new Date(day.date + 'T12:00:00').toDateString() === new Date().toDateString();
-            const hasMinutes = day.minutes > 0;
-            const categoryEntries = Object.entries(day.byCategory).filter(([_, mins]) => mins > 0);
+          {aggregatedData.map((bucket, idx) => {
+            const isCurrentPeriod = idx === aggregatedData.length - 1;
+            const hasMinutes = bucket.minutes > 0;
+            const categoryEntries = Object.entries(bucket.byCategory).filter(([_, mins]) => mins > 0);
             // Calculate flex ratio: bar takes up proportional space, spacer takes the rest
-            const barRatio = day.minutes / maxMinutes;
+            const barRatio = bucket.minutes / maxMinutes;
             const spacerRatio = 1 - barRatio;
             
             return (
-              <div key={day.date} className={`chart-bar-container ${isToday ? 'today' : ''} ${!hasMinutes ? 'empty' : ''}`} title={`${formatFullDate(day.date)}: ${formatDuration(day.minutes)}`}>
+              <div key={bucket.startDate} className={`chart-bar-container ${isCurrentPeriod ? 'today' : ''} ${!hasMinutes ? 'empty' : ''}`} title={`${formatDateRange(bucket.startDate, bucket.endDate)}: ${formatDuration(bucket.minutes)}`}>
                 <div className="chart-bar-wrapper">
                   {/* Spacer pushes the bar stack to the bottom */}
                   <div style={{ flex: spacerRatio }} />
                   <div className="chart-bar-stack" style={{ flex: hasMinutes ? barRatio : 0, minHeight: hasMinutes ? '4px' : 0 }}>
                     {categoryEntries.map(([catName, mins]) => {
-                      const segmentPercent = (mins / day.minutes) * 100;
+                      const segmentPercent = (mins / bucket.minutes) * 100;
                       const color = categoryColorMap.get(catName) || 'var(--primary)';
                       return (
                         <div
@@ -231,8 +380,8 @@ export function Analytics() {
                     })}
                   </div>
                 </div>
-                <div className="chart-label">{formatShortDate(day.date)}</div>
-                <div className="chart-value">{hasMinutes ? formatDuration(day.minutes) : '—'}</div>
+                <div className="chart-label">{bucket.label}</div>
+                <div className="chart-value">{hasMinutes ? formatDuration(bucket.minutes) : '—'}</div>
               </div>
             );
           })}
