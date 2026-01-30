@@ -238,6 +238,24 @@ export const api = {
     return res.json();
   },
 
+  async exportCSV(): Promise<string> {
+    const res = await apiFetch(`${API_BASE}/export/csv`);
+    if (!res.ok) throw new Error('Failed to export CSV');
+    return res.text();
+  },
+
+  async importCSV(csv: string): Promise<{ imported: number; skipped: number; errors: string[] }> {
+    const res = await apiFetch(`${API_BASE}/export/csv`, {
+      method: 'POST',
+      body: JSON.stringify({ csv })
+    });
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || 'Failed to import CSV');
+    }
+    return res.json();
+  },
+
   // Settings
   async convertGuestToAccount(email: string, name: string, password: string): Promise<AuthResponse> {
     const currentSessionId = getSessionId();
