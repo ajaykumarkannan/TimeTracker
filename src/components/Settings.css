@@ -191,6 +191,7 @@
   }
   
   .settings-action button,
+  .settings-action .import-btn,
   .confirm-buttons {
     width: 100%;
   }
@@ -198,4 +199,39 @@
   .confirm-buttons button {
     flex: 1;
   }
+}
+
+.import-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.import-btn:hover:not(:has(input:disabled)) {
+  background: var(--bg-secondary);
+  border-color: var(--text-tertiary);
+}
+
+.import-result {
+  padding: 0.75rem 1rem;
+  background: var(--bg-tertiary, var(--bg-secondary));
+  border-radius: var(--radius-md, 0.5rem);
+}
+
+.import-success {
+  font-size: 0.875rem;
+  color: var(--success);
+  margin: 0;
+}
+
+.import-errors {
+  margin: 0.5rem 0 0;
+  padding-left: 1.25rem;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}
+
+.import-errors li {
+  margin-bottom: 0.25rem;
 }

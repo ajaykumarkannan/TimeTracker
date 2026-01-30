@@ -180,6 +180,34 @@ Winston logger configured in `server/logger.ts`:
 | `DB_PATH` | ./data/timetracker.db | Database file path |
 | `JWT_SECRET` | (dev default) | JWT signing secret |
 | `NODE_ENV` | development | Environment |
+| `CORS_ORIGIN` | * | Allowed CORS origins |
+
+## Scalability Features
+
+The application includes several features to support growth:
+
+### Database
+- **Batched writes**: Database saves are batched every 5 seconds to reduce I/O
+- **Optimized indexes**: Composite indexes on frequently queried columns
+- **Graceful shutdown**: Pending writes are saved on process termination
+
+### API
+- **Rate limiting**: 100 requests per minute per IP address
+- **Pagination**: Time entries support `limit` and `offset` query parameters
+- **Date filtering**: Time entries can be filtered by `startDate` and `endDate`
+- **Request size limits**: JSON body limited to 1MB
+
+### Security
+- **Security headers**: X-Content-Type-Options, X-Frame-Options, X-XSS-Protection
+- **HSTS**: Strict-Transport-Security in production
+- **CORS configuration**: Configurable allowed origins
+
+### Future Scalability Path
+When the application needs to scale beyond a single server:
+1. Replace sql.js with PostgreSQL for multi-instance support
+2. Add Redis for session storage and caching
+3. Use a load balancer for horizontal scaling
+4. Consider read replicas for analytics queries
 
 ## Documentation Maintenance
 

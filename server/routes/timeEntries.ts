@@ -7,19 +7,38 @@ const router = Router();
 
 router.use(flexAuthMiddleware);
 
-// Get all time entries for user
+// Get all time entries for user with pagination
 router.get('/', (req: AuthRequest, res: Response) => {
   try {
     const db = getDb();
-    const result = db.exec(`
+    const limit = Math.min(parseInt(req.query.limit as string) || 100, 500);
+    const offset = parseInt(req.query.offset as string) || 0;
+    const startDate = req.query.startDate as string;
+    const endDate = req.query.endDate as string;
+    
+    let query = `
       SELECT te.id, te.user_id, te.category_id, c.name as category_name, c.color as category_color,
              te.note, te.start_time, te.end_time, te.duration_minutes, te.created_at
       FROM time_entries te
       JOIN categories c ON te.category_id = c.id
       WHERE te.user_id = ?
-      ORDER BY te.start_time DESC
-      LIMIT 100
-    `, [req.userId as number]);
+    `;
+    const params: (number | string)[] = [req.userId as number];
+    
+    // Optional date filtering
+    if (startDate) {
+      query += ` AND te.start_time >= ?`;
+      params.push(startDate);
+    }
+    if (endDate) {
+      query += ` AND te.start_time <= ?`;
+      params.push(endDate);
+    }
+    
+    query += ` ORDER BY te.start_time DESC LIMIT ? OFFSET ?`;
+    params.push(limit, offset);
+    
+    const result = db.exec(query, params);
 
     const entries = result.length > 0 
       ? result[0].values.map(row => ({

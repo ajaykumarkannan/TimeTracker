@@ -5,6 +5,11 @@ import * as path from 'path';
 
 const DB_PATH = process.env.DB_PATH || './data/timetracker.db';
 
+// Auto-save interval (ms) - batches writes for better performance
+const AUTO_SAVE_INTERVAL = 5000;
+let autoSaveTimer: NodeJS.Timeout | null = null;
+let pendingSave = false;
+
 let db: SqlJsDatabase;
 
 export async function initDatabase(): Promise<SqlJsDatabase> {
@@ -78,10 +83,16 @@ export async function initDatabase(): Promise<SqlJsDatabase> {
   // Create indexes for better query performance
   db.run(`CREATE INDEX IF NOT EXISTS idx_time_entries_user ON time_entries(user_id)`);
   db.run(`CREATE INDEX IF NOT EXISTS idx_time_entries_start ON time_entries(start_time)`);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_time_entries_user_start ON time_entries(user_id, start_time DESC)`);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_time_entries_user_end ON time_entries(user_id, end_time)`);
   db.run(`CREATE INDEX IF NOT EXISTS idx_categories_user ON categories(user_id)`);
   db.run(`CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id)`);
   db.run(`CREATE INDEX IF NOT EXISTS idx_refresh_tokens_token ON refresh_tokens(token)`);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_refresh_tokens_expires ON refresh_tokens(expires_at)`);
 
+  // Start auto-save timer for batched writes
+  startAutoSave();
+  
   saveDatabase();
   logger.info('Database initialized successfully');
   return db;
@@ -91,13 +102,59 @@ export function getDb(): SqlJsDatabase {
   return db;
 }
 
+// Batched save - marks database as needing save, actual write happens on interval
 export function saveDatabase() {
+  pendingSave = true;
+}
+
+// Force immediate save (for critical operations)
+export function saveDatabaseNow() {
   if (db) {
     const data = db.export();
     const buffer = Buffer.from(data);
     fs.writeFileSync(DB_PATH, buffer);
+    pendingSave = false;
   }
 }
+
+// Start auto-save timer
+function startAutoSave() {
+  if (autoSaveTimer) return;
+  
+  autoSaveTimer = setInterval(() => {
+    if (pendingSave && db) {
+      const data = db.export();
+      const buffer = Buffer.from(data);
+      fs.writeFileSync(DB_PATH, buffer);
+      pendingSave = false;
+      logger.debug('Database auto-saved');
+    }
+  }, AUTO_SAVE_INTERVAL);
+}
+
+// Cleanup on process exit
+process.on('beforeExit', () => {
+  if (pendingSave && db) {
+    saveDatabaseNow();
+    logger.info('Database saved on exit');
+  }
+});
+
+process.on('SIGINT', () => {
+  if (pendingSave && db) {
+    saveDatabaseNow();
+    logger.info('Database saved on SIGINT');
+  }
+  process.exit(0);
+});
+
+process.on('SIGTERM', () => {
+  if (pendingSave && db) {
+    saveDatabaseNow();
+    logger.info('Database saved on SIGTERM');
+  }
+  process.exit(0);
+});
 
 export interface User {
   id: number;
