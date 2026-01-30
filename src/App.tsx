@@ -91,7 +91,7 @@ function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLoggedIn: bo
           <ThemeToggle />
           <div className="user-menu">
             {isLoggedIn && user && (
-              <span className="username">{user.username}</span>
+              <span className="username">{user.name}</span>
             )}
             <button onClick={onLogout} className="logout-btn" title={isLoggedIn ? 'Sign out' : 'Exit'}>
               <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2">
