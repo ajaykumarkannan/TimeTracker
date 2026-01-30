@@ -126,7 +126,7 @@ jobs:
       
       - name: Test Docker container starts
         run: |
-          docker run -d --name test-container -p 3001:3001 chronoflow:${{ github.sha }}
-          sleep 5
+          docker run -d --name test-container -p 3001:4739 chronoflow:${{ github.sha }}
+          sleep 10
           curl -f http://localhost:3001/api/health || exit 1
           docker stop test-container
