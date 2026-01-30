@@ -1,102 +1,63 @@
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
-import { initDatabase } from './database';
+import { initDatabase, shutdownDatabase } from './database';
 import { logger } from './logger';
+import { config, validateConfig } from './config';
+import { rateLimiter, securityHeaders, sanitizeInput } from './middleware/security';
+import { getCurrentVersion, LATEST_VERSION } from './migrations';
+import { getDb } from './database';
 import authRouter from './routes/auth';
 import timeEntriesRouter from './routes/timeEntries';
 import categoriesRouter from './routes/categories';
 import analyticsRouter from './routes/analytics';
 import exportRouter from './routes/export';
 import settingsRouter from './routes/settings';
+import { readFileSync } from 'fs';
+
+// Validate configuration
+validateConfig();
 
 const app = express();
-const PORT = process.env.PORT || 3001;
 
-// Trust proxy for rate limiting behind reverse proxy
-app.set('trust proxy', 1);
-
-// CORS configuration
-const corsOptions = {
-  origin: process.env.CORS_ORIGIN || '*',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Session-ID'],
-  credentials: true,
-  maxAge: 86400 // 24 hours
-};
-
-app.use(cors(corsOptions));
-app.use(express.json({ limit: '1mb' }));
-
-// Simple in-memory rate limiter
-const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
-const RATE_LIMIT_WINDOW = 60000; // 1 minute
-const RATE_LIMIT_MAX = 100; // requests per window
-
-function rateLimiter(req: express.Request, res: express.Response, next: express.NextFunction) {
-  const key = req.ip || 'unknown';
-  const now = Date.now();
-  
-  const record = rateLimitStore.get(key);
-  
-  if (!record || now > record.resetTime) {
-    rateLimitStore.set(key, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
-    return next();
-  }
-  
-  if (record.count >= RATE_LIMIT_MAX) {
-    res.setHeader('Retry-After', Math.ceil((record.resetTime - now) / 1000));
-    return res.status(429).json({ error: 'Too many requests, please try again later' });
-  }
-  
-  record.count++;
-  next();
+// Trust proxy for Cloudflare tunnel, nginx, etc.
+if (config.trustProxy) {
+  app.set('trust proxy', 1);
 }
 
-// Clean up rate limit store periodically
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, record] of rateLimitStore.entries()) {
-    if (now > record.resetTime) {
-      rateLimitStore.delete(key);
-    }
-  }
-}, 60000);
-
+// Security middleware (before everything else)
+app.use(securityHeaders);
 app.use(rateLimiter);
 
+// CORS configuration
+const corsOptions: cors.CorsOptions = {
+  origin: config.corsOrigin === '*' ? true : config.corsOrigin.split(','),
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Session-ID'],
+};
+app.use(cors(corsOptions));
+
+// Body parsing with size limit
+app.use(express.json({ limit: config.maxRequestSize }));
+app.use(sanitizeInput);
+
 // Serve static files in production
-// In production, __dirname is /app/dist/server, frontend is at /app/dist
-if (process.env.NODE_ENV === 'production') {
+if (config.nodeEnv === 'production') {
   app.use(express.static(path.join(__dirname, '..')));
 }
 
-// Request logging middleware
+// Request logging
 app.use((req, res, next) => {
   const start = Date.now();
   res.on('finish', () => {
     const duration = Date.now() - start;
-    logger.info(`${req.method} ${req.path}`, { 
-      status: res.statusCode, 
-      duration: `${duration}ms`,
-      ip: req.ip 
-    });
+    logger.http(`${req.method} ${req.path} ${res.statusCode} ${duration}ms`);
   });
   next();
 });
 
-// Security headers
-app.use((req, res, next) => {
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'DENY');
-  res.setHeader('X-XSS-Protection', '1; mode=block');
-  if (process.env.NODE_ENV === 'production') {
-    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
-  }
-  next();
-});
-
-// Routes
+// API Routes
 app.use('/api/auth', authRouter);
 app.use('/api/time-entries', timeEntriesRouter);
 app.use('/api/categories', categoriesRouter);
@@ -104,13 +65,71 @@ app.use('/api/analytics', analyticsRouter);
 app.use('/api/export', exportRouter);
 app.use('/api/settings', settingsRouter);
 
-// Health check
+// Version endpoint
+app.get('/api/version', (req, res) => {
+  let appVersion = '0.0.0';
+  try {
+    const pkg = JSON.parse(readFileSync(path.join(__dirname, '..', 'package.json'), 'utf-8'));
+    appVersion = pkg.version;
+  } catch {
+    // Use default if package.json not found
+  }
+  
+  const db = getDb();
+  const dbVersion = getCurrentVersion(db);
+  
+  res.json({
+    app: appVersion,
+    database: {
+      current: dbVersion,
+      latest: LATEST_VERSION,
+      upToDate: dbVersion >= LATEST_VERSION
+    },
+    environment: config.nodeEnv
+  });
+});
+
+// Health check endpoint (for Docker, load balancers, monitoring)
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok' });
+  try {
+    // Quick database check
+    const db = getDb();
+    db.exec('SELECT 1');
+    
+    res.json({ 
+      status: 'healthy',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(503).json({ 
+      status: 'unhealthy',
+      error: 'Database unavailable'
+    });
+  }
+});
+
+// Readiness check (for Kubernetes-style deployments)
+app.get('/api/ready', (req, res) => {
+  try {
+    const db = getDb();
+    const dbVersion = getCurrentVersion(db);
+    
+    if (dbVersion < LATEST_VERSION) {
+      res.status(503).json({ 
+        status: 'not ready',
+        reason: 'Database migration pending'
+      });
+      return;
+    }
+    
+    res.json({ status: 'ready' });
+  } catch {
+    res.status(503).json({ status: 'not ready' });
+  }
 });
 
 // Serve frontend for all other routes in production
-if (process.env.NODE_ENV === 'production') {
+if (config.nodeEnv === 'production') {
   app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, '../index.html'));
   });
@@ -118,14 +137,51 @@ if (process.env.NODE_ENV === 'production') {
 
 // Error handling
 app.use((err: Error, req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  logger.error('Unhandled error', { error: err.message, stack: err.stack });
-  res.status(500).json({ error: 'Internal server error' });
+  logger.error('Unhandled error', { 
+    error: err.message, 
+    stack: config.nodeEnv === 'development' ? err.stack : undefined,
+    path: req.path,
+    method: req.method
+  });
+  
+  res.status(500).json({ 
+    error: config.nodeEnv === 'development' ? err.message : 'Internal server error'
+  });
 });
 
-// Initialize database then start server
+// Graceful shutdown handler
+let server: ReturnType<typeof app.listen>;
+
+async function shutdown(signal: string) {
+  logger.info(`Received ${signal}, shutting down gracefully...`);
+  
+  if (server) {
+    server.close(() => {
+      logger.info('HTTP server closed');
+      shutdownDatabase();
+      process.exit(0);
+    });
+    
+    // Force exit after 10 seconds
+    setTimeout(() => {
+      logger.warn('Forced shutdown after timeout');
+      process.exit(1);
+    }, 10000);
+  } else {
+    process.exit(0);
+  }
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
+
+// Initialize and start
 initDatabase().then(() => {
-  app.listen(PORT, () => {
-    logger.info(`ChronoFlow server running on port ${PORT}`);
+  server = app.listen(config.port, () => {
+    logger.info(`ChronoFlow server running on port ${config.port}`, {
+      environment: config.nodeEnv,
+      trustProxy: config.trustProxy
+    });
   });
 }).catch((err) => {
   logger.error('Failed to initialize database', { error: err });

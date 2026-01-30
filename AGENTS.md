@@ -117,7 +117,7 @@ main (production-ready)
 docker-compose up --build  # Build and run
 ```
 
-App runs on `http://localhost:3001`
+App runs on `http://localhost:4739` (production port)
 
 ### Code Style
 
@@ -176,11 +176,16 @@ Winston logger configured in `server/logger.ts`:
 
 | Variable | Default | Description |
 | ------------ | ------------------------- | ------------------- |
-| `PORT` | 3001 | Server port |
+| `PORT` | 4847 (dev) / 4739 (prod) | Server port |
 | `DB_PATH` | ./data/timetracker.db | Database file path |
 | `JWT_SECRET` | (dev default) | JWT signing secret |
 | `NODE_ENV` | development | Environment |
 | `CORS_ORIGIN` | * | Allowed CORS origins |
+
+### Port Configuration
+
+- **Development**: Server runs on port 4847, Vite dev server on port 5173 (proxies API to 4847)
+- **Production**: Server runs on port 4739 (Docker exposes 4739)
 
 ## Scalability Features
 
