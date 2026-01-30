@@ -168,7 +168,10 @@ src/              # React frontend
   contexts/       # Auth, Theme providers
 e2e/              # Playwright tests
 extension/        # Browser extension
+work/             # Local dev artifacts (gitignored)
 ```
+
+The `work/` directory is for local development artifacts like test databases, Docker volumes, or temporary files. It's gitignored to keep the repo clean.
 
 ## License
 
