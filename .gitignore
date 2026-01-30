@@ -36,3 +36,4 @@ Thumbs.db
 
 # Local work directory (for dev/test runs)
 work/
+.work
