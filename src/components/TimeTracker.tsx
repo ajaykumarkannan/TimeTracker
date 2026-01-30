@@ -197,7 +197,7 @@ export function TimeTracker({ categories, activeEntry, onEntryChange, onCategory
 
           <div className="tracker-form">
             <div className="form-row">
-              <div className="form-group flex-1">
+              <div className="form-group">
                 <label>Category</label>
                 <select 
                   value={selectedCategory || ''} 
@@ -220,7 +220,7 @@ export function TimeTracker({ categories, activeEntry, onEntryChange, onCategory
                 </select>
               </div>
 
-              <div className="form-group flex-2">
+              <div className="form-group form-group-note">
                 <label>Note <span className="optional">(optional)</span></label>
                 <input 
                   type="text"
@@ -235,14 +235,17 @@ export function TimeTracker({ categories, activeEntry, onEntryChange, onCategory
                 />
               </div>
 
-              <button 
-                className="btn btn-success start-btn" 
-                onClick={handleStart}
-                disabled={!selectedCategory}
-              >
-                <span className="play-icon">▶</span>
-                Start
-              </button>
+              <div className="form-group form-group-action">
+                <label>&nbsp;</label>
+                <button 
+                  className="btn btn-success start-btn" 
+                  onClick={handleStart}
+                  disabled={!selectedCategory}
+                >
+                  <span className="play-icon">▶</span>
+                  Start
+                </button>
+              </div>
             </div>
 
             {showNewCategory && (

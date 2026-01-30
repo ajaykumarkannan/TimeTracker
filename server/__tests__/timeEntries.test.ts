@@ -81,7 +81,7 @@ describe('Time Entries Database', () => {
     const stmt = db.prepare('SELECT * FROM time_entries WHERE id = ?');
     stmt.bind([id]);
     stmt.step();
-    const entry = stmt.getAsObject() as any;
+    const entry = stmt.getAsObject() as { duration_minutes: number };
     stmt.free();
     
     expect(entry.duration_minutes).toBeGreaterThan(55);

@@ -63,18 +63,17 @@ export function CategoryManager({ categories, onCategoryChange }: Props) {
           <h2 className="card-title">{editingId ? 'Edit Category' : 'New Category'}</h2>
         </div>
         <form onSubmit={handleSubmit} className="category-form">
-          <div className="form-group flex-1">
+          <div className="form-group form-group-name">
             <label>Name</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Category name"
-              className="category-name-input"
               required
             />
           </div>
-          <div className="form-group">
+          <div className="form-group form-group-color">
             <label>Color</label>
             <input
               type="color"
@@ -83,15 +82,18 @@ export function CategoryManager({ categories, onCategoryChange }: Props) {
               className="color-picker"
             />
           </div>
-          <div className="form-actions">
-            {editingId && (
-              <button type="button" className="btn btn-ghost" onClick={handleCancel}>
-                Cancel
+          <div className="form-group form-group-actions">
+            <label>&nbsp;</label>
+            <div className="btn-group">
+              {editingId && (
+                <button type="button" className="btn btn-ghost" onClick={handleCancel}>
+                  Cancel
+                </button>
+              )}
+              <button type="submit" className="btn btn-primary">
+                {editingId ? 'Update' : 'Add'}
               </button>
-            )}
-            <button type="submit" className="btn btn-primary">
-              {editingId ? 'Update' : 'Add'}
-            </button>
+            </div>
           </div>
         </form>
       </div>

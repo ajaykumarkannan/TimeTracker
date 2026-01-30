@@ -1,7 +1,6 @@
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
-import { v4 as uuidv4 } from 'uuid';
-import { getDb, saveDatabase, User } from '../database';
+import { getDb, saveDatabase } from '../database';
 import { logger } from '../logger';
 import { 
   generateAccessToken, 

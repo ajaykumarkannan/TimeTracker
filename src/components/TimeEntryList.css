@@ -1,34 +1,34 @@
 .time-entry-list .card-header {
-  margin-bottom: 12px;
+  margin-bottom: 0.75rem;
 }
 
 .total-badge {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 500;
-  color: var(--accent);
-  padding: 4px 10px;
-  background: var(--accent-muted);
-  border-radius: var(--radius-md);
+  color: var(--primary);
+  padding: 0.25rem 0.625rem;
+  background: var(--primary-alpha);
+  border-radius: var(--radius-md, 0.5rem);
 }
 
 .empty-state {
-  padding: 48px 24px;
+  padding: 3rem 1.5rem;
 }
 
 .entries-by-date {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 1.25rem;
 }
 
 .date-header {
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 600;
-  color: var(--text-tertiary);
+  color: var(--text-tertiary, var(--text-muted));
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  margin-bottom: 8px;
+  margin-bottom: 0.5rem;
 }
 
 .entries {
@@ -39,19 +39,19 @@
 .entry-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px;
-  border-radius: var(--radius-md);
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border-radius: var(--radius-md, 0.5rem);
   transition: background 0.15s ease;
   cursor: pointer;
 }
 
 .entry-item:hover {
-  background: var(--bg-tertiary);
+  background: var(--bg-tertiary, var(--bg-secondary));
 }
 
 .entry-item.selected {
-  background: var(--accent-muted);
+  background: var(--primary-alpha);
 }
 
 .entry-item:hover .delete-btn {
@@ -59,9 +59,9 @@
 }
 
 .entry-indicator {
-  width: 3px;
-  height: 32px;
-  border-radius: 2px;
+  width: 0.1875rem;
+  height: 2rem;
+  border-radius: 0.125rem;
   flex-shrink: 0;
 }
 
@@ -71,26 +71,27 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 16px;
+  gap: 1rem;
+  flex-wrap: wrap;
 }
 
 .entry-main {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 0.75rem;
   min-width: 0;
-  flex: 1;
+  flex: 1 1 auto;
 }
 
 .entry-category {
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 500;
   color: var(--text-primary);
   flex-shrink: 0;
 }
 
 .entry-note {
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: var(--text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -100,9 +101,9 @@
 }
 
 .editable {
-  padding: 2px 6px;
-  margin: -2px -6px;
-  border-radius: var(--radius-sm);
+  padding: 0.125rem 0.375rem;
+  margin: -0.125rem -0.375rem;
+  border-radius: var(--radius-sm, 0.25rem);
   cursor: text;
 }
 
@@ -113,39 +114,39 @@
 /* Inline edit inputs */
 .inline-edit-select,
 .inline-edit-input {
-  font-size: 13px;
-  padding: 2px 6px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--accent);
+  font-size: 0.8125rem;
+  padding: 0.125rem 0.375rem;
+  border-radius: var(--radius-sm, 0.25rem);
+  border: 1px solid var(--primary);
   background: var(--bg-primary);
   color: var(--text-primary);
   outline: none;
 }
 
 .inline-edit-select {
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 500;
 }
 
 .inline-edit-input {
   flex: 1;
-  min-width: 100px;
+  min-width: 6.25rem;
 }
 
 .inline-edit-input::placeholder {
-  color: var(--text-tertiary);
+  color: var(--text-tertiary, var(--text-muted));
 }
 
 .entry-meta {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 0.5rem;
   flex-shrink: 0;
 }
 
 .entry-time {
-  font-size: 13px;
-  color: var(--text-tertiary);
+  font-size: 0.8125rem;
+  color: var(--text-tertiary, var(--text-muted));
 }
 
 .entry-time.active-time {
@@ -154,16 +155,16 @@
 }
 
 .time-separator {
-  color: var(--text-tertiary);
-  font-size: 12px;
+  color: var(--text-tertiary, var(--text-muted));
+  font-size: 0.75rem;
 }
 
 .entry-duration {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 500;
   color: var(--text-primary);
-  min-width: 50px;
+  min-width: 3.125rem;
   text-align: right;
 }
 
@@ -173,14 +174,14 @@
 
 /* Inline time edit */
 .inline-edit-time {
-  font-size: 12px;
-  padding: 2px 4px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--accent);
+  font-size: 0.75rem;
+  padding: 0.125rem 0.25rem;
+  border-radius: var(--radius-sm, 0.25rem);
+  border: 1px solid var(--primary);
   background: var(--bg-primary);
   color: var(--text-primary);
   outline: none;
-  width: 140px;
+  width: 8.75rem;
 }
 
 /* Overlap warning */
@@ -189,17 +190,40 @@
 }
 
 .overlap-warning {
-  font-size: 14px;
+  font-size: 0.875rem;
   cursor: help;
   flex-shrink: 0;
 }
 
 .delete-btn {
   opacity: 0;
-  font-size: 18px;
-  color: var(--text-tertiary);
+  font-size: 1.125rem;
+  color: var(--text-tertiary, var(--text-muted));
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.25rem;
+  transition: opacity 0.15s, color 0.15s;
 }
 
 .delete-btn:hover {
-  color: var(--danger);
+  color: var(--error);
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .entry-content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  
+  .entry-meta {
+    width: 100%;
+    justify-content: space-between;
+  }
+  
+  .delete-btn {
+    opacity: 1;
+  }
 }
