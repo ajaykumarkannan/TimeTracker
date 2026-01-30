@@ -11,7 +11,7 @@ export function Login({ onBack, onSuccess }: Props) {
   const { login, register } = useAuth();
   const [isRegister, setIsRegister] = useState(false);
   const [email, setEmail] = useState('');
-  const [username, setUsername] = useState('');
+  const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -23,7 +23,7 @@ export function Login({ onBack, onSuccess }: Props) {
 
     try {
       if (isRegister) {
-        await register(email, username, password);
+        await register(email, name, password);
       } else {
         await login(email, password);
       }
@@ -70,15 +70,15 @@ export function Login({ onBack, onSuccess }: Props) {
 
           {isRegister && (
             <div className="form-group">
-              <label htmlFor="username">Username</label>
+              <label htmlFor="name">Name</label>
               <input
-                id="username"
+                id="name"
                 type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="johndoe"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="John Doe"
                 required
-                autoComplete="username"
+                autoComplete="name"
               />
             </div>
           )}

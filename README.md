@@ -39,11 +39,11 @@ npm start
 
 ## Usage Modes
 
-### ☁️ Cloud Mode
-Create an account to sync your data across devices. Your tracking history is stored securely on the server.
+### ☁️ Account Mode
+Create an account to sync your data across devices. Your tracking history is stored securely on the server with JWT authentication.
 
-### 💾 Local Mode
-No account needed! All data stays in your browser's local storage. Perfect for quick use or privacy-conscious users.
+### 👤 Guest Mode
+No account needed! Start tracking immediately with an anonymous session. Your data is stored server-side and you can convert to a full account later to preserve your history.
 
 ## Tech Stack
 
@@ -87,6 +87,12 @@ No account needed! All data stays in your browser's local storage. Perfect for q
 |--------|----------|-------------|
 | GET | `/api/analytics` | Get analytics (requires `start` and `end` query params) |
 
+### Export & Settings
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/export` | Export all user data as JSON |
+| POST | `/api/settings/reset` | Reset all user data to defaults |
+
 ## Environment Variables
 
 | Variable | Default | Description |
@@ -118,11 +124,10 @@ npm run lint
 │   ├── database.ts   # SQLite database setup
 │   └── logger.ts     # Winston logger
 ├── src/              # Frontend React app
-│   ├── components/   # React components
+│   ├── components/   # React components with co-located CSS
 │   ├── contexts/     # Auth & Theme contexts
-│   ├── hooks/        # Custom hooks
-│   ├── api.ts        # API client
-│   ├── localStore.ts # Local storage API
+│   ├── hooks/        # Custom hooks (useIdleDetection)
+│   ├── api.ts        # API client (handles guest sessions & JWT auth)
 │   └── types.ts      # TypeScript types
 ├── e2e/              # Playwright E2E tests
 └── extension/        # Browser extension

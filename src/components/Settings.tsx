@@ -14,13 +14,13 @@ export function Settings({ onLogout, onConvertSuccess }: SettingsProps) {
 
   // Convert guest form
   const [convertEmail, setConvertEmail] = useState('');
-  const [convertUsername, setConvertUsername] = useState('');
+  const [convertName, setConvertName] = useState('');
   const [convertPassword, setConvertPassword] = useState('');
   const [convertLoading, setConvertLoading] = useState(false);
   const [convertError, setConvertError] = useState('');
 
   // Account update form
-  const [newUsername, setNewUsername] = useState(user?.username || '');
+  const [newName, setNewName] = useState(user?.name || '');
   const [newEmail, setNewEmail] = useState(user?.email || '');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -40,7 +40,7 @@ export function Settings({ onLogout, onConvertSuccess }: SettingsProps) {
     setConvertLoading(true);
     setConvertError('');
     try {
-      await api.convertGuestToAccount(convertEmail, convertUsername, convertPassword);
+      await api.convertGuestToAccount(convertEmail, convertName, convertPassword);
       onConvertSuccess();
     } catch (err) {
       setConvertError(err instanceof Error ? err.message : 'Conversion failed');
@@ -54,8 +54,8 @@ export function Settings({ onLogout, onConvertSuccess }: SettingsProps) {
     setUpdateError('');
     setUpdateSuccess('');
     try {
-      const updates: { username?: string; email?: string; currentPassword?: string; newPassword?: string } = {};
-      if (newUsername !== user?.username) updates.username = newUsername;
+      const updates: { name?: string; email?: string; currentPassword?: string; newPassword?: string } = {};
+      if (newName !== user?.name) updates.name = newName;
       if (newEmail !== user?.email) updates.email = newEmail;
       if (newPassword) {
         updates.currentPassword = currentPassword;
@@ -141,12 +141,12 @@ export function Settings({ onLogout, onConvertSuccess }: SettingsProps) {
               />
             </div>
             <div className="form-group">
-              <label htmlFor="convert-username">Username</label>
+              <label htmlFor="convert-name">Name</label>
               <input
-                id="convert-username"
+                id="convert-name"
                 type="text"
-                value={convertUsername}
-                onChange={e => setConvertUsername(e.target.value)}
+                value={convertName}
+                onChange={e => setConvertName(e.target.value)}
                 required
               />
             </div>
@@ -177,12 +177,12 @@ export function Settings({ onLogout, onConvertSuccess }: SettingsProps) {
           </div>
           <form onSubmit={handleUpdateAccount} className="settings-form">
             <div className="form-group">
-              <label htmlFor="update-username">Username</label>
+              <label htmlFor="update-name">Name</label>
               <input
-                id="update-username"
+                id="update-name"
                 type="text"
-                value={newUsername}
-                onChange={e => setNewUsername(e.target.value)}
+                value={newName}
+                onChange={e => setNewName(e.target.value)}
               />
             </div>
             <div className="form-group">

@@ -16,10 +16,10 @@ const router = Router();
 // Register new user
 router.post('/register', async (req: Request, res: Response) => {
   try {
-    const { email, username, password } = req.body;
+    const { email, name, password } = req.body;
 
-    if (!email || !username || !password) {
-      return res.status(400).json({ error: 'Email, username, and password are required' });
+    if (!email || !name || !password) {
+      return res.status(400).json({ error: 'Email, name, and password are required' });
     }
 
     if (password.length < 6) {
@@ -29,16 +29,16 @@ router.post('/register', async (req: Request, res: Response) => {
     const db = getDb();
     
     // Check if user exists
-    const existing = db.exec(`SELECT id FROM users WHERE email = ? OR username = ?`, [email, username]);
+    const existing = db.exec(`SELECT id FROM users WHERE email = ?`, [email]);
     if (existing.length > 0 && existing[0].values.length > 0) {
-      return res.status(409).json({ error: 'Email or username already exists' });
+      return res.status(409).json({ error: 'Email already exists' });
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
     
     db.run(
       `INSERT INTO users (email, username, password_hash) VALUES (?, ?, ?)`,
-      [email, username, passwordHash]
+      [email, name, passwordHash]
     );
     saveDatabase();
 
@@ -46,7 +46,7 @@ router.post('/register', async (req: Request, res: Response) => {
     const user = {
       id: result[0].values[0][0] as number,
       email: result[0].values[0][1] as string,
-      username: result[0].values[0][2] as string,
+      name: result[0].values[0][2] as string,
       created_at: result[0].values[0][3] as string
     };
 
@@ -67,7 +67,7 @@ router.post('/register', async (req: Request, res: Response) => {
     logger.info('User registered', { userId: user.id, email: user.email });
 
     res.status(201).json({
-      user: { id: user.id, email: user.email, username: user.username },
+      user: { id: user.id, email: user.email, name: user.name },
       accessToken,
       refreshToken
     });
@@ -99,7 +99,7 @@ router.post('/login', async (req: Request, res: Response) => {
     const user = {
       id: result[0].values[0][0] as number,
       email: result[0].values[0][1] as string,
-      username: result[0].values[0][2] as string,
+      name: result[0].values[0][2] as string,
       password_hash: result[0].values[0][3] as string
     };
 
@@ -122,7 +122,7 @@ router.post('/login', async (req: Request, res: Response) => {
     logger.info('User logged in', { userId: user.id });
 
     res.json({
-      user: { id: user.id, email: user.email, username: user.username },
+      user: { id: user.id, email: user.email, name: user.name },
       accessToken,
       refreshToken
     });
@@ -181,7 +181,7 @@ router.post('/refresh', (req: Request, res: Response) => {
     const user = {
       id: userResult[0].values[0][0] as number,
       email: userResult[0].values[0][1] as string,
-      username: userResult[0].values[0][2] as string
+      name: userResult[0].values[0][2] as string
     };
 
     const newAccessToken = generateAccessToken(user.id, user.email);
@@ -247,7 +247,7 @@ router.get('/me', authMiddleware, (req: AuthRequest, res: Response) => {
     const user = {
       id: result[0].values[0][0] as number,
       email: result[0].values[0][1] as string,
-      username: result[0].values[0][2] as string,
+      name: result[0].values[0][2] as string,
       created_at: result[0].values[0][3] as string
     };
 
@@ -261,15 +261,15 @@ router.get('/me', authMiddleware, (req: AuthRequest, res: Response) => {
 // Convert guest to registered account
 router.post('/convert', async (req: Request, res: Response) => {
   try {
-    const { email, username, password } = req.body;
+    const { email, name, password } = req.body;
     const sessionId = req.headers['x-session-id'] as string;
 
     if (!sessionId) {
       return res.status(400).json({ error: 'Session ID required for conversion' });
     }
 
-    if (!email || !username || !password) {
-      return res.status(400).json({ error: 'Email, username, and password are required' });
+    if (!email || !name || !password) {
+      return res.status(400).json({ error: 'Email, name, and password are required' });
     }
 
     if (password.length < 6) {
@@ -278,14 +278,15 @@ router.post('/convert', async (req: Request, res: Response) => {
 
     const db = getDb();
 
-    // Check if email/username already exists
-    const existing = db.exec(`SELECT id FROM users WHERE email = ? OR username = ?`, [email, username]);
+    // Check if email already exists (excluding the guest's temporary email)
+    const guestEmail = `anon_${sessionId}@local`;
+    const existing = db.exec(`SELECT id FROM users WHERE email = ? AND email != ?`, [email, guestEmail]);
     if (existing.length > 0 && existing[0].values.length > 0) {
-      return res.status(409).json({ error: 'Email or username already exists' });
+      return res.status(409).json({ error: 'Email already exists' });
     }
 
-    // Find the guest user by session_id
-    const guestResult = db.exec(`SELECT id FROM users WHERE session_id = ?`, [sessionId]);
+    // Find the guest user by their anonymous email pattern
+    const guestResult = db.exec(`SELECT id FROM users WHERE email = ?`, [guestEmail]);
     if (guestResult.length === 0 || guestResult[0].values.length === 0) {
       return res.status(404).json({ error: 'Guest session not found' });
     }
@@ -295,8 +296,8 @@ router.post('/convert', async (req: Request, res: Response) => {
 
     // Update the guest user to a registered user
     db.run(
-      `UPDATE users SET email = ?, username = ?, password_hash = ?, session_id = NULL WHERE id = ?`,
-      [email, username, passwordHash, guestUserId]
+      `UPDATE users SET email = ?, username = ?, password_hash = ? WHERE id = ?`,
+      [email, name, passwordHash, guestUserId]
     );
     saveDatabase();
 
@@ -314,7 +315,7 @@ router.post('/convert', async (req: Request, res: Response) => {
     logger.info('Guest converted to account', { userId: guestUserId, email });
 
     res.json({
-      user: { id: guestUserId, email, username },
+      user: { id: guestUserId, email, name },
       accessToken,
       refreshToken
     });
@@ -327,7 +328,7 @@ router.post('/convert', async (req: Request, res: Response) => {
 // Update account
 router.put('/update', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
-    const { username, email, currentPassword, newPassword } = req.body;
+    const { name, email, currentPassword, newPassword } = req.body;
     const db = getDb();
     const userId = req.userId as number;
 
@@ -343,22 +344,15 @@ router.put('/update', authMiddleware, async (req: AuthRequest, res: Response) =>
 
     const currentUser = {
       email: userResult[0].values[0][0] as string,
-      username: userResult[0].values[0][1] as string,
+      name: userResult[0].values[0][1] as string,
       password_hash: userResult[0].values[0][2] as string
     };
 
-    // Check for conflicts if changing email/username
+    // Check for conflicts if changing email
     if (email && email !== currentUser.email) {
       const emailCheck = db.exec(`SELECT id FROM users WHERE email = ? AND id != ?`, [email, userId]);
       if (emailCheck.length > 0 && emailCheck[0].values.length > 0) {
         return res.status(409).json({ error: 'Email already in use' });
-      }
-    }
-
-    if (username && username !== currentUser.username) {
-      const usernameCheck = db.exec(`SELECT id FROM users WHERE username = ? AND id != ?`, [username, userId]);
-      if (usernameCheck.length > 0 && usernameCheck[0].values.length > 0) {
-        return res.status(409).json({ error: 'Username already in use' });
       }
     }
 
@@ -381,7 +375,7 @@ router.put('/update', authMiddleware, async (req: AuthRequest, res: Response) =>
     // Update user
     db.run(
       `UPDATE users SET email = ?, username = ?, password_hash = ? WHERE id = ?`,
-      [email || currentUser.email, username || currentUser.username, newPasswordHash, userId]
+      [email || currentUser.email, name || currentUser.name, newPasswordHash, userId]
     );
     saveDatabase();
 
@@ -390,7 +384,7 @@ router.put('/update', authMiddleware, async (req: AuthRequest, res: Response) =>
     res.json({
       id: userId,
       email: email || currentUser.email,
-      username: username || currentUser.username
+      name: name || currentUser.name
     });
   } catch (error) {
     logger.error('Update account error', { error });
