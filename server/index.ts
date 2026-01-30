@@ -7,6 +7,8 @@ import authRouter from './routes/auth';
 import timeEntriesRouter from './routes/timeEntries';
 import categoriesRouter from './routes/categories';
 import analyticsRouter from './routes/analytics';
+import exportRouter from './routes/export';
+import settingsRouter from './routes/settings';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -31,6 +33,8 @@ app.use('/api/auth', authRouter);
 app.use('/api/time-entries', timeEntriesRouter);
 app.use('/api/categories', categoriesRouter);
 app.use('/api/analytics', analyticsRouter);
+app.use('/api/export', exportRouter);
+app.use('/api/settings', settingsRouter);
 
 // Health check
 app.get('/api/health', (req, res) => {

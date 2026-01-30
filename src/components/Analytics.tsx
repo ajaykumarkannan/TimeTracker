@@ -7,6 +7,7 @@ export function Analytics() {
   const [period, setPeriod] = useState<Period>('week');
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
 
   const getDateRange = (p: Period): { start: Date; end: Date } => {
     const end = new Date();
@@ -24,9 +25,34 @@ export function Analytics() {
       case 'quarter':
         start.setMonth(end.getMonth() - 3);
         break;
+      case 'year':
+        start.setFullYear(end.getFullYear() - 1);
+        break;
+      case 'all':
+        start.setFullYear(2000); // Far enough back to capture all data
+        break;
     }
     
     return { start, end };
+  };
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const exportData = await api.exportData();
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `chronoflow-export-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Export failed:', error);
+    }
+    setExporting(false);
   };
 
   useEffect(() => {
@@ -120,10 +146,22 @@ export function Analytics() {
   return (
     <div className="analytics">
       {/* Period selector */}
-      <div className="period-selector">
-        <button className={period === 'week' ? 'active' : ''} onClick={() => setPeriod('week')}>Week</button>
-        <button className={period === 'month' ? 'active' : ''} onClick={() => setPeriod('month')}>Month</button>
-        <button className={period === 'quarter' ? 'active' : ''} onClick={() => setPeriod('quarter')}>Quarter</button>
+      <div className="analytics-header">
+        <div className="period-selector">
+          <button className={period === 'week' ? 'active' : ''} onClick={() => setPeriod('week')}>Week</button>
+          <button className={period === 'month' ? 'active' : ''} onClick={() => setPeriod('month')}>Month</button>
+          <button className={period === 'quarter' ? 'active' : ''} onClick={() => setPeriod('quarter')}>Quarter</button>
+          <button className={period === 'year' ? 'active' : ''} onClick={() => setPeriod('year')}>Year</button>
+          <button className={period === 'all' ? 'active' : ''} onClick={() => setPeriod('all')}>All</button>
+        </div>
+        <button className="export-btn" onClick={handleExport} disabled={exporting}>
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="7,10 12,15 17,10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+          {exporting ? 'Exporting...' : 'Export'}
+        </button>
       </div>
 
       {/* Summary cards */}
@@ -157,7 +195,7 @@ export function Analytics() {
           <h2 className="card-title">Daily Breakdown</h2>
           {hasData && (
             <span className="chart-hint">
-              {period === 'week' ? 'Last 7 days' : period === 'month' ? 'Last 30 days' : 'Last 3 months'}
+              {period === 'week' ? 'Last 7 days' : period === 'month' ? 'Last 30 days' : period === 'quarter' ? 'Last 3 months' : period === 'year' ? 'Last 12 months' : 'All time'}
             </span>
           )}
         </div>

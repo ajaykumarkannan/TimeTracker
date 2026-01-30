@@ -2,37 +2,49 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Time Tracker E2E', () => {
   test.beforeEach(async ({ page }) => {
+    // Clear localStorage to start fresh
     await page.goto('/');
+    await page.evaluate(() => {
+      localStorage.clear();
+    });
+    await page.reload();
+    
+    // Wait for landing page and click "Start as Guest"
+    await page.click('button:has-text("Start as Guest")');
+    
+    // Wait for main app to load
+    await expect(page.locator('.app-nav')).toBeVisible();
   });
 
   test('complete workflow: create category, track time, view history', async ({ page }) => {
     // Navigate to categories
     await page.click('text=Categories');
-    await expect(page.locator('h2:has-text("Add Category")')).toBeVisible();
+    await expect(page.locator('h2:has-text("New Category")')).toBeVisible();
 
-    // Create a category
-    await page.fill('input[placeholder*="Meetings"]', 'Development');
-    await page.click('button:has-text("Add Category")');
-    await expect(page.locator('text=Development')).toBeVisible();
+    // Create a new category
+    await page.fill('input[placeholder="Category name"]', 'Development');
+    await page.click('button:has-text("Add")');
+    await expect(page.locator('.category-name:has-text("Development")')).toBeVisible();
 
     // Navigate back to tracker
-    await page.click('text=Tracker');
+    await page.click('text=Track');
 
-    // Start tracking time
-    await page.selectOption('select', { label: 'Development' });
-    await page.fill('textarea[placeholder*="working on"]', 'Building time tracker app');
-    await page.click('button:has-text("Start Timer")');
+    // Start tracking time via quick start category button
+    await page.click('.quick-start-category:has-text("Development")');
+    
+    // Fill in task name in the prompt modal and start
+    await page.fill('.task-prompt-input', 'Building time tracker app');
+    await page.click('.task-prompt-modal button:has-text("Start")');
 
     // Verify timer is running
-    await expect(page.locator('text=Stop Timer')).toBeVisible();
-    await expect(page.locator('text=Development')).toBeVisible();
-    await expect(page.locator('text=Building time tracker app')).toBeVisible();
+    await expect(page.locator('button:has-text("Stop")')).toBeVisible();
+    await expect(page.locator('.category-badge:has-text("Development")')).toBeVisible();
 
     // Wait a moment for time to elapse
     await page.waitForTimeout(2000);
 
     // Stop timer
-    await page.click('button:has-text("Stop Timer")');
+    await page.click('button:has-text("Stop")');
 
     // Verify entry appears in history
     await expect(page.locator('.time-entry-list')).toBeVisible();
@@ -43,51 +55,48 @@ test.describe('Time Tracker E2E', () => {
     await page.click('text=Categories');
 
     // Create category
-    await page.fill('input[placeholder*="Meetings"]', 'Meetings');
-    await page.click('button:has-text("Add Category")');
+    await page.fill('input[placeholder="Category name"]', 'TestCategory');
+    await page.click('button:has-text("Add")');
+    await expect(page.locator('.category-name:has-text("TestCategory")')).toBeVisible();
 
-    // Edit category
-    await page.click('button[title="Edit"]');
-    await page.fill('input[value="Meetings"]', 'Team Meetings');
-    await page.click('button:has-text("Update Category")');
-    await expect(page.locator('text=Team Meetings')).toBeVisible();
+    // Find the row with TestCategory and click its edit button
+    const categoryRow = page.locator('.category-item', { has: page.locator('.category-name:has-text("TestCategory")') });
+    await categoryRow.locator('button[title="Edit"]').click();
+    
+    await expect(page.locator('h2:has-text("Edit Category")')).toBeVisible();
+    await page.fill('input[placeholder="Category name"]', 'RenamedCategory');
+    await page.click('button:has-text("Update")');
+    await expect(page.locator('.category-name:has-text("RenamedCategory")')).toBeVisible();
 
     // Delete category
     page.on('dialog', dialog => dialog.accept());
-    await page.click('button[title="Delete"]');
-    await expect(page.locator('text=Team Meetings')).not.toBeVisible();
+    const renamedRow = page.locator('.category-item', { has: page.locator('.category-name:has-text("RenamedCategory")') });
+    await renamedRow.locator('button[title="Delete"]').click();
+    await expect(page.locator('.category-name:has-text("RenamedCategory")')).not.toBeVisible();
   });
 
-  test('cannot start timer without category', async ({ page }) => {
-    await expect(page.locator('button:has-text("Start Timer")')).toBeDisabled();
+  test('cannot start timer without category selected', async ({ page }) => {
+    // The start button in the form should be disabled when no category is selected
+    await expect(page.locator('.tracker-form .start-btn')).toBeDisabled();
   });
 
-  test('displays total time tracked', async ({ page }) => {
-    // Create category
-    await page.click('text=Categories');
-    await page.fill('input[placeholder*="Meetings"]', 'Testing');
-    await page.click('button:has-text("Add Category")');
-    await page.click('text=Tracker');
+  test('displays time in history after tracking', async ({ page }) => {
+    // Use one of the default categories (Meetings) to track time
+    await page.click('.quick-start-category:has-text("Meetings")');
+    await page.click('.task-prompt-modal button:has-text("Start")');
+    
+    await page.waitForTimeout(2000);
+    await page.click('button:has-text("Stop")');
 
-    // Track some time
-    await page.selectOption('select', { label: 'Testing' });
-    await page.click('button:has-text("Start Timer")');
-    await page.waitForTimeout(3000);
-    await page.click('button:has-text("Stop Timer")');
-
-    // Check total time is displayed
-    await expect(page.locator('.total-time')).toBeVisible();
-    await expect(page.locator('.total-time')).toContainText('Total:');
+    // Check history section shows the entry
+    await expect(page.locator('.time-entry-list')).toBeVisible();
+    await expect(page.locator('.entry-category:has-text("Meetings")')).toBeVisible();
   });
 
   test('timer updates in real-time', async ({ page }) => {
-    // Create category and start timer
-    await page.click('text=Categories');
-    await page.fill('input[placeholder*="Meetings"]', 'Work');
-    await page.click('button:has-text("Add Category")');
-    await page.click('text=Tracker');
-    await page.selectOption('select', { label: 'Work' });
-    await page.click('button:has-text("Start Timer")');
+    // Start timer using a default category
+    await page.click('.quick-start-category:has-text("Deep Work")');
+    await page.click('.task-prompt-modal button:has-text("Start")');
 
     // Get initial time
     const initialTime = await page.locator('.timer-time').textContent();
@@ -97,5 +106,8 @@ test.describe('Time Tracker E2E', () => {
     const updatedTime = await page.locator('.timer-time').textContent();
 
     expect(initialTime).not.toBe(updatedTime);
+    
+    // Clean up - stop the timer
+    await page.click('button:has-text("Stop")');
   });
 });

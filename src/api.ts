@@ -229,5 +229,64 @@ export const api = {
     const res = await apiFetch(`${API_BASE}/analytics?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`);
     if (!res.ok) throw new Error('Failed to fetch analytics');
     return res.json();
+  },
+
+  // Export
+  async exportData(): Promise<{ exportedAt: string; categories: Category[]; timeEntries: TimeEntry[] }> {
+    const res = await apiFetch(`${API_BASE}/export`);
+    if (!res.ok) throw new Error('Failed to export data');
+    return res.json();
+  },
+
+  // Settings
+  async convertGuestToAccount(email: string, username: string, password: string): Promise<AuthResponse> {
+    const sessionId = getSessionId();
+    const res = await fetch(`${API_BASE}/auth/convert`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'X-Session-ID': sessionId
+      },
+      body: JSON.stringify({ email, username, password })
+    });
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || 'Conversion failed');
+    }
+    const data: AuthResponse = await res.json();
+    setTokens(data.accessToken, data.refreshToken);
+    setStoredUser(data.user);
+    // Clear session ID since we're now a registered user
+    sessionId && localStorage.removeItem('sessionId');
+    return data;
+  },
+
+  async resetAllData(): Promise<void> {
+    const res = await apiFetch(`${API_BASE}/settings/reset`, {
+      method: 'POST'
+    });
+    if (!res.ok) throw new Error('Failed to reset data');
+  },
+
+  async updateAccount(data: { username?: string; email?: string; currentPassword?: string; newPassword?: string }): Promise<User> {
+    const res = await apiFetch(`${API_BASE}/auth/update`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || 'Update failed');
+    }
+    const user = await res.json();
+    setStoredUser(user);
+    return user;
+  },
+
+  async deleteAccount(): Promise<void> {
+    const res = await apiFetch(`${API_BASE}/auth/delete`, {
+      method: 'DELETE'
+    });
+    if (!res.ok) throw new Error('Failed to delete account');
+    clearTokens();
   }
 };

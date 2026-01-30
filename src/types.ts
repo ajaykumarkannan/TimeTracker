@@ -65,6 +65,12 @@ export interface AnalyticsData {
   topNotes: TopNote[];
 }
 
-export type Period = 'week' | 'month' | 'quarter';
+export type Period = 'week' | 'month' | 'quarter' | 'year' | 'all';
 
 export type Theme = 'light' | 'dark' | 'system';
+
+export interface ExportData {
+  exportedAt: string;
+  categories: Category[];
+  timeEntries: TimeEntry[];
+}

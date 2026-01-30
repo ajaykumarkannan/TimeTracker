@@ -1,33 +1,24 @@
-.theme-toggle {
-  display: flex;
-  gap: 0.25rem;
-  background: var(--bg-secondary);
-  padding: 0.25rem;
-  border-radius: 8px;
-}
-
-.theme-btn {
+.theme-toggle-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border: none;
-  background: transparent;
-  border-radius: 6px;
+  background: var(--bg-secondary);
+  border-radius: 8px;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: background 0.2s, transform 0.15s;
 }
 
-.theme-btn:hover {
+.theme-toggle-btn:hover {
   background: var(--bg-hover);
 }
 
-.theme-btn.active {
-  background: var(--card-bg);
-  box-shadow: var(--shadow-sm);
+.theme-toggle-btn:active {
+  transform: scale(0.95);
 }
 
 .theme-icon {
-  font-size: 1rem;
+  font-size: 1.125rem;
 }

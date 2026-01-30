@@ -135,6 +135,51 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
     return local.toISOString().slice(0, 16);
   };
 
+  const openManualEntry = () => {
+    const now = new Date();
+    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+    setManualStartTime(formatDateTimeLocal(oneHourAgo.toISOString()));
+    setManualEndTime(formatDateTimeLocal(now.toISOString()));
+    setManualCategory('');
+    setManualNote('');
+    setManualError('');
+    setShowManualEntry(true);
+  };
+
+  const closeManualEntry = () => {
+    setShowManualEntry(false);
+    setManualError('');
+  };
+
+  const handleManualSubmit = async () => {
+    if (!manualCategory) {
+      setManualError('Please select a category');
+      return;
+    }
+    if (!manualStartTime || !manualEndTime) {
+      setManualError('Please set start and end times');
+      return;
+    }
+    const start = new Date(manualStartTime);
+    const end = new Date(manualEndTime);
+    if (end <= start) {
+      setManualError('End time must be after start time');
+      return;
+    }
+    setIsSubmitting(true);
+    setManualError('');
+    try {
+      await api.createManualEntry(manualCategory as number, start.toISOString(), end.toISOString(), manualNote || undefined);
+      closeManualEntry();
+      onEntryChange();
+    } catch (error) {
+      setManualError('Failed to create entry. Please try again.');
+      console.error('Failed to create manual entry:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleSave = async (entryId: number) => {
     const entry = entries.find(e => e.id === entryId);
     if (!entry) return;
@@ -231,7 +276,8 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
       <div className="card-header">
         <h2 className="card-title">History</h2>
         <div className="header-actions">
-          <button 
+          <button className="btn btn-primary btn-sm" onClick={openManualEntry}>+ Add Entry</button>
+          <button
             className={`btn-icon filter-toggle ${showFilters ? 'active' : ''} ${hasActiveFilters ? 'has-filters' : ''}`}
             onClick={() => setShowFilters(!showFilters)}
             title="Toggle filters"
@@ -249,6 +295,47 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
           </div>
         </div>
       </div>
+
+      {showManualEntry && (
+        <div className="manual-entry-overlay" onClick={closeManualEntry}>
+          <div className="manual-entry-modal" onClick={e => e.stopPropagation()}>
+            <div className="manual-entry-header">
+              <h3>Add Past Entry</h3>
+              <button className="btn-icon" onClick={closeManualEntry}>×</button>
+            </div>
+            <div className="manual-entry-form">
+              <div className="form-group">
+                <label>Category</label>
+                <select value={manualCategory} onChange={(e) => setManualCategory(e.target.value ? Number(e.target.value) : '')}>
+                  <option value="">Select category...</option>
+                  {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Note <span className="optional">(optional)</span></label>
+                <input type="text" value={manualNote} onChange={(e) => setManualNote(e.target.value)} placeholder="What were you working on?" />
+              </div>
+              <div className="form-row-times">
+                <div className="form-group">
+                  <label>Start Time</label>
+                  <input type="datetime-local" value={manualStartTime} onChange={(e) => setManualStartTime(e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label>End Time</label>
+                  <input type="datetime-local" value={manualEndTime} onChange={(e) => setManualEndTime(e.target.value)} />
+                </div>
+              </div>
+              {manualError && <div className="manual-entry-error">{manualError}</div>}
+              <div className="manual-entry-actions">
+                <button className="btn btn-ghost" onClick={closeManualEntry}>Cancel</button>
+                <button className="btn btn-primary" onClick={handleManualSubmit} disabled={isSubmitting}>
+                  {isSubmitting ? 'Adding...' : 'Add Entry'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showFilters && (
         <div className="filters-panel">

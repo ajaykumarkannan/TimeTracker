@@ -130,6 +130,19 @@ All API routes are prefixed with `/api/`:
 - E2E tests cover critical user flows
 - Run `npm test` before committing
 
+## Agent Testing Requirements
+
+**All agents must follow these testing practices when making changes:**
+
+1. **Run existing tests first**: Before making changes, run `npm test` to ensure the test suite passes
+2. **Test your changes**: After making changes, run both unit tests (`npm test`) and E2E tests (`npm run test:e2e`) to verify nothing is broken
+3. **Add tests for new features**: When adding new functionality, write corresponding tests:
+   - Unit tests for new utility functions, hooks, and API routes
+   - Component tests for new React components
+   - E2E tests for new user-facing flows
+4. **Update tests when modifying existing code**: If you change existing behavior, update the relevant tests to match
+5. **Don't skip failing tests**: If tests fail, fix the underlying issue rather than skipping or deleting tests
+
 ## Logging
 
 Winston logger configured in `server/logger.ts`:

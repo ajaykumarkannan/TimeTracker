@@ -6,14 +6,15 @@ import { TimeTracker } from './components/TimeTracker';
 import { TimeEntryList } from './components/TimeEntryList';
 import { CategoryManager } from './components/CategoryManager';
 import { Analytics } from './components/Analytics';
+import { Settings } from './components/Settings';
 import { ThemeToggle } from './components/ThemeToggle';
 import { api } from './api';
 import { Category, TimeEntry } from './types';
 import './App.css';
 
-type Tab = 'tracker' | 'categories' | 'analytics';
+type Tab = 'tracker' | 'categories' | 'analytics' | 'settings';
 
-function AppContent({ isLoggedIn, onLogout }: { isLoggedIn: boolean; onLogout: () => void }) {
+function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLoggedIn: boolean; onLogout: () => void; onConvertSuccess: () => void }) {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>(() => {
     const saved = localStorage.getItem('chronoflow_tab');
@@ -64,13 +65,15 @@ function AppContent({ isLoggedIn, onLogout }: { isLoggedIn: boolean; onLogout: (
   const tabs: { id: Tab; label: string; icon: string }[] = [
     { id: 'tracker', label: 'Track', icon: '⏱️' },
     { id: 'categories', label: 'Categories', icon: '🏷️' },
-    { id: 'analytics', label: 'Analytics', icon: '📊' }
+    { id: 'analytics', label: 'Analytics', icon: '📊' },
+    { id: 'settings', label: 'Settings', icon: '⚙️' }
   ];
 
   return (
     <div className="app">
       <header className="app-header">
-        <div className="header-left">
+        <div className="header-left"></div>
+        <div className="header-center">
           <div className="logo">
             <svg viewBox="0 0 48 48" className="logo-icon">
               <circle cx="24" cy="24" r="22" fill="none" stroke="currentColor" strokeWidth="2" />
@@ -80,11 +83,11 @@ function AppContent({ isLoggedIn, onLogout }: { isLoggedIn: boolean; onLogout: (
             </svg>
             <span className="logo-text">ChronoFlow</span>
           </div>
+        </div>
+        <div className="header-right">
           {!isLoggedIn && (
             <span className="mode-badge">Guest Mode</span>
           )}
-        </div>
-        <div className="header-right">
           <ThemeToggle />
           <div className="user-menu">
             {isLoggedIn && user && (
@@ -102,16 +105,18 @@ function AppContent({ isLoggedIn, onLogout }: { isLoggedIn: boolean; onLogout: (
       </header>
 
       <nav className="app-nav">
-        {tabs.map(tab => (
-          <button
-            key={tab.id}
-            className={`nav-btn ${activeTab === tab.id ? 'active' : ''}`}
-            onClick={() => handleTabChange(tab.id)}
-          >
-            <span className="nav-icon">{tab.icon}</span>
-            <span className="nav-label">{tab.label}</span>
-          </button>
-        ))}
+        <div className="nav-content">
+          {tabs.map(tab => (
+            <button
+              key={tab.id}
+              className={`nav-btn ${activeTab === tab.id ? 'active' : ''}`}
+              onClick={() => handleTabChange(tab.id)}
+            >
+              <span className="nav-icon">{tab.icon}</span>
+              <span className="nav-label">{tab.label}</span>
+            </button>
+          ))}
+        </div>
       </nav>
 
       <main className="app-main">
@@ -138,6 +143,9 @@ function AppContent({ isLoggedIn, onLogout }: { isLoggedIn: boolean; onLogout: (
           />
         )}
         {activeTab === 'analytics' && <Analytics />}
+        {activeTab === 'settings' && (
+          <Settings onLogout={onLogout} onConvertSuccess={onConvertSuccess} />
+        )}
       </main>
     </div>
   );
@@ -188,6 +196,11 @@ export default function App() {
     setShowLanding(false);
   };
 
+  const handleConvertSuccess = () => {
+    // Reload to refresh auth state
+    window.location.reload();
+  };
+
   // Show login screen
   if (showLogin) {
     return <Login onBack={handleLoginBack} onSuccess={handleLoginSuccess} />;
@@ -199,5 +212,5 @@ export default function App() {
   }
 
   // Show main app
-  return <AppContent isLoggedIn={!!user} onLogout={handleLogout} />;
+  return <AppContent isLoggedIn={!!user} onLogout={handleLogout} onConvertSuccess={handleConvertSuccess} />;
 }

@@ -5,25 +5,29 @@ import './ThemeToggle.css';
 export function ThemeToggle() {
   const { theme, setTheme } = useTheme();
 
-  const themes: { value: Theme; icon: string; label: string }[] = [
-    { value: 'light', icon: '☀️', label: 'Light' },
-    { value: 'dark', icon: '🌙', label: 'Dark' },
-    { value: 'system', icon: '💻', label: 'System' }
-  ];
+  const themeOrder: Theme[] = ['light', 'dark', 'system'];
+  const themeConfig: Record<Theme, { icon: string; label: string }> = {
+    light: { icon: '☀️', label: 'Light mode (click for dark)' },
+    dark: { icon: '🌙', label: 'Dark mode (click for system)' },
+    system: { icon: '💻', label: 'System mode (click for light)' }
+  };
+
+  const cycleTheme = () => {
+    const currentIndex = themeOrder.indexOf(theme);
+    const nextIndex = (currentIndex + 1) % themeOrder.length;
+    setTheme(themeOrder[nextIndex]);
+  };
+
+  const { icon, label } = themeConfig[theme];
 
   return (
-    <div className="theme-toggle">
-      {themes.map(({ value, icon, label }) => (
-        <button
-          key={value}
-          className={`theme-btn ${theme === value ? 'active' : ''}`}
-          onClick={() => setTheme(value)}
-          title={label}
-          aria-label={`Switch to ${label} theme`}
-        >
-          <span className="theme-icon">{icon}</span>
-        </button>
-      ))}
-    </div>
+    <button
+      className="theme-toggle-btn"
+      onClick={cycleTheme}
+      title={label}
+      aria-label={label}
+    >
+      <span className="theme-icon">{icon}</span>
+    </button>
   );
 }

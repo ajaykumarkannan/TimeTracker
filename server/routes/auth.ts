@@ -258,4 +258,165 @@ router.get('/me', authMiddleware, (req: AuthRequest, res: Response) => {
   }
 });
 
+// Convert guest to registered account
+router.post('/convert', async (req: Request, res: Response) => {
+  try {
+    const { email, username, password } = req.body;
+    const sessionId = req.headers['x-session-id'] as string;
+
+    if (!sessionId) {
+      return res.status(400).json({ error: 'Session ID required for conversion' });
+    }
+
+    if (!email || !username || !password) {
+      return res.status(400).json({ error: 'Email, username, and password are required' });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+
+    const db = getDb();
+
+    // Check if email/username already exists
+    const existing = db.exec(`SELECT id FROM users WHERE email = ? OR username = ?`, [email, username]);
+    if (existing.length > 0 && existing[0].values.length > 0) {
+      return res.status(409).json({ error: 'Email or username already exists' });
+    }
+
+    // Find the guest user by session_id
+    const guestResult = db.exec(`SELECT id FROM users WHERE session_id = ?`, [sessionId]);
+    if (guestResult.length === 0 || guestResult[0].values.length === 0) {
+      return res.status(404).json({ error: 'Guest session not found' });
+    }
+
+    const guestUserId = guestResult[0].values[0][0] as number;
+    const passwordHash = await bcrypt.hash(password, 12);
+
+    // Update the guest user to a registered user
+    db.run(
+      `UPDATE users SET email = ?, username = ?, password_hash = ?, session_id = NULL WHERE id = ?`,
+      [email, username, passwordHash, guestUserId]
+    );
+    saveDatabase();
+
+    const accessToken = generateAccessToken(guestUserId, email);
+    const refreshToken = generateRefreshToken(guestUserId, email);
+
+    // Store refresh token
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    db.run(
+      `INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES (?, ?, ?)`,
+      [guestUserId, refreshToken, expiresAt]
+    );
+    saveDatabase();
+
+    logger.info('Guest converted to account', { userId: guestUserId, email });
+
+    res.json({
+      user: { id: guestUserId, email, username },
+      accessToken,
+      refreshToken
+    });
+  } catch (error) {
+    logger.error('Convert error', { error });
+    res.status(500).json({ error: 'Conversion failed' });
+  }
+});
+
+// Update account
+router.put('/update', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const { username, email, currentPassword, newPassword } = req.body;
+    const db = getDb();
+    const userId = req.userId as number;
+
+    // Get current user
+    const userResult = db.exec(
+      `SELECT email, username, password_hash FROM users WHERE id = ?`,
+      [userId]
+    );
+
+    if (userResult.length === 0 || userResult[0].values.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const currentUser = {
+      email: userResult[0].values[0][0] as string,
+      username: userResult[0].values[0][1] as string,
+      password_hash: userResult[0].values[0][2] as string
+    };
+
+    // Check for conflicts if changing email/username
+    if (email && email !== currentUser.email) {
+      const emailCheck = db.exec(`SELECT id FROM users WHERE email = ? AND id != ?`, [email, userId]);
+      if (emailCheck.length > 0 && emailCheck[0].values.length > 0) {
+        return res.status(409).json({ error: 'Email already in use' });
+      }
+    }
+
+    if (username && username !== currentUser.username) {
+      const usernameCheck = db.exec(`SELECT id FROM users WHERE username = ? AND id != ?`, [username, userId]);
+      if (usernameCheck.length > 0 && usernameCheck[0].values.length > 0) {
+        return res.status(409).json({ error: 'Username already in use' });
+      }
+    }
+
+    // Handle password change
+    let newPasswordHash = currentUser.password_hash;
+    if (newPassword) {
+      if (!currentPassword) {
+        return res.status(400).json({ error: 'Current password required to change password' });
+      }
+      const validPassword = await bcrypt.compare(currentPassword, currentUser.password_hash);
+      if (!validPassword) {
+        return res.status(401).json({ error: 'Current password is incorrect' });
+      }
+      if (newPassword.length < 6) {
+        return res.status(400).json({ error: 'New password must be at least 6 characters' });
+      }
+      newPasswordHash = await bcrypt.hash(newPassword, 12);
+    }
+
+    // Update user
+    db.run(
+      `UPDATE users SET email = ?, username = ?, password_hash = ? WHERE id = ?`,
+      [email || currentUser.email, username || currentUser.username, newPasswordHash, userId]
+    );
+    saveDatabase();
+
+    logger.info('Account updated', { userId });
+
+    res.json({
+      id: userId,
+      email: email || currentUser.email,
+      username: username || currentUser.username
+    });
+  } catch (error) {
+    logger.error('Update account error', { error });
+    res.status(500).json({ error: 'Update failed' });
+  }
+});
+
+// Delete account
+router.delete('/delete', authMiddleware, (req: AuthRequest, res: Response) => {
+  try {
+    const db = getDb();
+    const userId = req.userId as number;
+
+    // Delete all user data
+    db.run(`DELETE FROM time_entries WHERE user_id = ?`, [userId]);
+    db.run(`DELETE FROM categories WHERE user_id = ?`, [userId]);
+    db.run(`DELETE FROM refresh_tokens WHERE user_id = ?`, [userId]);
+    db.run(`DELETE FROM users WHERE id = ?`, [userId]);
+    saveDatabase();
+
+    logger.info('Account deleted', { userId });
+    res.json({ message: 'Account deleted successfully' });
+  } catch (error) {
+    logger.error('Delete account error', { error });
+    res.status(500).json({ error: 'Delete failed' });
+  }
+});
+
 export default router;
