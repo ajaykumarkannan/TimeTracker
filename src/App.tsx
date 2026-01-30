@@ -11,7 +11,7 @@ import { api } from './api';
 import { Category, TimeEntry } from './types';
 import './App.css';
 
-type Tab = 'tracker' | 'history' | 'categories' | 'analytics';
+type Tab = 'tracker' | 'categories' | 'analytics';
 
 function AppContent({ isLoggedIn, onLogout }: { isLoggedIn: boolean; onLogout: () => void }) {
   const { user } = useAuth();
@@ -63,7 +63,6 @@ function AppContent({ isLoggedIn, onLogout }: { isLoggedIn: boolean; onLogout: (
 
   const tabs: { id: Tab; label: string; icon: string }[] = [
     { id: 'tracker', label: 'Track', icon: '⏱️' },
-    { id: 'history', label: 'History', icon: '📋' },
     { id: 'categories', label: 'Categories', icon: '🏷️' },
     { id: 'analytics', label: 'Analytics', icon: '📊' }
   ];
@@ -117,19 +116,20 @@ function AppContent({ isLoggedIn, onLogout }: { isLoggedIn: boolean; onLogout: (
 
       <main className="app-main">
         {activeTab === 'tracker' && (
-          <TimeTracker
-            categories={categories}
-            activeEntry={activeEntry}
-            onEntryChange={handleEntryChange}
-            onCategoryChange={handleCategoryChange}
-          />
-        )}
-        {activeTab === 'history' && (
-          <TimeEntryList
-            entries={entries}
-            categories={categories}
-            onEntryChange={handleEntryChange}
-          />
+          <>
+            <TimeTracker
+              categories={categories}
+              activeEntry={activeEntry}
+              entries={entries}
+              onEntryChange={handleEntryChange}
+              onCategoryChange={handleCategoryChange}
+            />
+            <TimeEntryList
+              entries={entries}
+              categories={categories}
+              onEntryChange={handleEntryChange}
+            />
+          </>
         )}
         {activeTab === 'categories' && (
           <CategoryManager

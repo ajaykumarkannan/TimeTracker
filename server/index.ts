@@ -15,8 +15,9 @@ app.use(cors());
 app.use(express.json());
 
 // Serve static files in production
+// In production, __dirname is /app/dist/server, frontend is at /app/dist
 if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../dist')));
+  app.use(express.static(path.join(__dirname, '..')));
 }
 
 // Request logging middleware
@@ -39,7 +40,7 @@ app.get('/api/health', (req, res) => {
 // Serve frontend for all other routes in production
 if (process.env.NODE_ENV === 'production') {
   app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../dist/index.html'));
+    res.sendFile(path.join(__dirname, '../index.html'));
   });
 }
 

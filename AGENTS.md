@@ -75,6 +75,13 @@ Both modes use the same server-side SQLite database - there is no localStorage-b
 
 ## Development Workflow
 
+### Git Workflow
+
+- **Commit frequently**: Make small, incremental commits as you work rather than one large commit at the end
+- **Use feature branches**: Create a branch for new features or significant changes (`git checkout -b feature/my-feature`)
+- **Merge to main when stable**: Only merge to main after tests pass and the feature is complete
+- **Write meaningful commit messages**: Describe what changed and why
+
 ### Commands
 
 - `npm run dev` - Start both client and server in dev mode

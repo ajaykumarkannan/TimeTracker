@@ -226,6 +226,9 @@ body {
   max-width: 1000px;
   width: 100%;
   margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
 }
 
 /* Loading screen */

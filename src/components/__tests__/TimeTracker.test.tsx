@@ -19,6 +19,20 @@ describe('TimeTracker', () => {
     { id: 2, name: 'Meetings', color: '#28a745', created_at: '2024-01-01' }
   ];
 
+  const mockEntries = [
+    {
+      id: 1,
+      category_id: 1,
+      category_name: 'Development',
+      category_color: '#007bff',
+      note: 'Previous task',
+      start_time: '2024-01-01T10:00:00Z',
+      end_time: '2024-01-01T11:00:00Z',
+      duration_minutes: 60,
+      created_at: '2024-01-01'
+    }
+  ];
+
   const mockOnEntryChange = vi.fn();
   const mockOnCategoryChange = vi.fn();
 
@@ -30,7 +44,8 @@ describe('TimeTracker', () => {
     render(
       <TimeTracker 
         categories={mockCategories} 
-        activeEntry={null} 
+        activeEntry={null}
+        entries={mockEntries}
         onEntryChange={mockOnEntryChange}
         onCategoryChange={mockOnCategoryChange}
       />
@@ -43,7 +58,8 @@ describe('TimeTracker', () => {
     render(
       <TimeTracker 
         categories={mockCategories} 
-        activeEntry={null} 
+        activeEntry={null}
+        entries={mockEntries}
         onEntryChange={mockOnEntryChange}
         onCategoryChange={mockOnCategoryChange}
       />
@@ -77,13 +93,15 @@ describe('TimeTracker', () => {
     render(
       <TimeTracker 
         categories={mockCategories} 
-        activeEntry={activeEntry} 
+        activeEntry={activeEntry}
+        entries={mockEntries}
         onEntryChange={mockOnEntryChange}
         onCategoryChange={mockOnCategoryChange}
       />
     );
     
-    expect(screen.getByText('Development')).toBeInTheDocument();
+    // Use getAllByText since Development appears in both active timer and switch options
+    expect(screen.getAllByText('Development').length).toBeGreaterThan(0);
     expect(screen.getByText('Working on feature')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /stop/i })).toBeInTheDocument();
   });
@@ -104,7 +122,8 @@ describe('TimeTracker', () => {
     render(
       <TimeTracker 
         categories={mockCategories} 
-        activeEntry={activeEntry} 
+        activeEntry={activeEntry}
+        entries={mockEntries}
         onEntryChange={mockOnEntryChange}
         onCategoryChange={mockOnCategoryChange}
       />
@@ -123,7 +142,8 @@ describe('TimeTracker', () => {
     render(
       <TimeTracker 
         categories={mockCategories} 
-        activeEntry={null} 
+        activeEntry={null}
+        entries={mockEntries}
         onEntryChange={mockOnEntryChange}
         onCategoryChange={mockOnCategoryChange}
       />

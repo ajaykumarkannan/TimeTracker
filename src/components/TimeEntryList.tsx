@@ -19,6 +19,13 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
   const [editNote, setEditNote] = useState<string>('');
   const [editStartTime, setEditStartTime] = useState<string>('');
   const [editEndTime, setEditEndTime] = useState<string>('');
+  
+  // Filter state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState<number | 'all'>('all');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
 
   // Check for overlaps with other entries
   const checkOverlap = (entryId: number, start: Date, end: Date | null): TimeEntry | null => {
@@ -52,6 +59,48 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
     }
     return result;
   }, [entries]);
+
+  // Filter entries based on search, category, and date range
+  const filteredEntries = useMemo(() => {
+    return entries.filter(entry => {
+      // Search filter (note and category name)
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        const matchesNote = entry.note?.toLowerCase().includes(query);
+        const matchesCategory = entry.category_name.toLowerCase().includes(query);
+        if (!matchesNote && !matchesCategory) return false;
+      }
+      
+      // Category filter
+      if (categoryFilter !== 'all' && entry.category_id !== categoryFilter) {
+        return false;
+      }
+      
+      // Date range filter
+      const entryDate = new Date(entry.start_time);
+      if (dateFrom) {
+        const fromDate = new Date(dateFrom);
+        fromDate.setHours(0, 0, 0, 0);
+        if (entryDate < fromDate) return false;
+      }
+      if (dateTo) {
+        const toDate = new Date(dateTo);
+        toDate.setHours(23, 59, 59, 999);
+        if (entryDate > toDate) return false;
+      }
+      
+      return true;
+    });
+  }, [entries, searchQuery, categoryFilter, dateFrom, dateTo]);
+
+  const hasActiveFilters = searchQuery || categoryFilter !== 'all' || dateFrom || dateTo;
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setCategoryFilter('all');
+    setDateFrom('');
+    setDateTo('');
+  };
 
   const handleSelect = (id: number) => {
     if (editingId !== id) {
@@ -152,12 +201,12 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
   };
 
   const getTotalMinutes = () => {
-    return entries.reduce((sum, entry) => sum + (entry.duration_minutes || 0), 0);
+    return filteredEntries.reduce((sum, entry) => sum + (entry.duration_minutes || 0), 0);
   };
 
   const groupByDate = () => {
     const groups: { [key: string]: TimeEntry[] } = {};
-    entries.forEach(entry => {
+    filteredEntries.forEach(entry => {
       const date = new Date(entry.start_time).toDateString();
       if (!groups[date]) groups[date] = [];
       groups[date].push(entry);
@@ -172,16 +221,94 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
     <div className="time-entry-list card">
       <div className="card-header">
         <h2 className="card-title">History</h2>
-        <div className="total-badge">
-          {formatDuration(totalMinutes)}
+        <div className="header-actions">
+          <button 
+            className={`btn-icon filter-toggle ${showFilters ? 'active' : ''} ${hasActiveFilters ? 'has-filters' : ''}`}
+            onClick={() => setShowFilters(!showFilters)}
+            title="Toggle filters"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path d="M2 4h12M4 8h8M6 12h4" strokeLinecap="round"/>
+            </svg>
+            {hasActiveFilters && <span className="filter-badge" />}
+          </button>
+          <div className="total-badge">
+            {formatDuration(totalMinutes)}
+            {hasActiveFilters && entries.length !== filteredEntries.length && (
+              <span className="filtered-count"> ({filteredEntries.length}/{entries.length})</span>
+            )}
+          </div>
         </div>
       </div>
+
+      {showFilters && (
+        <div className="filters-panel">
+          <div className="filter-row">
+            <div className="filter-group search-group">
+              <input
+                type="text"
+                className="filter-input search-input"
+                placeholder="Search notes & categories..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              {searchQuery && (
+                <button className="clear-search" onClick={() => setSearchQuery('')}>×</button>
+              )}
+            </div>
+            <div className="filter-group">
+              <select
+                className="filter-select"
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+              >
+                <option value="all">All categories</option>
+                {categories.map(cat => (
+                  <option key={cat.id} value={cat.id}>{cat.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="filter-row">
+            <div className="filter-group date-group">
+              <label className="filter-label">From</label>
+              <input
+                type="date"
+                className="filter-input date-input"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+              />
+            </div>
+            <div className="filter-group date-group">
+              <label className="filter-label">To</label>
+              <input
+                type="date"
+                className="filter-input date-input"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+              />
+            </div>
+            {hasActiveFilters && (
+              <button className="btn-text clear-filters" onClick={clearFilters}>
+                Clear all
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {entries.length === 0 ? (
         <div className="empty-state">
           <div className="empty-icon">📊</div>
           <p>No entries yet</p>
           <p className="empty-hint">Start tracking to build your history</p>
+        </div>
+      ) : filteredEntries.length === 0 ? (
+        <div className="empty-state">
+          <div className="empty-icon">🔍</div>
+          <p>No matching entries</p>
+          <p className="empty-hint">Try adjusting your filters</p>
+          <button className="btn-text" onClick={clearFilters}>Clear filters</button>
         </div>
       ) : (
         <div className="entries-by-date">
