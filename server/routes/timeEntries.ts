@@ -1,195 +1,295 @@
-import express from 'express';
+import { Router, Response } from 'express';
 import { getDb, saveDatabase } from '../database';
 import { logger } from '../logger';
+import { authMiddleware, AuthRequest } from '../middleware/auth';
 
-const router = express.Router();
+const router = Router();
 
-// Get all time entries with category info
-router.get('/', (req, res) => {
+router.use(authMiddleware);
+
+// Get all time entries for user
+router.get('/', (req: AuthRequest, res: Response) => {
   try {
     const db = getDb();
-    const stmt = db.prepare(`
-      SELECT te.*, c.name as category_name, c.color as category_color
+    const result = db.exec(`
+      SELECT te.id, te.user_id, te.category_id, c.name as category_name, c.color as category_color,
+             te.note, te.start_time, te.end_time, te.duration_minutes, te.created_at
       FROM time_entries te
       JOIN categories c ON te.category_id = c.id
+      WHERE te.user_id = ?
       ORDER BY te.start_time DESC
-    `);
-    const entries = [];
-    while (stmt.step()) {
-      entries.push(stmt.getAsObject());
-    }
-    stmt.free();
+      LIMIT 100
+    `, [req.userId as number]);
+
+    const entries = result.length > 0 
+      ? result[0].values.map(row => ({
+          id: row[0] as number,
+          user_id: row[1] as number,
+          category_id: row[2] as number,
+          category_name: row[3] as string,
+          category_color: row[4] as string | null,
+          note: row[5] as string | null,
+          start_time: row[6] as string,
+          end_time: row[7] as string | null,
+          duration_minutes: row[8] as number | null,
+          created_at: row[9] as string
+        }))
+      : [];
+
     res.json(entries);
   } catch (error) {
-    logger.error('Error fetching time entries', { error });
+    logger.error('Error fetching time entries', { error, userId: req.userId as number });
     res.status(500).json({ error: 'Failed to fetch time entries' });
   }
 });
 
-// Get active time entry
-router.get('/active', (req, res) => {
+// Get active entry
+router.get('/active', (req: AuthRequest, res: Response) => {
   try {
     const db = getDb();
-    const stmt = db.prepare(`
-      SELECT te.*, c.name as category_name, c.color as category_color
+    const result = db.exec(`
+      SELECT te.id, te.user_id, te.category_id, c.name as category_name, c.color as category_color,
+             te.note, te.start_time, te.end_time, te.duration_minutes, te.created_at
       FROM time_entries te
       JOIN categories c ON te.category_id = c.id
-      WHERE te.end_time IS NULL
-      ORDER BY te.start_time DESC
+      WHERE te.user_id = ? AND te.end_time IS NULL
       LIMIT 1
-    `);
-    let entry = null;
-    if (stmt.step()) {
-      entry = stmt.getAsObject();
+    `, [req.userId as number]);
+
+    if (result.length === 0 || result[0].values.length === 0) {
+      return res.json(null);
     }
-    stmt.free();
-    res.json(entry);
+
+    const row = result[0].values[0];
+    res.json({
+      id: row[0] as number,
+      user_id: row[1] as number,
+      category_id: row[2] as number,
+      category_name: row[3] as string,
+      category_color: row[4] as string | null,
+      note: row[5] as string | null,
+      start_time: row[6] as string,
+      end_time: row[7] as string | null,
+      duration_minutes: row[8] as number | null,
+      created_at: row[9] as string
+    });
   } catch (error) {
-    logger.error('Error fetching active entry', { error });
+    logger.error('Error fetching active entry', { error, userId: req.userId as number });
     res.status(500).json({ error: 'Failed to fetch active entry' });
   }
 });
 
-// Start time entry
-router.post('/start', (req, res) => {
-  const { category_id, note } = req.body;
-
-  if (!category_id) {
-    return res.status(400).json({ error: 'Category ID is required' });
-  }
-
+// Start new entry
+router.post('/start', (req: AuthRequest, res: Response) => {
   try {
-    const db = getDb();
-    const now = new Date().toISOString();
+    const { category_id, note } = req.body;
     
-    // Stop any active entries
-    const activeStmt = db.prepare('SELECT id, start_time FROM time_entries WHERE end_time IS NULL');
-    while (activeStmt.step()) {
-      const active = activeStmt.getAsObject() as any;
-      const startTime = new Date(active.start_time).getTime();
-      const duration = Math.floor((Date.now() - startTime) / 60000);
-      db.run('UPDATE time_entries SET end_time = ?, duration_minutes = ? WHERE id = ?', 
-        [now, duration, active.id]);
+    if (!category_id) {
+      return res.status(400).json({ error: 'Category is required' });
     }
-    activeStmt.free();
 
-    // Start new entry
-    db.run('INSERT INTO time_entries (category_id, note, start_time) VALUES (?, ?, ?)',
-      [category_id, note || null, now]);
+    const db = getDb();
+
+    // Verify category belongs to user
+    const catCheck = db.exec(
+      `SELECT id FROM categories WHERE id = ? AND user_id = ?`,
+      [category_id, req.userId as number]
+    );
+    if (catCheck.length === 0 || catCheck[0].values.length === 0) {
+      return res.status(400).json({ error: 'Invalid category' });
+    }
+
+    // Stop any active entry first
+    const activeResult = db.exec(
+      `SELECT id, start_time FROM time_entries WHERE user_id = ? AND end_time IS NULL`,
+      [req.userId as number]
+    );
     
-    const lastId = db.exec('SELECT last_insert_rowid() as id')[0].values[0][0];
+    if (activeResult.length > 0 && activeResult[0].values.length > 0) {
+      const activeId = activeResult[0].values[0][0] as number;
+      const startTime = activeResult[0].values[0][1] as string;
+      const endTime = new Date().toISOString();
+      const duration = Math.round((new Date(endTime).getTime() - new Date(startTime).getTime()) / 60000);
+      
+      db.run(
+        `UPDATE time_entries SET end_time = ?, duration_minutes = ? WHERE id = ?`,
+        [endTime, duration, activeId]
+      );
+    }
+
+    const startTime = new Date().toISOString();
+    db.run(
+      `INSERT INTO time_entries (user_id, category_id, note, start_time) VALUES (?, ?, ?, ?)`,
+      [req.userId as number, category_id, note || null, startTime]
+    );
     saveDatabase();
 
-    const stmt = db.prepare(`
-      SELECT te.*, c.name as category_name, c.color as category_color
+    const result = db.exec(`
+      SELECT te.id, te.user_id, te.category_id, c.name as category_name, c.color as category_color,
+             te.note, te.start_time, te.end_time, te.duration_minutes, te.created_at
       FROM time_entries te
       JOIN categories c ON te.category_id = c.id
-      WHERE te.id = ?
-    `);
-    stmt.bind([lastId]);
-    stmt.step();
-    const entry = stmt.getAsObject();
-    stmt.free();
+      WHERE te.user_id = ? AND te.end_time IS NULL
+    `, [req.userId as number]);
 
-    logger.info('Time entry started', { id: lastId, category_id });
-    res.status(201).json(entry);
+    const row = result[0].values[0];
+    logger.info('Time entry started', { entryId: row[0], userId: req.userId as number });
+
+    res.status(201).json({
+      id: row[0] as number,
+      user_id: row[1] as number,
+      category_id: row[2] as number,
+      category_name: row[3] as string,
+      category_color: row[4] as string | null,
+      note: row[5] as string | null,
+      start_time: row[6] as string,
+      end_time: row[7] as string | null,
+      duration_minutes: row[8] as number | null,
+      created_at: row[9] as string
+    });
   } catch (error) {
-    logger.error('Error starting time entry', { error });
+    logger.error('Error starting time entry', { error, userId: req.userId as number });
     res.status(500).json({ error: 'Failed to start time entry' });
   }
 });
 
-// Stop time entry
-router.post('/:id/stop', (req, res) => {
-  const { id } = req.params;
-
+// Stop entry
+router.post('/:id/stop', (req: AuthRequest, res: Response) => {
   try {
+    const { id } = req.params;
     const db = getDb();
-    const now = new Date().toISOString();
-    
-    // Get start time to calculate duration
-    const getStmt = db.prepare('SELECT start_time FROM time_entries WHERE id = ?');
-    getStmt.bind([id]);
-    getStmt.step();
-    const entry = getStmt.getAsObject() as any;
-    getStmt.free();
-    
-    const startTime = new Date(entry.start_time).getTime();
-    const duration = Math.floor((Date.now() - startTime) / 60000);
-    
-    db.run('UPDATE time_entries SET end_time = ?, duration_minutes = ? WHERE id = ?',
-      [now, duration, id]);
+
+    const existing = db.exec(
+      `SELECT start_time FROM time_entries WHERE id = ? AND user_id = ? AND end_time IS NULL`,
+      [id, req.userId as number]
+    );
+
+    if (existing.length === 0 || existing[0].values.length === 0) {
+      return res.status(404).json({ error: 'Active entry not found' });
+    }
+
+    const startTime = existing[0].values[0][0] as string;
+    const endTime = new Date().toISOString();
+    const duration = Math.round((new Date(endTime).getTime() - new Date(startTime).getTime()) / 60000);
+
+    db.run(
+      `UPDATE time_entries SET end_time = ?, duration_minutes = ? WHERE id = ?`,
+      [endTime, duration, id]
+    );
     saveDatabase();
 
-    const stmt = db.prepare(`
-      SELECT te.*, c.name as category_name, c.color as category_color
+    const result = db.exec(`
+      SELECT te.id, te.user_id, te.category_id, c.name as category_name, c.color as category_color,
+             te.note, te.start_time, te.end_time, te.duration_minutes, te.created_at
       FROM time_entries te
       JOIN categories c ON te.category_id = c.id
       WHERE te.id = ?
-    `);
-    stmt.bind([id]);
-    stmt.step();
-    const result = stmt.getAsObject();
-    stmt.free();
+    `, [id]);
 
-    logger.info('Time entry stopped', { id });
-    res.json(result);
+    const row = result[0].values[0];
+    logger.info('Time entry stopped', { entryId: id, duration, userId: req.userId as number });
+
+    res.json({
+      id: row[0] as number,
+      user_id: row[1] as number,
+      category_id: row[2] as number,
+      category_name: row[3] as string,
+      category_color: row[4] as string | null,
+      note: row[5] as string | null,
+      start_time: row[6] as string,
+      end_time: row[7] as string | null,
+      duration_minutes: row[8] as number | null,
+      created_at: row[9] as string
+    });
   } catch (error) {
-    logger.error('Error stopping time entry', { error });
+    logger.error('Error stopping time entry', { error, userId: req.userId as number });
     res.status(500).json({ error: 'Failed to stop time entry' });
   }
 });
 
-// Update time entry
-router.put('/:id', (req, res) => {
-  const { id } = req.params;
-  const { category_id, note, start_time, end_time } = req.body;
-
+// Update entry
+router.put('/:id', (req: AuthRequest, res: Response) => {
   try {
+    const { id } = req.params;
+    const { category_id, note } = req.body;
     const db = getDb();
-    let duration = null;
-    if (end_time && start_time) {
-      const start = new Date(start_time).getTime();
-      const end = new Date(end_time).getTime();
-      duration = Math.floor((end - start) / 60000);
+
+    const existing = db.exec(
+      `SELECT id FROM time_entries WHERE id = ? AND user_id = ?`,
+      [id, req.userId as number]
+    );
+
+    if (existing.length === 0 || existing[0].values.length === 0) {
+      return res.status(404).json({ error: 'Entry not found' });
     }
-    
-    db.run('UPDATE time_entries SET category_id = ?, note = ?, start_time = ?, end_time = ?, duration_minutes = ? WHERE id = ?',
-      [category_id, note, start_time, end_time, duration, id]);
+
+    if (category_id) {
+      const catCheck = db.exec(
+        `SELECT id FROM categories WHERE id = ? AND user_id = ?`,
+        [category_id, req.userId as number]
+      );
+      if (catCheck.length === 0 || catCheck[0].values.length === 0) {
+        return res.status(400).json({ error: 'Invalid category' });
+      }
+    }
+
+    db.run(
+      `UPDATE time_entries SET category_id = COALESCE(?, category_id), note = ? WHERE id = ?`,
+      [category_id || null, note, id]
+    );
     saveDatabase();
 
-    const stmt = db.prepare(`
-      SELECT te.*, c.name as category_name, c.color as category_color
+    const result = db.exec(`
+      SELECT te.id, te.user_id, te.category_id, c.name as category_name, c.color as category_color,
+             te.note, te.start_time, te.end_time, te.duration_minutes, te.created_at
       FROM time_entries te
       JOIN categories c ON te.category_id = c.id
       WHERE te.id = ?
-    `);
-    stmt.bind([id]);
-    stmt.step();
-    const entry = stmt.getAsObject();
-    stmt.free();
+    `, [id]);
 
-    logger.info('Time entry updated', { id });
-    res.json(entry);
+    const row = result[0].values[0];
+    logger.info('Time entry updated', { entryId: id, userId: req.userId as number });
+
+    res.json({
+      id: row[0] as number,
+      user_id: row[1] as number,
+      category_id: row[2] as number,
+      category_name: row[3] as string,
+      category_color: row[4] as string | null,
+      note: row[5] as string | null,
+      start_time: row[6] as string,
+      end_time: row[7] as string | null,
+      duration_minutes: row[8] as number | null,
+      created_at: row[9] as string
+    });
   } catch (error) {
-    logger.error('Error updating time entry', { error });
+    logger.error('Error updating time entry', { error, userId: req.userId as number });
     res.status(500).json({ error: 'Failed to update time entry' });
   }
 });
 
-// Delete time entry
-router.delete('/:id', (req, res) => {
-  const { id } = req.params;
-
+// Delete entry
+router.delete('/:id', (req: AuthRequest, res: Response) => {
   try {
+    const { id } = req.params;
     const db = getDb();
-    db.run('DELETE FROM time_entries WHERE id = ?', [id]);
+
+    const existing = db.exec(
+      `SELECT id FROM time_entries WHERE id = ? AND user_id = ?`,
+      [id, req.userId as number]
+    );
+
+    if (existing.length === 0 || existing[0].values.length === 0) {
+      return res.status(404).json({ error: 'Entry not found' });
+    }
+
+    db.run(`DELETE FROM time_entries WHERE id = ?`, [id]);
     saveDatabase();
-    
-    logger.info('Time entry deleted', { id });
+
+    logger.info('Time entry deleted', { entryId: id, userId: req.userId as number });
     res.status(204).send();
   } catch (error) {
-    logger.error('Error deleting time entry', { error });
+    logger.error('Error deleting time entry', { error, userId: req.userId as number });
     res.status(500).json({ error: 'Failed to delete time entry' });
   }
 });

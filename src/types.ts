@@ -1,5 +1,19 @@
+export interface User {
+  id: number;
+  email: string;
+  username: string;
+  created_at?: string;
+}
+
+export interface AuthResponse {
+  user: User;
+  accessToken: string;
+  refreshToken: string;
+}
+
 export interface Category {
   id: number;
+  user_id?: number;
   name: string;
   color: string | null;
   created_at: string;
@@ -7,6 +21,7 @@ export interface Category {
 
 export interface TimeEntry {
   id: number;
+  user_id?: number;
   category_id: number;
   category_name: string;
   category_color: string | null;
@@ -51,3 +66,5 @@ export interface AnalyticsData {
 }
 
 export type Period = 'week' | 'month' | 'quarter';
+
+export type Theme = 'light' | 'dark' | 'system';

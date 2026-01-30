@@ -43,10 +43,15 @@
   padding: 12px;
   border-radius: var(--radius-md);
   transition: background 0.15s ease;
+  cursor: pointer;
 }
 
 .entry-item:hover {
   background: var(--bg-tertiary);
+}
+
+.entry-item.selected {
+  background: var(--accent-muted);
 }
 
 .entry-item:hover .delete-btn {
@@ -71,15 +76,17 @@
 
 .entry-main {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: center;
+  gap: 12px;
   min-width: 0;
+  flex: 1;
 }
 
 .entry-category {
   font-size: 14px;
   font-weight: 500;
   color: var(--text-primary);
+  flex-shrink: 0;
 }
 
 .entry-note {
@@ -88,12 +95,51 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.editable {
+  padding: 2px 6px;
+  margin: -2px -6px;
+  border-radius: var(--radius-sm);
+  cursor: text;
+}
+
+.editable:hover {
+  background: var(--bg-secondary);
+}
+
+/* Inline edit inputs */
+.inline-edit-select,
+.inline-edit-input {
+  font-size: 13px;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--accent);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  outline: none;
+}
+
+.inline-edit-select {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.inline-edit-input {
+  flex: 1;
+  min-width: 100px;
+}
+
+.inline-edit-input::placeholder {
+  color: var(--text-tertiary);
 }
 
 .entry-meta {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 8px;
   flex-shrink: 0;
 }
 
@@ -102,17 +148,50 @@
   color: var(--text-tertiary);
 }
 
+.entry-time.active-time {
+  color: var(--success);
+  font-weight: 500;
+}
+
+.time-separator {
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
 .entry-duration {
   font-family: 'JetBrains Mono', monospace;
   font-size: 13px;
   font-weight: 500;
   color: var(--text-primary);
-  min-width: 60px;
+  min-width: 50px;
   text-align: right;
 }
 
 .entry-duration.active {
   color: var(--success);
+}
+
+/* Inline time edit */
+.inline-edit-time {
+  font-size: 12px;
+  padding: 2px 4px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--accent);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  outline: none;
+  width: 140px;
+}
+
+/* Overlap warning */
+.entry-item.has-overlap {
+  border-left: 2px solid var(--warning, #f59e0b);
+}
+
+.overlap-warning {
+  font-size: 14px;
+  cursor: help;
+  flex-shrink: 0;
 }
 
 .delete-btn {
@@ -123,113 +202,4 @@
 
 .delete-btn:hover {
   color: var(--danger);
-}
-
-.edit-btn {
-  opacity: 0;
-  font-size: 14px;
-  color: var(--text-tertiary);
-}
-
-.edit-btn:hover {
-  color: var(--accent);
-}
-
-.entry-item:hover .edit-btn {
-  opacity: 1;
-}
-
-/* Edit mode styles */
-.entry-item.editing {
-  background: var(--bg-tertiary);
-  border-radius: var(--radius-md);
-}
-
-.entry-edit-form {
-  flex-direction: column !important;
-  gap: 10px !important;
-}
-
-.entry-edit-fields {
-  display: flex;
-  gap: 8px;
-  flex: 1;
-  min-width: 0;
-}
-
-.edit-category-select {
-  padding: 6px 10px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  font-size: 13px;
-  min-width: 120px;
-  cursor: pointer;
-}
-
-.edit-category-select:focus {
-  outline: none;
-  border-color: var(--accent);
-}
-
-.edit-note-input {
-  flex: 1;
-  padding: 6px 10px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  font-size: 13px;
-  min-width: 0;
-}
-
-.edit-note-input:focus {
-  outline: none;
-  border-color: var(--accent);
-}
-
-.edit-note-input::placeholder {
-  color: var(--text-tertiary);
-}
-
-.entry-edit-actions {
-  display: flex;
-  gap: 6px;
-  justify-content: flex-end;
-}
-
-.btn-save,
-.btn-cancel {
-  padding: 4px 12px;
-  border-radius: var(--radius-sm);
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.btn-save {
-  background: var(--accent);
-  color: white;
-  border: none;
-}
-
-.btn-save:hover {
-  background: var(--accent-hover);
-}
-
-.btn-cancel {
-  background: transparent;
-  color: var(--text-secondary);
-  border: 1px solid var(--border);
-}
-
-.btn-cancel:hover {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-}
-
-.entry-content {
-  cursor: pointer;
 }

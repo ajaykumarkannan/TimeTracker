@@ -1,273 +1,133 @@
-# Time Tracker
+# ChronoFlow ⏱️
 
-A local web application for tracking time spent on different work categories with optional notes.
+A beautiful, simple time tracking app to help you understand where your hours go.
+
+![ChronoFlow](https://img.shields.io/badge/version-1.0.0-blue)
 
 ## Features
 
-- ⏱️ **Real-time Timer**: Start/stop timer with live elapsed time display
-- 📁 **Categories**: Create custom categories with colors to organize your time
-- 📝 **Notes**: Add optional notes to each time entry
-- 📊 **History**: View all time entries grouped by date with total time tracked
-- 🐳 **Docker Ready**: Easy deployment with Docker and Docker Compose
-- 🔒 **Local First**: All data stored locally in SQLite database
-
-## Tech Stack
-
-- **Frontend**: React 18 + TypeScript + Vite
-- **Backend**: Node.js + Express + TypeScript
-- **Database**: SQLite (better-sqlite3)
-- **Logging**: Winston
-- **Testing**: Vitest (unit) + Playwright (e2e)
-- **Containerization**: Docker + Docker Compose
+- **One-Click Tracking** - Start and stop timers instantly with quick-start buttons
+- **Custom Categories** - Organize time with color-coded categories
+- **Detailed Notes** - Add context to every time entry
+- **Insightful Analytics** - See where your time goes with charts and insights
+- **Dark Mode** - Easy on the eyes with light/dark/system themes
+- **Two Modes** - Use with an account (cloud) or locally in your browser
 
 ## Quick Start
 
-### Prerequisites
-
-- Node.js 20+
-- npm or yarn
-- Docker (optional, for containerized deployment)
-
-### Development Setup
-
-1. **Install dependencies**:
-   ```bash
-   npm install
-   ```
-
-2. **Start development servers**:
-   ```bash
-   npm run dev
-   ```
-   This starts both the backend (port 3001) and frontend (port 3000) concurrently.
-
-3. **Open your browser**:
-   Navigate to `http://localhost:3000`
-
-### Docker Deployment
-
-1. **Build and run with Docker Compose**:
-   ```bash
-   docker-compose up -d
-   ```
-
-2. **Access the application**:
-   Navigate to `http://localhost:3001`
-
-3. **Stop the container**:
-   ```bash
-   docker-compose down
-   ```
-
-The database will persist in the `./data` directory.
-
-## Usage Guide
-
-### Creating Categories
-
-1. Click the **Categories** tab in the navigation
-2. Enter a category name (e.g., "Development", "Meetings", "Break")
-3. Choose a color to visually identify the category
-4. Click **Add Category**
-
-### Tracking Time
-
-1. Go to the **Tracker** tab
-2. Select a category from the dropdown
-3. Optionally add a note describing what you're working on
-4. Click **Start Timer**
-5. The timer will display elapsed time in real-time
-6. Click **Stop Timer** when finished
-
-### Viewing History
-
-- All completed time entries appear below the tracker
-- Entries are grouped by date
-- Each entry shows:
-  - Category name and color
-  - Start time
-  - Duration
-  - Note (if provided)
-- Total time tracked is displayed at the top
-
-### Managing Data
-
-- **Edit Category**: Click the ✏️ icon next to a category
-- **Delete Category**: Click the 🗑️ icon (warning: deletes all associated time entries)
-- **Delete Entry**: Click the 🗑️ icon next to any time entry
-
-## Development
-
-### Available Scripts
+### Using Docker (Recommended)
 
 ```bash
-# Development
-npm run dev              # Start both frontend and backend in dev mode
-npm run dev:client       # Start only frontend (Vite)
-npm run dev:server       # Start only backend (tsx watch)
-
-# Building
-npm run build            # Build both frontend and backend
-npm run build:client     # Build frontend only
-npm run build:server     # Build backend only
-
-# Production
-npm start                # Run production build
-
-# Testing
-npm test                 # Run unit tests
-npm run test:watch       # Run unit tests in watch mode
-npm run test:e2e         # Run end-to-end tests
-
-# Linting
-npm run lint             # Run ESLint
+docker-compose up --build
 ```
 
-### Project Structure
+Visit http://localhost:3001
 
-```
-.
-├── src/                    # Frontend React application
-│   ├── components/         # React components
-│   │   ├── TimeTracker.tsx
-│   │   ├── CategoryManager.tsx
-│   │   └── TimeEntryList.tsx
-│   ├── api.ts             # API client
-│   ├── types.ts           # TypeScript types
-│   └── main.tsx           # Entry point
-├── server/                # Backend Express application
-│   ├── routes/            # API routes
-│   │   ├── categories.ts
-│   │   └── timeEntries.ts
-│   ├── database.ts        # SQLite setup
-│   ├── logger.ts          # Winston logger
-│   └── index.ts           # Server entry point
-├── e2e/                   # End-to-end tests
-├── data/                  # SQLite database (created on first run)
-├── logs/                  # Application logs
-└── docker-compose.yml     # Docker configuration
-```
+### Manual Setup
 
-## Testing
-
-### Unit Tests
-
-Unit tests cover:
-- Component rendering and interactions
-- API calls and error handling
-- Database operations
-- Timer functionality
-
-Run with:
 ```bash
-npm test
+# Install dependencies
+npm install
+
+# Development mode (hot reload)
+npm run dev
+
+# Production build
+npm run build
+npm start
 ```
 
-### End-to-End Tests
+## Usage Modes
 
-E2E tests cover:
-- Complete user workflows
-- Category management
-- Time tracking
-- Data persistence
+### ☁️ Cloud Mode
+Create an account to sync your data across devices. Your tracking history is stored securely on the server.
 
-Run with:
-```bash
-npm run test:e2e
-```
+### 💾 Local Mode
+No account needed! All data stays in your browser's local storage. Perfect for quick use or privacy-conscious users.
 
-## Logging
+## Tech Stack
 
-The application uses Winston for structured logging:
+- **Frontend**: React 18, TypeScript, Vite
+- **Backend**: Express.js, TypeScript
+- **Database**: SQLite (sql.js)
+- **Auth**: JWT with refresh tokens
+- **Styling**: CSS with CSS variables for theming
 
-- **Console**: Colorized output for development
-- **Files**: 
-  - `logs/error.log`: Error-level logs only
-  - `logs/combined.log`: All logs
+## API Reference
 
-Log levels: error, warn, info, debug
+### Authentication
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/auth/register` | Create account |
+| POST | `/api/auth/login` | Login |
+| POST | `/api/auth/refresh` | Refresh token |
+| POST | `/api/auth/logout` | Logout |
+| GET | `/api/auth/me` | Get current user |
 
-Set log level via environment variable:
-```bash
-LOG_LEVEL=debug npm run dev
-```
+### Time Tracking
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/time-entries` | List entries |
+| GET | `/api/time-entries/active` | Get active entry |
+| POST | `/api/time-entries/start` | Start tracking |
+| POST | `/api/time-entries/:id/stop` | Stop tracking |
+| PUT | `/api/time-entries/:id` | Update entry |
+| DELETE | `/api/time-entries/:id` | Delete entry |
 
-## Database
+### Categories
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/categories` | List categories |
+| POST | `/api/categories` | Create category |
+| PUT | `/api/categories/:id` | Update category |
+| DELETE | `/api/categories/:id` | Delete category |
 
-SQLite database schema:
-
-### Categories Table
-```sql
-CREATE TABLE categories (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT NOT NULL UNIQUE,
-  color TEXT,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-)
-```
-
-### Time Entries Table
-```sql
-CREATE TABLE time_entries (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  category_id INTEGER NOT NULL,
-  note TEXT,
-  start_time DATETIME NOT NULL,
-  end_time DATETIME,
-  duration_minutes INTEGER,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE
-)
-```
+### Analytics
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/analytics` | Get analytics (requires `start` and `end` query params) |
 
 ## Environment Variables
 
-- `PORT`: Server port (default: 3001)
-- `DB_PATH`: Database file path (default: ./data/timetracker.db)
-- `LOG_LEVEL`: Logging level (default: info)
-- `NODE_ENV`: Environment (development/production)
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT` | 3001 | Server port |
+| `DB_PATH` | ./data/timetracker.db | Database file path |
+| `JWT_SECRET` | (dev default) | JWT signing secret |
+| `NODE_ENV` | development | Environment |
 
-## Git Workflow
+## Development
 
-Initialize git repository:
 ```bash
-git init
-git add .
-git commit -m "Initial commit: Time Tracker app"
+# Run tests
+npm test
+
+# Run E2E tests
+npm run test:e2e
+
+# Lint code
+npm run lint
 ```
 
-The `.gitignore` file excludes:
-- node_modules
-- dist
-- Database files (*.db)
-- Logs
-- Test results
+## Project Structure
 
-## Troubleshooting
-
-### Port Already in Use
-If ports 3000 or 3001 are in use, modify:
-- Frontend: `vite.config.ts` → `server.port`
-- Backend: Set `PORT` environment variable
-
-### Database Locked
-If you get "database is locked" errors:
-- Ensure only one instance is running
-- Check file permissions on `data/` directory
-
-### Docker Issues
-- Ensure Docker daemon is running
-- Check logs: `docker-compose logs -f`
-- Rebuild: `docker-compose up --build`
+```
+├── server/           # Backend Express server
+│   ├── routes/       # API route handlers
+│   ├── middleware/   # Auth middleware
+│   ├── database.ts   # SQLite database setup
+│   └── logger.ts     # Winston logger
+├── src/              # Frontend React app
+│   ├── components/   # React components
+│   ├── contexts/     # Auth & Theme contexts
+│   ├── hooks/        # Custom hooks
+│   ├── api.ts        # API client
+│   ├── localStore.ts # Local storage API
+│   └── types.ts      # TypeScript types
+├── e2e/              # Playwright E2E tests
+└── extension/        # Browser extension
+```
 
 ## License
 
 MIT
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Run tests: `npm test && npm run test:e2e`
-5. Submit a pull request

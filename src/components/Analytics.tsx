@@ -1,12 +1,19 @@
 import { useState, useEffect } from 'react';
 import { api } from '../api';
+import { localApi } from '../localStore';
 import { AnalyticsData, Period } from '../types';
 import './Analytics.css';
 
-export function Analytics() {
+interface Props {
+  mode?: 'local' | 'cloud';
+}
+
+export function Analytics({ mode = 'cloud' }: Props) {
   const [period, setPeriod] = useState<Period>('week');
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const currentApi = mode === 'local' ? localApi : api;
 
   const getDateRange = (p: Period): { start: string; end: string } => {
     const end = new Date();
@@ -35,7 +42,7 @@ export function Analytics() {
       setLoading(true);
       try {
         const { start, end } = getDateRange(period);
-        const analytics = await api.getAnalytics(start, end);
+        const analytics = await currentApi.getAnalytics(start, end);
         setData(analytics);
       } catch (error) {
         console.error('Failed to load analytics:', error);
@@ -44,7 +51,7 @@ export function Analytics() {
     };
 
     loadAnalytics();
-  }, [period]);
+  }, [period, mode]);
 
   const formatDuration = (minutes: number) => {
     const h = Math.floor(minutes / 60);

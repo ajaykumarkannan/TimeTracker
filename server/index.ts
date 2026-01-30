@@ -3,6 +3,7 @@ import cors from 'cors';
 import path from 'path';
 import { initDatabase } from './database';
 import { logger } from './logger';
+import authRouter from './routes/auth';
 import timeEntriesRouter from './routes/timeEntries';
 import categoriesRouter from './routes/categories';
 import analyticsRouter from './routes/analytics';
@@ -20,11 +21,12 @@ if (process.env.NODE_ENV === 'production') {
 
 // Request logging middleware
 app.use((req, res, next) => {
-  logger.info(`${req.method} ${req.path}`, { body: req.body });
+  logger.info(`${req.method} ${req.path}`);
   next();
 });
 
 // Routes
+app.use('/api/auth', authRouter);
 app.use('/api/time-entries', timeEntriesRouter);
 app.use('/api/categories', categoriesRouter);
 app.use('/api/analytics', analyticsRouter);
@@ -50,7 +52,7 @@ app.use((err: Error, req: express.Request, res: express.Response, _next: express
 // Initialize database then start server
 initDatabase().then(() => {
   app.listen(PORT, () => {
-    logger.info(`Server running on port ${PORT}`);
+    logger.info(`ChronoFlow server running on port ${PORT}`);
   });
 }).catch((err) => {
   logger.error('Failed to initialize database', { error: err });

@@ -1,96 +1,145 @@
-import express from 'express';
-import { getDb, saveDatabase } from '../database';
+import { Router, Response } from 'express';
+import { getDb, saveDatabase, Category } from '../database';
 import { logger } from '../logger';
+import { authMiddleware, AuthRequest } from '../middleware/auth';
 
-const router = express.Router();
+const router = Router();
 
-// Get all categories
-router.get('/', (req, res) => {
+// All routes require authentication
+router.use(authMiddleware);
+
+// Get all categories for user
+router.get('/', (req: AuthRequest, res: Response) => {
   try {
     const db = getDb();
-    const stmt = db.prepare('SELECT * FROM categories ORDER BY name');
-    const categories = [];
-    while (stmt.step()) {
-      categories.push(stmt.getAsObject());
-    }
-    stmt.free();
+    const result = db.exec(
+      `SELECT id, user_id, name, color, created_at FROM categories WHERE user_id = ? ORDER BY name`,
+      [req.userId as number]
+    );
+
+    const categories: Category[] = result.length > 0 
+      ? result[0].values.map(row => ({
+          id: row[0] as number,
+          user_id: row[1] as number,
+          name: row[2] as string,
+          color: row[3] as string | null,
+          created_at: row[4] as string
+        }))
+      : [];
+
     res.json(categories);
   } catch (error) {
-    logger.error('Error fetching categories', { error });
+    logger.error('Error fetching categories', { error, userId: req.userId as number });
     res.status(500).json({ error: 'Failed to fetch categories' });
   }
 });
 
 // Create category
-router.post('/', (req, res) => {
-  const { name, color } = req.body;
-
-  if (!name) {
-    return res.status(400).json({ error: 'Name is required' });
-  }
-
+router.post('/', (req: AuthRequest, res: Response) => {
   try {
-    const db = getDb();
-    db.run('INSERT INTO categories (name, color) VALUES (?, ?)', [name, color || null]);
-    const lastId = db.exec('SELECT last_insert_rowid() as id')[0].values[0][0];
-    saveDatabase();
+    const { name, color } = req.body;
     
-    const stmt = db.prepare('SELECT * FROM categories WHERE id = ?');
-    stmt.bind([lastId]);
-    stmt.step();
-    const category = stmt.getAsObject();
-    stmt.free();
-    
-    logger.info('Category created', { id: lastId, name });
-    res.status(201).json(category);
-  } catch (error: any) {
-    if (error.message?.includes('UNIQUE constraint')) {
-      return res.status(409).json({ error: 'Category already exists' });
+    if (!name) {
+      return res.status(400).json({ error: 'Category name is required' });
     }
-    logger.error('Error creating category', { error });
+
+    const db = getDb();
+    
+    db.run(
+      `INSERT INTO categories (user_id, name, color) VALUES (?, ?, ?)`,
+      [req.userId as number, name, color || null]
+    );
+    saveDatabase();
+
+    const result = db.exec(
+      `SELECT id, user_id, name, color, created_at FROM categories WHERE user_id = ? AND name = ?`,
+      [req.userId as number, name]
+    );
+
+    const category: Category = {
+      id: result[0].values[0][0] as number,
+      user_id: result[0].values[0][1] as number,
+      name: result[0].values[0][2] as string,
+      color: result[0].values[0][3] as string | null,
+      created_at: result[0].values[0][4] as string
+    };
+
+    logger.info('Category created', { categoryId: category.id, userId: req.userId as number });
+    res.status(201).json(category);
+  } catch (error) {
+    logger.error('Error creating category', { error, userId: req.userId as number });
     res.status(500).json({ error: 'Failed to create category' });
   }
 });
 
 // Update category
-router.put('/:id', (req, res) => {
-  const { id } = req.params;
-  const { name, color } = req.body;
-
+router.put('/:id', (req: AuthRequest, res: Response) => {
   try {
+    const { id } = req.params;
+    const { name, color } = req.body;
+
     const db = getDb();
-    db.run('UPDATE categories SET name = ?, color = ? WHERE id = ?', [name, color || null, id]);
+    
+    // Verify ownership
+    const existing = db.exec(
+      `SELECT id FROM categories WHERE id = ? AND user_id = ?`,
+      [id, req.userId as number]
+    );
+    
+    if (existing.length === 0 || existing[0].values.length === 0) {
+      return res.status(404).json({ error: 'Category not found' });
+    }
+
+    db.run(
+      `UPDATE categories SET name = ?, color = ? WHERE id = ? AND user_id = ?`,
+      [name, color || null, id, req.userId as number]
+    );
     saveDatabase();
-    
-    const stmt = db.prepare('SELECT * FROM categories WHERE id = ?');
-    stmt.bind([id]);
-    stmt.step();
-    const category = stmt.getAsObject();
-    stmt.free();
-    
-    logger.info('Category updated', { id, name });
+
+    const result = db.exec(
+      `SELECT id, user_id, name, color, created_at FROM categories WHERE id = ?`,
+      [id]
+    );
+
+    const category: Category = {
+      id: result[0].values[0][0] as number,
+      user_id: result[0].values[0][1] as number,
+      name: result[0].values[0][2] as string,
+      color: result[0].values[0][3] as string | null,
+      created_at: result[0].values[0][4] as string
+    };
+
+    logger.info('Category updated', { categoryId: id, userId: req.userId as number });
     res.json(category);
   } catch (error) {
-    logger.error('Error updating category', { error, id });
+    logger.error('Error updating category', { error, userId: req.userId as number });
     res.status(500).json({ error: 'Failed to update category' });
   }
 });
 
 // Delete category
-router.delete('/:id', (req, res) => {
-  const { id } = req.params;
-
+router.delete('/:id', (req: AuthRequest, res: Response) => {
   try {
+    const { id } = req.params;
     const db = getDb();
-    // Delete associated time entries first (manual cascade)
-    db.run('DELETE FROM time_entries WHERE category_id = ?', [id]);
-    db.run('DELETE FROM categories WHERE id = ?', [id]);
-    saveDatabase();
+
+    // Verify ownership
+    const existing = db.exec(
+      `SELECT id FROM categories WHERE id = ? AND user_id = ?`,
+      [id, req.userId as number]
+    );
     
-    logger.info('Category deleted', { id });
+    if (existing.length === 0 || existing[0].values.length === 0) {
+      return res.status(404).json({ error: 'Category not found' });
+    }
+
+    db.run(`DELETE FROM categories WHERE id = ? AND user_id = ?`, [id, req.userId as number]);
+    saveDatabase();
+
+    logger.info('Category deleted', { categoryId: id, userId: req.userId as number });
     res.status(204).send();
   } catch (error) {
-    logger.error('Error deleting category', { error, id });
+    logger.error('Error deleting category', { error, userId: req.userId as number });
     res.status(500).json({ error: 'Failed to delete category' });
   }
 });

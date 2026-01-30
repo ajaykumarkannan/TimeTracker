@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Category, TimeEntry } from '../types';
 import { api } from '../api';
 import './TimeTracker.css';
@@ -6,20 +6,17 @@ import './TimeTracker.css';
 interface Props {
   categories: Category[];
   activeEntry: TimeEntry | null;
-  entries: TimeEntry[];
-  onUpdate: () => void;
+  onEntryChange: () => void;
 }
 
-export function TimeTracker({ categories, activeEntry, entries, onUpdate }: Props) {
+export function TimeTracker({ categories, activeEntry, onEntryChange }: Props) {
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const [note, setNote] = useState('');
   const [elapsed, setElapsed] = useState(0);
   const [showNewCategory, setShowNewCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryColor, setNewCategoryColor] = useState('#6366f1');
-  const [suggestions, setSuggestions] = useState<string[]>([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const noteInputRef = useRef<HTMLInputElement>(null);
+  const [pausedEntry, setPausedEntry] = useState<TimeEntry | null>(null);
 
   useEffect(() => {
     if (!activeEntry) {
@@ -38,34 +35,12 @@ export function TimeTracker({ categories, activeEntry, entries, onUpdate }: Prop
     return () => clearInterval(interval);
   }, [activeEntry]);
 
-  const getNoteSuggestions = (input: string) => {
-    if (!input.trim()) return [];
-    const uniqueNotes = [...new Set(
-      entries
-        .filter(e => e.note && e.note.toLowerCase().includes(input.toLowerCase()))
-        .map(e => e.note!)
-    )];
-    return uniqueNotes.slice(0, 5);
-  };
-
-  const handleNoteChange = (value: string) => {
-    setNote(value);
-    const matches = getNoteSuggestions(value);
-    setSuggestions(matches);
-    setShowSuggestions(matches.length > 0 && value.length > 0);
-  };
-
-  const selectSuggestion = (suggestion: string) => {
-    setNote(suggestion);
-    setShowSuggestions(false);
-  };
-
   const handleStart = async () => {
     if (!selectedCategory) return;
     try {
       await api.startEntry(selectedCategory, note || undefined);
       setNote('');
-      onUpdate();
+      onEntryChange();
     } catch (error) {
       console.error('Failed to start entry:', error);
     }
@@ -75,9 +50,32 @@ export function TimeTracker({ categories, activeEntry, entries, onUpdate }: Prop
     if (!activeEntry) return;
     try {
       await api.stopEntry(activeEntry.id);
-      onUpdate();
+      setPausedEntry(null);
+      onEntryChange();
     } catch (error) {
       console.error('Failed to stop entry:', error);
+    }
+  };
+
+  const handlePause = async () => {
+    if (!activeEntry) return;
+    try {
+      await api.stopEntry(activeEntry.id);
+      setPausedEntry({ ...activeEntry, end_time: new Date().toISOString() });
+      onEntryChange();
+    } catch (error) {
+      console.error('Failed to pause entry:', error);
+    }
+  };
+
+  const handleResume = async () => {
+    if (!pausedEntry) return;
+    try {
+      await api.startEntry(pausedEntry.category_id, pausedEntry.note || undefined);
+      setPausedEntry(null);
+      onEntryChange();
+    } catch (error) {
+      console.error('Failed to resume entry:', error);
     }
   };
 
@@ -88,7 +86,7 @@ export function TimeTracker({ categories, activeEntry, entries, onUpdate }: Prop
       setSelectedCategory(category.id);
       setNewCategoryName('');
       setShowNewCategory(false);
-      onUpdate();
+      onEntryChange();
     } catch (error) {
       console.error('Failed to create category:', error);
     }
@@ -109,7 +107,6 @@ export function TimeTracker({ categories, activeEntry, entries, onUpdate }: Prop
     );
   };
 
-  // Quick start from recent categories
   const recentCategories = categories.slice(0, 4);
 
   return (
@@ -133,14 +130,40 @@ export function TimeTracker({ categories, activeEntry, entries, onUpdate }: Prop
             </div>
           </div>
           <div className="timer-actions">
+            <button className="btn btn-warning" onClick={handlePause} title="Pause">
+              <span className="pause-icon">❚❚</span>
+              Pause
+            </button>
             <button className="btn btn-danger" onClick={handleStop}>
               <span className="stop-icon">■</span>
               Stop
             </button>
-            <span className="kbd-hint">
-              <span className="kbd">⌘</span>
-              <span className="kbd">K</span>
+          </div>
+        </div>
+      ) : pausedEntry ? (
+        <div className="paused-tracker">
+          <div className="paused-info">
+            <span className="paused-label">⏸ Paused</span>
+            <span 
+              className="category-badge" 
+              style={{ 
+                backgroundColor: `${pausedEntry.category_color}20`,
+                color: pausedEntry.category_color || '#6366f1'
+              }}
+            >
+              <span className="category-dot" style={{ backgroundColor: pausedEntry.category_color || '#6366f1' }} />
+              {pausedEntry.category_name}
             </span>
+            {pausedEntry.note && <span className="timer-note">{pausedEntry.note}</span>}
+          </div>
+          <div className="timer-actions">
+            <button className="btn btn-success" onClick={handleResume}>
+              <span className="play-icon">▶</span>
+              Resume
+            </button>
+            <button className="btn btn-ghost" onClick={() => setPausedEntry(null)}>
+              Discard
+            </button>
           </div>
         </div>
       ) : (
@@ -153,13 +176,9 @@ export function TimeTracker({ categories, activeEntry, entries, onUpdate }: Prop
                   <button
                     key={cat.id}
                     className="quick-start-btn"
-                    style={{ 
-                      borderColor: cat.color || '#6366f1',
-                      color: cat.color || '#6366f1'
-                    }}
+                    style={{ borderColor: cat.color || '#6366f1', color: cat.color || '#6366f1' }}
                     onClick={() => {
-                      setSelectedCategory(cat.id);
-                      api.startEntry(cat.id).then(onUpdate);
+                      api.startEntry(cat.id).then(onEntryChange);
                     }}
                   >
                     <span className="category-dot" style={{ backgroundColor: cat.color || '#6366f1' }} />
@@ -197,39 +216,17 @@ export function TimeTracker({ categories, activeEntry, entries, onUpdate }: Prop
 
               <div className="form-group flex-2">
                 <label>Note <span className="optional">(optional)</span></label>
-                <div className="autocomplete-wrapper">
-                  <input 
-                    ref={noteInputRef}
-                    type="text"
-                    value={note}
-                    onChange={(e) => handleNoteChange(e.target.value)}
-                    onFocus={() => {
-                      if (suggestions.length > 0) setShowSuggestions(true);
-                    }}
-                    onBlur={() => {
-                      setTimeout(() => setShowSuggestions(false), 200);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && selectedCategory) {
-                        handleStart();
-                      }
-                    }}
-                    placeholder="What are you working on?"
-                  />
-                  {showSuggestions && (
-                    <div className="suggestions-dropdown animate-slide-in">
-                      {suggestions.map((suggestion, i) => (
-                        <button
-                          key={i}
-                          className="suggestion-item"
-                          onClick={() => selectSuggestion(suggestion)}
-                        >
-                          {suggestion}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                <input 
+                  type="text"
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && selectedCategory) {
+                      handleStart();
+                    }
+                  }}
+                  placeholder="What are you working on?"
+                />
               </div>
 
               <button 

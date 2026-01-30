@@ -5,10 +5,10 @@ import './CategoryManager.css';
 
 interface Props {
   categories: Category[];
-  onUpdate: () => void;
+  onCategoryChange: () => void;
 }
 
-export function CategoryManager({ categories, onUpdate }: Props) {
+export function CategoryManager({ categories, onCategoryChange }: Props) {
   const [name, setName] = useState('');
   const [color, setColor] = useState('#6366f1');
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -26,7 +26,7 @@ export function CategoryManager({ categories, onUpdate }: Props) {
       }
       setName('');
       setColor('#6366f1');
-      onUpdate();
+      onCategoryChange();
     } catch (error) {
       console.error('Failed to save category:', error);
     }
@@ -44,7 +44,7 @@ export function CategoryManager({ categories, onUpdate }: Props) {
     }
     try {
       await api.deleteCategory(id);
-      onUpdate();
+      onCategoryChange();
     } catch (error) {
       console.error('Failed to delete category:', error);
     }

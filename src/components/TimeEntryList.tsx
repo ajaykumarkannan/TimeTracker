@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { TimeEntry, Category } from '../types';
 import { api } from '../api';
 import './TimeEntryList.css';
@@ -6,58 +6,110 @@ import './TimeEntryList.css';
 interface Props {
   entries: TimeEntry[];
   categories: Category[];
-  onUpdate: () => void;
+  onEntryChange: () => void;
 }
 
-interface EditState {
-  id: number;
-  category_id: number;
-  note: string;
-}
+type EditField = 'category' | 'note' | 'startTime' | 'endTime' | null;
 
-export function TimeEntryList({ entries, categories, onUpdate }: Props) {
-  const [editing, setEditing] = useState<EditState | null>(null);
+export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
   const [selected, setSelected] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editField, setEditField] = useState<EditField>(null);
+  const [editCategory, setEditCategory] = useState<number>(0);
+  const [editNote, setEditNote] = useState<string>('');
+  const [editStartTime, setEditStartTime] = useState<string>('');
+  const [editEndTime, setEditEndTime] = useState<string>('');
 
-  const handleSelect = (entry: TimeEntry) => {
-    setSelected(entry.id);
-  };
-
-  const handleEdit = (entry: TimeEntry) => {
-    setEditing({
-      id: entry.id,
-      category_id: entry.category_id,
-      note: entry.note || ''
-    });
-  };
-
-  const handleSave = async () => {
-    if (!editing) return;
-    try {
-      const entry = entries.find(e => e.id === editing.id);
-      if (!entry) return;
+  // Check for overlaps with other entries
+  const checkOverlap = (entryId: number, start: Date, end: Date | null): TimeEntry | null => {
+    if (!end) return null;
+    
+    for (const entry of entries) {
+      if (entry.id === entryId) continue;
       
-      await api.updateEntry(editing.id, {
-        category_id: editing.category_id,
-        note: editing.note || null,
-        start_time: entry.start_time,
-        end_time: entry.end_time
+      const entryStart = new Date(entry.start_time);
+      const entryEnd = entry.end_time ? new Date(entry.end_time) : new Date();
+      
+      // Check if ranges overlap
+      if (start < entryEnd && end > entryStart) {
+        return entry;
+      }
+    }
+    return null;
+  };
+
+  // Get overlaps for display
+  const overlaps = useMemo(() => {
+    const result: { [id: number]: TimeEntry } = {};
+    for (const entry of entries) {
+      if (!entry.end_time) continue;
+      const start = new Date(entry.start_time);
+      const end = new Date(entry.end_time);
+      const overlap = checkOverlap(entry.id, start, end);
+      if (overlap) {
+        result[entry.id] = overlap;
+      }
+    }
+    return result;
+  }, [entries]);
+
+  const handleSelect = (id: number) => {
+    if (editingId !== id) {
+      setEditingId(null);
+      setEditField(null);
+    }
+    setSelected(id);
+  };
+
+  const startEdit = (entry: TimeEntry, field: EditField) => {
+    setEditingId(entry.id);
+    setEditField(field);
+    setEditCategory(entry.category_id);
+    setEditNote(entry.note || '');
+    setEditStartTime(formatDateTimeLocal(entry.start_time));
+    setEditEndTime(entry.end_time ? formatDateTimeLocal(entry.end_time) : '');
+  };
+
+  const formatDateTimeLocal = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const offset = date.getTimezoneOffset();
+    const local = new Date(date.getTime() - offset * 60000);
+    return local.toISOString().slice(0, 16);
+  };
+
+  const handleSave = async (entryId: number) => {
+    const entry = entries.find(e => e.id === entryId);
+    if (!entry) return;
+    
+    const newStart = editField === 'startTime' ? new Date(editStartTime).toISOString() : entry.start_time;
+    const newEnd = editField === 'endTime' 
+      ? (editEndTime ? new Date(editEndTime).toISOString() : null)
+      : entry.end_time;
+
+    try {
+      await api.updateEntry(entryId, {
+        category_id: editCategory,
+        note: editNote || null,
+        start_time: newStart,
+        end_time: newEnd
       });
-      setEditing(null);
-      onUpdate();
+      setEditingId(null);
+      setEditField(null);
+      onEntryChange();
     } catch (error) {
       console.error('Failed to update entry:', error);
     }
   };
 
   const handleCancel = () => {
-    setEditing(null);
+    setEditingId(null);
+    setEditField(null);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent, entryId: number) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      handleSave();
+      handleSave(entryId);
     } else if (e.key === 'Escape') {
       handleCancel();
     }
@@ -67,7 +119,7 @@ export function TimeEntryList({ entries, categories, onUpdate }: Props) {
     if (!confirm('Delete this time entry?')) return;
     try {
       await api.deleteEntry(id);
-      onUpdate();
+      onEntryChange();
     } catch (error) {
       console.error('Failed to delete entry:', error);
     }
@@ -137,74 +189,136 @@ export function TimeEntryList({ entries, categories, onUpdate }: Props) {
             <div key={dateKey} className="date-group">
               <div className="date-header">{formatDate(dateEntries[0].start_time)}</div>
               <div className="entries">
-                {dateEntries.map(entry => (
-                  <div key={entry.id} className={`entry-item ${editing?.id === entry.id ? 'editing' : ''}`}>
+                {dateEntries.map(entry => {
+                  const isEditing = editingId === entry.id;
+                  const isSelected = selected === entry.id;
+                  const hasOverlap = overlaps[entry.id];
+                  
+                  return (
                     <div 
-                      className="entry-indicator" 
-                      style={{ backgroundColor: editing?.id === entry.id 
-                        ? categories.find(c => c.id === editing.category_id)?.color || '#6366f1'
-                        : entry.category_color || '#6366f1' 
-                      }}
-                    />
-                    {editing?.id === entry.id ? (
-                      <div className="entry-content entry-edit-form">
-                        <div className="entry-edit-fields">
-                          <select
-                            className="edit-category-select"
-                            value={editing.category_id}
-                            onChange={(e) => setEditing({ ...editing, category_id: Number(e.target.value) })}
-                          >
-                            {categories.map(cat => (
-                              <option key={cat.id} value={cat.id}>{cat.name}</option>
-                            ))}
-                          </select>
-                          <input
-                            type="text"
-                            className="edit-note-input"
-                            value={editing.note}
-                            onChange={(e) => setEditing({ ...editing, note: e.target.value })}
-                            onKeyDown={handleKeyDown}
-                            placeholder="Add a note..."
-                            autoFocus
-                          />
+                      key={entry.id} 
+                      className={`entry-item ${isSelected ? 'selected' : ''} ${hasOverlap ? 'has-overlap' : ''}`}
+                      onClick={() => handleSelect(entry.id)}
+                    >
+                      <div 
+                        className="entry-indicator" 
+                        style={{ backgroundColor: isEditing 
+                          ? categories.find(c => c.id === editCategory)?.color || '#6366f1'
+                          : entry.category_color || '#6366f1' 
+                        }}
+                      />
+                      <div className="entry-content">
+                        <div className="entry-main">
+                          {isEditing && editField === 'category' ? (
+                            <select
+                              className="inline-edit-select"
+                              value={editCategory}
+                              onChange={(e) => setEditCategory(Number(e.target.value))}
+                              onBlur={() => handleSave(entry.id)}
+                              onKeyDown={(e) => handleKeyDown(e, entry.id)}
+                              autoFocus
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {categories.map(cat => (
+                                <option key={cat.id} value={cat.id}>{cat.name}</option>
+                              ))}
+                            </select>
+                          ) : (
+                            <span 
+                              className="entry-category editable"
+                              onDoubleClick={(e) => { e.stopPropagation(); startEdit(entry, 'category'); }}
+                            >
+                              {entry.category_name}
+                            </span>
+                          )}
+                          {isEditing && editField === 'note' ? (
+                            <input
+                              type="text"
+                              className="inline-edit-input"
+                              value={editNote}
+                              onChange={(e) => setEditNote(e.target.value)}
+                              onBlur={() => handleSave(entry.id)}
+                              onKeyDown={(e) => handleKeyDown(e, entry.id)}
+                              placeholder="Add a note..."
+                              autoFocus
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          ) : (
+                            <span 
+                              className="entry-note editable"
+                              onDoubleClick={(e) => { e.stopPropagation(); startEdit(entry, 'note'); }}
+                            >
+                              {entry.note || '—'}
+                            </span>
+                          )}
                         </div>
-                        <div className="entry-edit-actions">
-                          <button className="btn-save" onClick={handleSave} title="Save (Enter)">✓</button>
-                          <button className="btn-cancel" onClick={handleCancel} title="Cancel (Esc)">×</button>
+                        <div className="entry-meta">
+                          {isEditing && editField === 'startTime' ? (
+                            <input
+                              type="datetime-local"
+                              className="inline-edit-time"
+                              value={editStartTime}
+                              onChange={(e) => setEditStartTime(e.target.value)}
+                              onBlur={() => handleSave(entry.id)}
+                              onKeyDown={(e) => handleKeyDown(e, entry.id)}
+                              autoFocus
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          ) : (
+                            <span 
+                              className="entry-time editable"
+                              onDoubleClick={(e) => { e.stopPropagation(); startEdit(entry, 'startTime'); }}
+                              title="Double-click to edit start time"
+                            >
+                              {formatTime(entry.start_time)}
+                            </span>
+                          )}
+                          <span className="time-separator">–</span>
+                          {isEditing && editField === 'endTime' ? (
+                            <input
+                              type="datetime-local"
+                              className="inline-edit-time"
+                              value={editEndTime}
+                              onChange={(e) => setEditEndTime(e.target.value)}
+                              onBlur={() => handleSave(entry.id)}
+                              onKeyDown={(e) => handleKeyDown(e, entry.id)}
+                              autoFocus
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          ) : (
+                            <span 
+                              className={`entry-time editable ${!entry.end_time ? 'active-time' : ''}`}
+                              onDoubleClick={(e) => { 
+                                if (entry.end_time) {
+                                  e.stopPropagation(); 
+                                  startEdit(entry, 'endTime'); 
+                                }
+                              }}
+                              title={entry.end_time ? "Double-click to edit end time" : "Currently tracking"}
+                            >
+                              {entry.end_time ? formatTime(entry.end_time) : 'now'}
+                            </span>
+                          )}
+                          <span className={`entry-duration ${!entry.end_time ? 'active' : ''}`}>
+                            {formatDuration(entry.duration_minutes)}
+                          </span>
                         </div>
                       </div>
-                    ) : (
-                      <>
-                        <div className="entry-content" onClick={() => handleEdit(entry)}>
-                          <div className="entry-main">
-                            <span className="entry-category">{entry.category_name}</span>
-                            {entry.note && <span className="entry-note">{entry.note}</span>}
-                          </div>
-                          <div className="entry-meta">
-                            <span className="entry-time">{formatTime(entry.start_time)}</span>
-                            <span className={`entry-duration ${!entry.end_time ? 'active' : ''}`}>
-                              {formatDuration(entry.duration_minutes)}
-                            </span>
-                          </div>
-                        </div>
-                        <button 
-                          className="btn-icon edit-btn" 
-                          onClick={() => handleEdit(entry)}
-                          title="Edit"
-                        >
-                          ✎
-                        </button>
-                        <button 
-                          className="btn-icon delete-btn" 
-                          onClick={() => handleDelete(entry.id)}
-                          title="Delete"
-                        >
-                          ×
-                        </button>
-                      </>
-                    )}
-                  </div>
-                ))}
+                      {hasOverlap && (
+                        <span className="overlap-warning" title={`Overlaps with: ${hasOverlap.category_name}`}>
+                          ⚠️
+                        </span>
+                      )}
+                      <button 
+                        className="btn-icon delete-btn" 
+                        onClick={(e) => { e.stopPropagation(); handleDelete(entry.id); }}
+                        title="Delete"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           ))}

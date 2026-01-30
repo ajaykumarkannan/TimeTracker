@@ -1,18 +1,132 @@
-import { Category, TimeEntry, AnalyticsData } from './types';
+import { Category, TimeEntry, AnalyticsData, AuthResponse, User } from './types';
 
 const API_BASE = '/api';
 
+// Token management
+let accessToken: string | null = localStorage.getItem('accessToken');
+let refreshToken: string | null = localStorage.getItem('refreshToken');
+
+export function setTokens(access: string, refresh: string) {
+  accessToken = access;
+  refreshToken = refresh;
+  localStorage.setItem('accessToken', access);
+  localStorage.setItem('refreshToken', refresh);
+}
+
+export function clearTokens() {
+  accessToken = null;
+  refreshToken = null;
+  localStorage.removeItem('accessToken');
+  localStorage.removeItem('refreshToken');
+  localStorage.removeItem('user');
+}
+
+export function getStoredUser(): User | null {
+  const stored = localStorage.getItem('user');
+  return stored ? JSON.parse(stored) : null;
+}
+
+export function setStoredUser(user: User) {
+  localStorage.setItem('user', JSON.stringify(user));
+}
+
+async function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+    ...(options.headers || {})
+  };
+
+  if (accessToken) {
+    (headers as Record<string, string>)['Authorization'] = `Bearer ${accessToken}`;
+  }
+
+  let res = await fetch(url, { ...options, headers });
+
+  // If unauthorized, try to refresh token
+  if (res.status === 401 && refreshToken) {
+    const refreshRes = await fetch(`${API_BASE}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken })
+    });
+
+    if (refreshRes.ok) {
+      const data: AuthResponse = await refreshRes.json();
+      setTokens(data.accessToken, data.refreshToken);
+      setStoredUser(data.user);
+      
+      (headers as Record<string, string>)['Authorization'] = `Bearer ${data.accessToken}`;
+      res = await fetch(url, { ...options, headers });
+    } else {
+      clearTokens();
+      window.location.reload();
+    }
+  }
+
+  return res;
+}
+
 export const api = {
+  // Auth
+  async register(email: string, username: string, password: string): Promise<AuthResponse> {
+    const res = await fetch(`${API_BASE}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, username, password })
+    });
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || 'Registration failed');
+    }
+    const data: AuthResponse = await res.json();
+    setTokens(data.accessToken, data.refreshToken);
+    setStoredUser(data.user);
+    return data;
+  },
+
+  async login(email: string, password: string): Promise<AuthResponse> {
+    const res = await fetch(`${API_BASE}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || 'Login failed');
+    }
+    const data: AuthResponse = await res.json();
+    setTokens(data.accessToken, data.refreshToken);
+    setStoredUser(data.user);
+    return data;
+  },
+
+  async logout(): Promise<void> {
+    try {
+      await authFetch(`${API_BASE}/auth/logout`, {
+        method: 'POST',
+        body: JSON.stringify({ refreshToken })
+      });
+    } finally {
+      clearTokens();
+    }
+  },
+
+  async getMe(): Promise<User> {
+    const res = await authFetch(`${API_BASE}/auth/me`);
+    if (!res.ok) throw new Error('Failed to get user');
+    return res.json();
+  },
+
+  // Categories
   async getCategories(): Promise<Category[]> {
-    const res = await fetch(`${API_BASE}/categories`);
+    const res = await authFetch(`${API_BASE}/categories`);
     if (!res.ok) throw new Error('Failed to fetch categories');
     return res.json();
   },
 
   async createCategory(name: string, color?: string): Promise<Category> {
-    const res = await fetch(`${API_BASE}/categories`, {
+    const res = await authFetch(`${API_BASE}/categories`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, color })
     });
     if (!res.ok) throw new Error('Failed to create category');
@@ -20,9 +134,8 @@ export const api = {
   },
 
   async updateCategory(id: number, name: string, color?: string): Promise<Category> {
-    const res = await fetch(`${API_BASE}/categories/${id}`, {
+    const res = await authFetch(`${API_BASE}/categories/${id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, color })
     });
     if (!res.ok) throw new Error('Failed to update category');
@@ -30,28 +143,28 @@ export const api = {
   },
 
   async deleteCategory(id: number): Promise<void> {
-    const res = await fetch(`${API_BASE}/categories/${id}`, {
+    const res = await authFetch(`${API_BASE}/categories/${id}`, {
       method: 'DELETE'
     });
     if (!res.ok) throw new Error('Failed to delete category');
   },
 
+  // Time entries
   async getTimeEntries(): Promise<TimeEntry[]> {
-    const res = await fetch(`${API_BASE}/time-entries`);
+    const res = await authFetch(`${API_BASE}/time-entries`);
     if (!res.ok) throw new Error('Failed to fetch time entries');
     return res.json();
   },
 
   async getActiveEntry(): Promise<TimeEntry | null> {
-    const res = await fetch(`${API_BASE}/time-entries/active`);
+    const res = await authFetch(`${API_BASE}/time-entries/active`);
     if (!res.ok) throw new Error('Failed to fetch active entry');
     return res.json();
   },
 
   async startEntry(category_id: number, note?: string): Promise<TimeEntry> {
-    const res = await fetch(`${API_BASE}/time-entries/start`, {
+    const res = await authFetch(`${API_BASE}/time-entries/start`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ category_id, note })
     });
     if (!res.ok) throw new Error('Failed to start entry');
@@ -59,7 +172,7 @@ export const api = {
   },
 
   async stopEntry(id: number): Promise<TimeEntry> {
-    const res = await fetch(`${API_BASE}/time-entries/${id}/stop`, {
+    const res = await authFetch(`${API_BASE}/time-entries/${id}/stop`, {
       method: 'POST'
     });
     if (!res.ok) throw new Error('Failed to stop entry');
@@ -67,9 +180,8 @@ export const api = {
   },
 
   async updateEntry(id: number, data: Partial<TimeEntry>): Promise<TimeEntry> {
-    const res = await fetch(`${API_BASE}/time-entries/${id}`, {
+    const res = await authFetch(`${API_BASE}/time-entries/${id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
     });
     if (!res.ok) throw new Error('Failed to update entry');
@@ -77,14 +189,15 @@ export const api = {
   },
 
   async deleteEntry(id: number): Promise<void> {
-    const res = await fetch(`${API_BASE}/time-entries/${id}`, {
+    const res = await authFetch(`${API_BASE}/time-entries/${id}`, {
       method: 'DELETE'
     });
     if (!res.ok) throw new Error('Failed to delete entry');
   },
 
+  // Analytics
   async getAnalytics(start: string, end: string): Promise<AnalyticsData> {
-    const res = await fetch(`${API_BASE}/analytics?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`);
+    const res = await authFetch(`${API_BASE}/analytics?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`);
     if (!res.ok) throw new Error('Failed to fetch analytics');
     return res.json();
   }

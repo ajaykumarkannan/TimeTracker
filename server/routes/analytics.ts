@@ -1,122 +1,125 @@
-import express from 'express';
+import { Router, Response } from 'express';
 import { getDb } from '../database';
 import { logger } from '../logger';
+import { authMiddleware, AuthRequest } from '../middleware/auth';
 
-const router = express.Router();
+const router = Router();
 
-// Get analytics data for a date range
-router.get('/', (req, res) => {
-  const { start, end, period } = req.query;
-  
+router.use(authMiddleware);
+
+router.get('/', (req: AuthRequest, res: Response) => {
   try {
-    const db = getDb();
+    const start = req.query.start as string;
+    const end = req.query.end as string;
     
-    // Get all entries in range
-    const entriesStmt = db.prepare(`
-      SELECT te.*, c.name as category_name, c.color as category_color
-      FROM time_entries te
-      JOIN categories c ON te.category_id = c.id
-      WHERE te.start_time >= ? AND te.start_time <= ?
-      ORDER BY te.start_time DESC
-    `);
-    entriesStmt.bind([start, end]);
-    
-    const entries: any[] = [];
-    while (entriesStmt.step()) {
-      entries.push(entriesStmt.getAsObject());
+    if (!start || !end) {
+      return res.status(400).json({ error: 'Start and end dates are required' });
     }
-    entriesStmt.free();
 
-    // Calculate totals by category
-    const categoryTotals: { [key: string]: { name: string; color: string; minutes: number; count: number } } = {};
-    let totalMinutes = 0;
-    
-    entries.forEach(entry => {
-      const mins = entry.duration_minutes || 0;
-      totalMinutes += mins;
-      
-      if (!categoryTotals[entry.category_id]) {
-        categoryTotals[entry.category_id] = {
-          name: entry.category_name,
-          color: entry.category_color || '#6366f1',
-          minutes: 0,
-          count: 0
-        };
-      }
-      categoryTotals[entry.category_id].minutes += mins;
-      categoryTotals[entry.category_id].count += 1;
-    });
+    const db = getDb();
+    const userId = req.userId as number;
 
-    // Calculate daily breakdown
-    const dailyTotals: { [key: string]: { date: string; minutes: number; byCategory: { [key: string]: number } } } = {};
-    
-    entries.forEach(entry => {
-      const date = entry.start_time.split('T')[0];
-      if (!dailyTotals[date]) {
-        dailyTotals[date] = { date, minutes: 0, byCategory: {} };
-      }
-      const mins = entry.duration_minutes || 0;
-      dailyTotals[date].minutes += mins;
-      dailyTotals[date].byCategory[entry.category_name] = 
-        (dailyTotals[date].byCategory[entry.category_name] || 0) + mins;
-    });
+    // Get totals by category
+    const categoryResult = db.exec(`
+      SELECT c.name, c.color, 
+             COALESCE(SUM(te.duration_minutes), 0) as minutes,
+             COUNT(te.id) as count
+      FROM categories c
+      LEFT JOIN time_entries te ON c.id = te.category_id 
+        AND te.start_time >= ? AND te.start_time < ?
+        AND te.user_id = ?
+      WHERE c.user_id = ?
+      GROUP BY c.id, c.name, c.color
+      ORDER BY minutes DESC
+    `, [start, end, userId, userId]);
 
-    // Get comparison with previous period
+    const byCategory = categoryResult.length > 0
+      ? categoryResult[0].values.map(row => ({
+          name: row[0] as string,
+          color: row[1] as string || '#6b7280',
+          minutes: row[2] as number,
+          count: row[3] as number
+        }))
+      : [];
+
+    // Get daily totals
+    const dailyResult = db.exec(`
+      SELECT DATE(start_time) as date, 
+             COALESCE(SUM(duration_minutes), 0) as minutes
+      FROM time_entries
+      WHERE user_id = ? AND start_time >= ? AND start_time < ?
+      GROUP BY DATE(start_time)
+      ORDER BY date
+    `, [userId, start, end]);
+
+    const daily = dailyResult.length > 0
+      ? dailyResult[0].values.map(row => ({
+          date: row[0] as string,
+          minutes: row[1] as number,
+          byCategory: {}
+        }))
+      : [];
+
+    // Get top notes
+    const notesResult = db.exec(`
+      SELECT note, COUNT(*) as count, COALESCE(SUM(duration_minutes), 0) as total_minutes
+      FROM time_entries
+      WHERE user_id = ? AND start_time >= ? AND start_time < ? AND note IS NOT NULL AND note != ''
+      GROUP BY note
+      ORDER BY count DESC
+      LIMIT 10
+    `, [userId, start, end]);
+
+    const topNotes = notesResult.length > 0
+      ? notesResult[0].values.map(row => ({
+          note: row[0] as string,
+          count: row[1] as number,
+          total_minutes: row[2] as number
+        }))
+      : [];
+
+    // Calculate summary
+    const totalMinutes = byCategory.reduce((sum, cat) => sum + cat.minutes, 0);
+    const totalEntries = byCategory.reduce((sum, cat) => sum + cat.count, 0);
+    const daysInPeriod = Math.max(1, daily.length);
+    const avgMinutesPerDay = Math.round(totalMinutes / daysInPeriod);
+
+    // Get previous period for comparison
     const startDate = new Date(start as string);
     const endDate = new Date(end as string);
     const periodLength = endDate.getTime() - startDate.getTime();
     const prevStart = new Date(startDate.getTime() - periodLength).toISOString();
-    const prevEnd = new Date(startDate.getTime() - 1).toISOString();
+    const prevEnd = start as string;
 
-    const prevStmt = db.prepare(`
-      SELECT SUM(duration_minutes) as total
+    const prevResult = db.exec(`
+      SELECT COALESCE(SUM(duration_minutes), 0) as total
       FROM time_entries
-      WHERE start_time >= ? AND start_time <= ?
-    `);
-    prevStmt.bind([prevStart, prevEnd]);
-    prevStmt.step();
-    const prevResult = prevStmt.getAsObject() as any;
-    prevStmt.free();
-    const previousTotal = prevResult.total || 0;
+      WHERE user_id = ? AND start_time >= ? AND start_time < ?
+    `, [userId, prevStart, prevEnd]);
 
-    // Calculate trends
+    const previousTotal = prevResult.length > 0 && prevResult[0].values.length > 0
+      ? prevResult[0].values[0][0] as number
+      : 0;
+
     const change = previousTotal > 0 
       ? Math.round(((totalMinutes - previousTotal) / previousTotal) * 100)
       : 0;
-
-    // Top notes/tasks
-    const notesStmt = db.prepare(`
-      SELECT note, COUNT(*) as count, SUM(duration_minutes) as total_minutes
-      FROM time_entries
-      WHERE start_time >= ? AND start_time <= ? AND note IS NOT NULL AND note != ''
-      GROUP BY note
-      ORDER BY total_minutes DESC
-      LIMIT 10
-    `);
-    notesStmt.bind([start, end]);
-    const topNotes: any[] = [];
-    while (notesStmt.step()) {
-      topNotes.push(notesStmt.getAsObject());
-    }
-    notesStmt.free();
 
     res.json({
       period: { start, end },
       summary: {
         totalMinutes,
-        totalEntries: entries.length,
-        avgMinutesPerDay: Object.keys(dailyTotals).length > 0 
-          ? Math.round(totalMinutes / Object.keys(dailyTotals).length)
-          : 0,
+        totalEntries,
+        avgMinutesPerDay,
         previousTotal,
         change
       },
-      byCategory: Object.values(categoryTotals).sort((a, b) => b.minutes - a.minutes),
-      daily: Object.values(dailyTotals).sort((a, b) => a.date.localeCompare(b.date)),
+      byCategory,
+      daily,
       topNotes
     });
   } catch (error) {
-    logger.error('Error fetching analytics', { error });
+    logger.error('Error fetching analytics', { error, userId: req.userId });
     res.status(500).json({ error: 'Failed to fetch analytics' });
   }
 });

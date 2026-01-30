@@ -1,0 +1,33 @@
+.theme-toggle {
+  display: flex;
+  gap: 0.25rem;
+  background: var(--bg-secondary);
+  padding: 0.25rem;
+  border-radius: 8px;
+}
+
+.theme-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.theme-btn:hover {
+  background: var(--bg-hover);
+}
+
+.theme-btn.active {
+  background: var(--card-bg);
+  box-shadow: var(--shadow-sm);
+}
+
+.theme-icon {
+  font-size: 1rem;
+}
