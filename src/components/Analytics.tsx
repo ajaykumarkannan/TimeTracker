@@ -58,15 +58,6 @@ export function Analytics() {
     }
   };
 
-  // Get ISO week number
-  const getWeekNumber = (date: Date): number => {
-    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-    const dayNum = d.getUTCDay() || 7;
-    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-    return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
-  };
-
   // Get week start date (Monday)
   const getWeekStart = (date: Date): Date => {
     const d = new Date(date);
@@ -75,6 +66,14 @@ export function Analytics() {
     d.setDate(diff);
     d.setHours(0, 0, 0, 0);
     return d;
+  };
+
+  // Helper functions - defined before useMemo hooks that use them
+  const formatShortDate = (dateStr: string) => {
+    const date = new Date(dateStr + 'T12:00:00');
+    const today = new Date();
+    if (date.toDateString() === today.toDateString()) return 'Today';
+    return date.toLocaleDateString(undefined, { weekday: 'short' });
   };
 
   const handleExport = async () => {
@@ -218,13 +217,6 @@ export function Analytics() {
     if (h === 0) return `${m}m`;
     if (m === 0) return `${h}h`;
     return `${h}h ${m}m`;
-  };
-
-  const formatShortDate = (dateStr: string) => {
-    const date = new Date(dateStr + 'T12:00:00');
-    const today = new Date();
-    if (date.toDateString() === today.toDateString()) return 'Today';
-    return date.toLocaleDateString(undefined, { weekday: 'short' });
   };
 
   const formatFullDate = (dateStr: string) => {
