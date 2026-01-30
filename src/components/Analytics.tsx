@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { api } from '../api';
 import { AnalyticsData, Period, DailyTotal } from '../types';
 import './Analytics.css';
@@ -201,8 +201,40 @@ export function Analytics() {
       }
     }
     
-    return Array.from(buckets.values());
+    let result = Array.from(buckets.values());
+    
+    // For "all time" view, only show months with activity
+    if (period === 'all') {
+      result = result.filter(b => b.minutes > 0);
+    }
+    
+    return result;
   }, [filledDaily, period, data]);
+
+  // Determine if we need vertical labels (long labels or many items)
+  const needsVerticalLabels = useMemo(() => {
+    if (aggregatedData.length === 0) return false;
+    const aggregation = getAggregation(period);
+    // Use vertical labels for week aggregation (long date ranges) or many items
+    return aggregation === 'week' || aggregatedData.length > 12;
+  }, [aggregatedData, period]);
+
+  // Determine if chart needs scrolling
+  const needsScrolling = useMemo(() => {
+    const aggregation = getAggregation(period);
+    if (aggregation === 'day') return false; // Week view fits
+    return aggregatedData.length > 8;
+  }, [aggregatedData, period]);
+
+  // Ref for scrolling to end
+  const chartRef = useRef<HTMLDivElement>(null);
+
+  // Scroll to end (newest) when data changes
+  useEffect(() => {
+    if (chartRef.current && needsScrolling) {
+      chartRef.current.scrollLeft = chartRef.current.scrollWidth;
+    }
+  }, [aggregatedData, needsScrolling]);
 
   // Build category color map for stacked bars
   const categoryColorMap = useMemo(() => {
@@ -340,7 +372,10 @@ export function Analytics() {
             <span className="chart-hint">{getChartHint()}</span>
           )}
         </div>
-        <div className={`daily-chart ${!hasData ? 'empty' : ''}`}>
+        <div 
+          ref={chartRef}
+          className={`daily-chart ${!hasData ? 'empty' : ''} view-${getAggregation(period)} ${needsVerticalLabels ? 'vertical-labels' : ''} ${needsScrolling ? 'scrollable' : ''}`}
+        >
           {aggregatedData.map((bucket, idx) => {
             const isCurrentPeriod = idx === aggregatedData.length - 1;
             const hasMinutes = bucket.minutes > 0;
