@@ -199,16 +199,21 @@ export function Analytics() {
             </span>
           )}
         </div>
-        <div className="daily-chart">
+        <div className={`daily-chart ${!hasData ? 'empty' : ''}`}>
           {filledDaily.map(day => {
             const isToday = new Date(day.date + 'T12:00:00').toDateString() === new Date().toDateString();
             const hasMinutes = day.minutes > 0;
             const categoryEntries = Object.entries(day.byCategory).filter(([_, mins]) => mins > 0);
+            // Calculate flex ratio: bar takes up proportional space, spacer takes the rest
+            const barRatio = day.minutes / maxMinutes;
+            const spacerRatio = 1 - barRatio;
             
             return (
               <div key={day.date} className={`chart-bar-container ${isToday ? 'today' : ''} ${!hasMinutes ? 'empty' : ''}`} title={`${formatFullDate(day.date)}: ${formatDuration(day.minutes)}`}>
                 <div className="chart-bar-wrapper">
-                  <div className="chart-bar-stack" style={{ height: `${Math.max((day.minutes / maxMinutes) * 100, hasMinutes ? 4 : 0)}%` }}>
+                  {/* Spacer pushes the bar stack to the bottom */}
+                  <div style={{ flex: spacerRatio }} />
+                  <div className="chart-bar-stack" style={{ flex: hasMinutes ? barRatio : 0, minHeight: hasMinutes ? '4px' : 0 }}>
                     {categoryEntries.map(([catName, mins]) => {
                       const segmentPercent = (mins / day.minutes) * 100;
                       const color = categoryColorMap.get(catName) || 'var(--primary)';
@@ -217,7 +222,7 @@ export function Analytics() {
                           key={catName}
                           className="chart-bar-segment"
                           style={{ 
-                            height: `${segmentPercent}%`,
+                            flex: segmentPercent,
                             backgroundColor: color
                           }}
                           title={`${catName}: ${formatDuration(mins)}`}

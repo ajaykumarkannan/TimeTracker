@@ -118,17 +118,15 @@ jobs:
     name: Docker Build
     runs-on: ubuntu-latest
     needs: [lint-and-typecheck, test]
-    env:
-      TEST_PORT: 3001
     steps:
       - uses: actions/checkout@v4
       
       - name: Build Docker image
-        run: docker build --build-arg PORT=${{ env.TEST_PORT }} -t chronoflow:${{ github.sha }} .
+        run: docker build -t chronoflow:${{ github.sha }} .
       
       - name: Test Docker container starts
         run: |
-          docker run -d --name test-container -p ${{ env.TEST_PORT }}:${{ env.TEST_PORT }} -e JWT_SECRET=ci-test-secret chronoflow:${{ github.sha }}
+          docker run -d --name test-container -p 4849:4849 -e JWT_SECRET=ci-test-secret chronoflow:${{ github.sha }}
           sleep 15
-          curl -f http://localhost:${{ env.TEST_PORT }}/api/health || exit 1
+          curl -f http://localhost:4849/api/health || exit 1
           docker stop test-container

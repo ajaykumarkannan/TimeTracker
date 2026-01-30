@@ -47,7 +47,7 @@ RUN mkdir -p /app/data /app/logs && \
 USER chronoflow
 
 # Port configuration (can be overridden at build or runtime)
-ARG PORT=4739
+ARG PORT=4849
 ENV PORT=${PORT}
 EXPOSE ${PORT}
 

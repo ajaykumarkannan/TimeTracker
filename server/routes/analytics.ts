@@ -52,11 +52,35 @@ router.get('/', (req: AuthRequest, res: Response) => {
       ORDER BY date
     `, [userId, start, end]);
 
+    // Get daily breakdown by category
+    const dailyByCategoryResult = db.exec(`
+      SELECT DATE(te.start_time) as date, c.name, COALESCE(SUM(te.duration_minutes), 0) as minutes
+      FROM time_entries te
+      JOIN categories c ON te.category_id = c.id
+      WHERE te.user_id = ? AND te.start_time >= ? AND te.start_time < ?
+      GROUP BY DATE(te.start_time), c.name
+      ORDER BY date, minutes DESC
+    `, [userId, start, end]);
+
+    // Build a map of date -> { categoryName: minutes }
+    const dailyByCategoryMap: Record<string, Record<string, number>> = {};
+    if (dailyByCategoryResult.length > 0) {
+      for (const row of dailyByCategoryResult[0].values) {
+        const date = row[0] as string;
+        const categoryName = row[1] as string;
+        const minutes = row[2] as number;
+        if (!dailyByCategoryMap[date]) {
+          dailyByCategoryMap[date] = {};
+        }
+        dailyByCategoryMap[date][categoryName] = minutes;
+      }
+    }
+
     const daily = dailyResult.length > 0
       ? dailyResult[0].values.map(row => ({
           date: row[0] as string,
           minutes: row[1] as number,
-          byCategory: {}
+          byCategory: dailyByCategoryMap[row[0] as string] || {}
         }))
       : [];
 

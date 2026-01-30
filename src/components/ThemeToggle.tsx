@@ -1,15 +1,16 @@
 import { useTheme } from '../contexts/ThemeContext';
 import { Theme } from '../types';
+import { SunIcon, MoonIcon, MonitorIcon } from './Icons';
 import './ThemeToggle.css';
 
 export function ThemeToggle() {
   const { theme, setTheme } = useTheme();
 
   const themeOrder: Theme[] = ['light', 'dark', 'system'];
-  const themeConfig: Record<Theme, { icon: string; label: string }> = {
-    light: { icon: '☀️', label: 'Light mode (click for dark)' },
-    dark: { icon: '🌙', label: 'Dark mode (click for system)' },
-    system: { icon: '💻', label: 'System mode (click for light)' }
+  const themeLabels: Record<Theme, string> = {
+    light: 'Light mode (click for dark)',
+    dark: 'Dark mode (click for system)',
+    system: 'System mode (click for light)'
   };
 
   const cycleTheme = () => {
@@ -18,16 +19,25 @@ export function ThemeToggle() {
     setTheme(themeOrder[nextIndex]);
   };
 
-  const { icon, label } = themeConfig[theme];
+  const renderIcon = () => {
+    switch (theme) {
+      case 'light':
+        return <SunIcon size={18} />;
+      case 'dark':
+        return <MoonIcon size={18} />;
+      case 'system':
+        return <MonitorIcon size={18} />;
+    }
+  };
 
   return (
     <button
       className="theme-toggle-btn"
       onClick={cycleTheme}
-      title={label}
-      aria-label={label}
+      title={themeLabels[theme]}
+      aria-label={themeLabels[theme]}
     >
-      <span className="theme-icon">{icon}</span>
+      {renderIcon()}
     </button>
   );
 }

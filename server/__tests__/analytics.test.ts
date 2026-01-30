@@ -143,6 +143,54 @@ describe('Analytics', () => {
       expect(result[0].values[1][0]).toBe('2024-01-16');
       expect(result[0].values[1][1]).toBe(120);
     });
+
+    it('breaks down daily totals by category', () => {
+      // Create two categories
+      db.run('INSERT INTO categories (user_id, name, color) VALUES (?, ?, ?)', 
+        [testUserId, 'Development', '#007bff']);
+      const devId = db.exec('SELECT last_insert_rowid()')[0].values[0][0];
+      
+      db.run('INSERT INTO categories (user_id, name, color) VALUES (?, ?, ?)', 
+        [testUserId, 'Meetings', '#28a745']);
+      const meetId = db.exec('SELECT last_insert_rowid()')[0].values[0][0];
+
+      // Add entries for the same day in different categories
+      db.run(`INSERT INTO time_entries (user_id, category_id, start_time, duration_minutes) 
+              VALUES (?, ?, ?, ?)`,
+        [testUserId, devId, '2024-01-15T09:00:00Z', 120]);
+      db.run(`INSERT INTO time_entries (user_id, category_id, start_time, duration_minutes) 
+              VALUES (?, ?, ?, ?)`,
+        [testUserId, meetId, '2024-01-15T14:00:00Z', 60]);
+      db.run(`INSERT INTO time_entries (user_id, category_id, start_time, duration_minutes) 
+              VALUES (?, ?, ?, ?)`,
+        [testUserId, devId, '2024-01-16T10:00:00Z', 90]);
+
+      // Query for daily breakdown by category (same as analytics route)
+      const result = db.exec(`
+        SELECT DATE(te.start_time) as date, c.name, COALESCE(SUM(te.duration_minutes), 0) as minutes
+        FROM time_entries te
+        JOIN categories c ON te.category_id = c.id
+        WHERE te.user_id = ?
+        GROUP BY DATE(te.start_time), c.name
+        ORDER BY date, minutes DESC
+      `, [testUserId]);
+
+      expect(result[0].values).toHaveLength(3);
+      
+      // Jan 15: Development 120, Meetings 60
+      expect(result[0].values[0][0]).toBe('2024-01-15');
+      expect(result[0].values[0][1]).toBe('Development');
+      expect(result[0].values[0][2]).toBe(120);
+      
+      expect(result[0].values[1][0]).toBe('2024-01-15');
+      expect(result[0].values[1][1]).toBe('Meetings');
+      expect(result[0].values[1][2]).toBe(60);
+      
+      // Jan 16: Development 90
+      expect(result[0].values[2][0]).toBe('2024-01-16');
+      expect(result[0].values[2][1]).toBe('Development');
+      expect(result[0].values[2][2]).toBe(90);
+    });
   });
 
   describe('Top Notes', () => {

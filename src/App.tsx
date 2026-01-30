@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from './contexts/AuthContext';
 import { Landing } from './components/Landing';
 import { Login } from './components/Login';
@@ -9,6 +9,7 @@ import { Analytics } from './components/Analytics';
 import { Settings } from './components/Settings';
 import { Help } from './components/Help';
 import { ThemeToggle } from './components/ThemeToggle';
+import { SettingsIcon, LogoutIcon } from './components/Icons';
 import { api } from './api';
 import { Category, TimeEntry } from './types';
 import './App.css';
@@ -19,14 +20,30 @@ function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLoggedIn: bo
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>(() => {
     const saved = localStorage.getItem('chronoflow_tab');
+    // Reset to tracker if saved tab was settings (now in menu)
+    if (saved === 'settings') return 'tracker';
     return (saved as Tab) || 'tracker';
   });
   const [categories, setCategories] = useState<Category[]>([]);
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [activeEntry, setActiveEntry] = useState<TimeEntry | null>(null);
+  const [showSettingsMenu, setShowSettingsMenu] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadData();
+  }, []);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setShowSettingsMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   const handleTabChange = (tab: Tab) => {
@@ -91,17 +108,45 @@ function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLoggedIn: bo
             <span className="mode-badge">Guest Mode</span>
           )}
           <ThemeToggle />
-          <div className="user-menu">
-            {isLoggedIn && user && (
-              <span className="username">{user.name}</span>
-            )}
-            <button onClick={onLogout} className="logout-btn" title={isLoggedIn ? 'Sign out' : 'Exit'}>
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                <polyline points="16,17 21,12 16,7" />
-                <line x1="21" y1="12" x2="9" y2="12" />
-              </svg>
+          <div className="settings-menu-container" ref={menuRef}>
+            <button 
+              className="settings-menu-btn"
+              onClick={() => setShowSettingsMenu(!showSettingsMenu)}
+              title="Settings"
+              aria-label="Settings menu"
+            >
+              <SettingsIcon size={18} />
             </button>
+            {showSettingsMenu && (
+              <div className="settings-dropdown">
+                {isLoggedIn && user && (
+                  <div className="settings-dropdown-user">
+                    <span className="settings-dropdown-name">{user.name}</span>
+                    <span className="settings-dropdown-email">{user.email}</span>
+                  </div>
+                )}
+                <button 
+                  className="settings-dropdown-item"
+                  onClick={() => {
+                    setShowSettingsMenu(false);
+                    setShowSettingsModal(true);
+                  }}
+                >
+                  <SettingsIcon size={16} />
+                  <span>Settings</span>
+                </button>
+                <button 
+                  className="settings-dropdown-item settings-dropdown-logout"
+                  onClick={() => {
+                    setShowSettingsMenu(false);
+                    onLogout();
+                  }}
+                >
+                  <LogoutIcon size={16} />
+                  <span>{isLoggedIn ? 'Sign out' : 'Exit'}</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </header>
@@ -150,6 +195,27 @@ function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLoggedIn: bo
         )}
         {activeTab === 'help' && <Help />}
       </main>
+
+      {/* Settings Modal */}
+      {showSettingsModal && (
+        <div className="settings-modal-overlay" onClick={() => setShowSettingsModal(false)}>
+          <div className="settings-modal" onClick={e => e.stopPropagation()}>
+            <div className="settings-modal-header">
+              <h2>Settings</h2>
+              <button 
+                className="settings-modal-close"
+                onClick={() => setShowSettingsModal(false)}
+                aria-label="Close settings"
+              >
+                ×
+              </button>
+            </div>
+            <div className="settings-modal-content">
+              <Settings onLogout={onLogout} onConvertSuccess={onConvertSuccess} />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

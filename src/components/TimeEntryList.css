@@ -141,10 +141,15 @@
   box-shadow: 0 0 0 3px var(--primary-alpha);
 }
 
-.form-row-times {
+.form-row-datetime {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.75rem;
+}
+
+.form-row-datetime .form-group input[type="date"],
+.form-row-datetime .form-group input[type="time"] {
+  width: 100%;
 }
 
 .manual-entry-error {

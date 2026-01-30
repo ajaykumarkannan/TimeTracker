@@ -1,9 +1,9 @@
 // Centralized configuration with environment variable support
 // All config values have sensible defaults for development
 
-// Default ports: dev=4847, prod=4739 (unique ports to avoid collisions)
+// Default ports: dev=4847, prod=4849 (consecutive unique ports to avoid collisions)
 const DEFAULT_DEV_PORT = 4847;
-const DEFAULT_PROD_PORT = 4739;
+const DEFAULT_PROD_PORT = 4849;
 
 const getDefaultPort = () => {
   const env = process.env.NODE_ENV || 'development';

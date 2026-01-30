@@ -77,29 +77,26 @@ Both modes use the same server-side SQLite database - there is no localStorage-b
 
 ### Git Workflow
 
-- **Always work on `develop` branch**: All development happens on the `develop` branch, not `main`
-- **Create feature branches from develop**: For new features, branch off `develop` (`git checkout -b feature/my-feature develop`)
+- **Work on feature branches**: Create feature branches from `main` for new work
 - **Commit frequently**: Make small, incremental commits as you work rather than one large commit at the end
 - **Write meaningful commit messages**: Describe what changed and why
-- **Merge back to develop**: When a feature is complete, merge it back to `develop`
 - **Ask before merging to main**: Never merge to `main` without explicit human approval
-- **Use Pull Requests for main**: When ready to release, create a PR from `develop` to `main` and wait for human review
+- **Use Pull Requests**: Create a PR from your feature branch to `main` and wait for CI to pass and human review
 
 #### Branch Strategy
 
 ```
 main (production-ready)
-  └── develop (integration branch)
-        ├── feature/feature-a
-        ├── feature/feature-b
-        └── fix/bug-fix
+  ├── feature/feature-a
+  ├── feature/feature-b
+  └── fix/bug-fix
 ```
 
 #### Agent Rules for Branching
 
-1. **Check current branch first**: Before making changes, verify you're on `develop` or a feature branch
-2. **Never commit directly to main**: All changes must go through `develop` first
-3. **Create PRs for main merges**: Use `gh pr create --base main --head develop` when ready to merge
+1. **Check current branch first**: Before making changes, verify you're on a feature branch (not `main`)
+2. **Never commit directly to main**: All changes must go through a feature branch first
+3. **Create PRs for main merges**: Use `gh pr create --base main --head feature/your-branch` when ready to merge
 4. **Wait for human approval**: After creating a PR to main, stop and ask the human to review and approve
 
 #### Feature Branch Guidelines
@@ -131,7 +128,7 @@ main (production-ready)
 docker-compose up --build  # Build and run
 ```
 
-App runs on `http://localhost:4739` (production port)
+App runs on `http://localhost:4849`
 
 ### Code Style
 
@@ -190,7 +187,7 @@ Winston logger configured in `server/logger.ts`:
 
 | Variable | Default | Description |
 | ------------ | ------------------------- | ------------------- |
-| `PORT` | 4847 (dev) / 4739 (prod) | Server port |
+| `PORT` | 4847 (dev) / 4849 (prod) | Server port |
 | `DB_PATH` | ./data/timetracker.db | Database file path |
 | `JWT_SECRET` | (dev default) | JWT signing secret |
 | `NODE_ENV` | development | Environment |
@@ -198,8 +195,8 @@ Winston logger configured in `server/logger.ts`:
 
 ### Port Configuration
 
-- **Development**: Server runs on port 4847, Vite dev server on port 5173 (proxies API to 4847)
-- **Production**: Server runs on port 4739 (Docker exposes 4739)
+- **Development**: Server runs on port 4847, Vite dev server on port 4848 (proxies API to 4847)
+- **Production**: Server runs on port 4849 (Docker exposes 4849)
 
 ## Scalability Features
 
@@ -233,5 +230,6 @@ When the application needs to scale beyond a single server:
 **Important**: As the project evolves, keep documentation in sync:
 
 - Update this `AGENTS.md` file when adding new features, changing architecture, or modifying development workflows
-- Update `README.md` when user-facing features, API endpoints, or setup instructions change
-- Review both files periodically to ensure accuracy
+- Update `README.md` when user-facing features, installation, or configuration changes (this is for end users)
+- Update `DEVELOPMENT.md` when development workflows, testing, or contribution guidelines change (this is for contributors)
+- Review all docs periodically to ensure accuracy

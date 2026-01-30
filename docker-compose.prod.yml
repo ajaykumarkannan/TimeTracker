@@ -12,13 +12,13 @@ services:
     image: ghcr.io/${GITHUB_REPO:-your-username/chronoflow}:latest
     container_name: chronoflow
     expose:
-      - "3001"
+      - "4849"
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs
     environment:
       - NODE_ENV=production
-      - PORT=3001
+      - PORT=4849
       - DB_PATH=/app/data/timetracker.db
       - TRUST_PROXY=true
       - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
@@ -32,7 +32,7 @@ services:
         reservations:
           memory: 128M
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/api/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4849/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3

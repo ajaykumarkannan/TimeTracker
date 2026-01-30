@@ -13,52 +13,45 @@ A simple, beautiful time tracking app to understand where your hours go.
 - 📤 **Import/Export** - CSV and JSON data portability
 - 🔌 **Browser Extension** - Quick access from any tab
 
-## Quick Start
+## Installation
 
 ### Docker (Recommended)
 
+The easiest way to run ChronoFlow is with Docker:
+
 ```bash
+# Quick start (development/testing)
+docker run -d \
+  -p 4849:4849 \
+  -v chronoflow-data:/app/data \
+  -e JWT_SECRET=$(openssl rand -base64 32) \
+  --name chronoflow \
+  ghcr.io/YOUR-USERNAME/chronoflow:latest
+
+# Visit http://localhost:4849
+```
+
+Or use docker-compose for a more complete setup:
+
+```bash
+# Clone the repo (or just download docker-compose.yml)
+curl -O https://raw.githubusercontent.com/YOUR-USERNAME/chronoflow/main/docker-compose.yml
+
+# Start
 docker-compose up -d
+
+# Visit http://localhost:4849
 ```
-
-Visit http://localhost:3001
-
-### Development
-
-```bash
-npm install
-npm run dev
-```
-
-## Docker Deployment
-
-### Local Development with Docker
-
-Build and run locally:
-
-```bash
-# Build and start
-docker-compose up --build -d
-
-# View logs
-docker-compose logs -f
-
-# Stop
-docker-compose down
-```
-
-The app runs on port 3001 with persistent volumes for data and logs.
 
 ### Production Deployment
 
-For production, use `docker-compose.prod.yml` which includes:
-- Pre-built images from GitHub Container Registry
-- Cloudflare Tunnel for secure access (no exposed ports)
-- Watchtower for automatic updates
-- Required environment variables
+For production with Cloudflare Tunnel and auto-updates:
 
 ```bash
-# Create .env file
+# Download production compose file
+curl -O https://raw.githubusercontent.com/YOUR-USERNAME/chronoflow/main/docker-compose.prod.yml
+
+# Create environment file
 cat > .env << 'EOF'
 GITHUB_REPO=your-username/chronoflow
 JWT_SECRET=$(openssl rand -base64 32)
@@ -70,108 +63,114 @@ EOF
 docker-compose -f docker-compose.prod.yml up -d
 ```
 
-### Building the Docker Image
+The production setup includes:
+- **Watchtower** for automatic updates when new versions are released
+- **Cloudflare Tunnel** for secure access without exposed ports
+- Resource limits suitable for Raspberry Pi
+
+### npm (Without Docker)
 
 ```bash
-# Build for local architecture
-docker build -t chronoflow .
+# Clone and install
+git clone https://github.com/YOUR-USERNAME/chronoflow.git
+cd chronoflow
+npm install
 
-# Run standalone
-docker run -d \
-  -p 3001:3001 \
-  -v chronoflow-data:/app/data \
-  -e JWT_SECRET=your-secret-here \
-  chronoflow
+# Build for production
+npm run build
+
+# Set environment and start
+export JWT_SECRET=$(openssl rand -base64 32)
+npm start
+
+# Visit http://localhost:4849
 ```
+
+## Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT` | 4849 | Server port |
+| `JWT_SECRET` | - | **Required in production** - Token signing secret |
+| `DB_PATH` | ./data/timetracker.db | Database file location |
+| `CORS_ORIGIN` | * | Allowed origins (set to your domain in production) |
+| `TRUST_PROXY` | false | Set to `true` behind a reverse proxy |
+
+## Usage
+
+### Guest Mode vs Account Mode
+
+| Mode | Description |
+|------|-------------|
+| **Guest** | Start immediately without signup. Data stored server-side with a session ID. Convert to a full account anytime. |
+| **Account** | Email/password login. Sync across devices. |
 
 ### Health Checks
 
 ```bash
-curl http://localhost:3001/api/health   # Basic health
-curl http://localhost:3001/api/version  # App version
+curl http://localhost:4849/api/health   # Basic health
+curl http://localhost:4849/api/version  # App version
 ```
 
-### Resource Limits
+## Updating
 
-Default limits (suitable for Raspberry Pi):
-- Memory: 256MB limit, 128MB reserved
-- Logs: 10MB max, 3 files retained
+### With Watchtower (Automatic)
 
-Adjust in `docker-compose.yml` under `deploy.resources`.
+If you're using `docker-compose.prod.yml`, Watchtower checks for updates hourly and automatically restarts with new versions.
 
-For detailed production setup (Raspberry Pi, VPS, auto-updates, backups), see **[DEPLOYMENT.md](DEPLOYMENT.md)**.
+Force an immediate update:
+```bash
+docker exec watchtower /watchtower --run-once
+```
 
-## Usage Modes
-
-| Mode | Description |
-|------|-------------|
-| **Guest** | Start immediately, no signup. Data stored server-side with session ID. Convert to account anytime. |
-| **Account** | Email/password login. Sync across devices via JWT auth. |
-
-## Tech Stack
-
-| Layer | Technology |
-|-------|------------|
-| Frontend | React 18, TypeScript, Vite |
-| Backend | Express.js, TypeScript |
-| Database | SQLite (sql.js) |
-| Auth | JWT + refresh tokens |
-| Styling | CSS variables (no framework) |
-
-## API
-
-All routes prefixed with `/api/`:
-
-| Endpoint | Description |
-|----------|-------------|
-| `POST /auth/register` | Create account |
-| `POST /auth/login` | Login |
-| `GET /time-entries` | List entries |
-| `POST /time-entries/start` | Start timer |
-| `POST /time-entries/:id/stop` | Stop timer |
-| `GET /categories` | List categories |
-| `GET /analytics?start=&end=` | Get analytics |
-| `GET /export` | Export JSON |
-| `GET /export/csv` | Export CSV |
-| `POST /export/csv` | Import CSV |
-| `GET /health` | Health check |
-| `GET /version` | App version |
-
-## Environment Variables
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `PORT` | 3001 | Server port |
-| `DB_PATH` | ./data/timetracker.db | Database path |
-| `JWT_SECRET` | dev-default | **Set in production!** |
-| `CORS_ORIGIN` | * | Allowed origins |
-| `TRUST_PROXY` | false | Enable behind reverse proxy |
-
-## Development
+### Manual Update
 
 ```bash
-npm test          # Unit tests
-npm run test:e2e  # E2E tests  
-npm run lint      # Lint
-npm run build     # Production build
+docker-compose pull
+docker-compose up -d
 ```
 
-## Project Structure
+## Backup & Restore
 
-```
-server/           # Express backend
-  routes/         # API endpoints
-  middleware/     # Auth, security
-  migrations/     # Database migrations
-src/              # React frontend
-  components/     # UI components + CSS
-  contexts/       # Auth, Theme providers
-e2e/              # Playwright tests
-extension/        # Browser extension
-work/             # Local dev artifacts (gitignored)
+### Backup
+
+```bash
+# Stop container for clean backup
+docker-compose stop chronoflow
+cp ./data/timetracker.db ./backups/timetracker-$(date +%Y%m%d).db
+docker-compose start chronoflow
 ```
 
-The `work/` directory is for local development artifacts like test databases, Docker volumes, or temporary files. It's gitignored to keep the repo clean.
+### Restore
+
+```bash
+docker-compose stop chronoflow
+cp ./backups/timetracker-YYYYMMDD.db ./data/timetracker.db
+docker-compose start chronoflow
+```
+
+## Troubleshooting
+
+### Container won't start
+
+```bash
+docker-compose logs chronoflow
+```
+
+Common issues:
+- Missing `JWT_SECRET` - Set it in your `.env` file
+- Port conflict - Change `PORT` in `.env`
+- Permission denied - Check data directory ownership
+
+### High memory usage
+
+Adjust limits in `docker-compose.yml`:
+```yaml
+deploy:
+  resources:
+    limits:
+      memory: 128M  # Reduce for constrained environments
+```
 
 ## License
 
