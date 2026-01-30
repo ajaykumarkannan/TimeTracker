@@ -1,15 +1,20 @@
 import { useState, useEffect } from 'react';
 import { Category, TimeEntry } from '../types';
-import { api } from '../api';
 import './TimeTracker.css';
 
 interface Props {
   categories: Category[];
   activeEntry: TimeEntry | null;
   onEntryChange: () => void;
+  onCategoryChange: () => void;
+  currentApi: {
+    startEntry: (category_id: number, note?: string) => Promise<TimeEntry>;
+    stopEntry: (id: number) => Promise<TimeEntry>;
+    createCategory: (name: string, color?: string) => Promise<Category>;
+  };
 }
 
-export function TimeTracker({ categories, activeEntry, onEntryChange }: Props) {
+export function TimeTracker({ categories, activeEntry, onEntryChange, onCategoryChange, currentApi }: Props) {
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const [note, setNote] = useState('');
   const [elapsed, setElapsed] = useState(0);
@@ -38,7 +43,7 @@ export function TimeTracker({ categories, activeEntry, onEntryChange }: Props) {
   const handleStart = async () => {
     if (!selectedCategory) return;
     try {
-      await api.startEntry(selectedCategory, note || undefined);
+      await currentApi.startEntry(selectedCategory, note || undefined);
       setNote('');
       onEntryChange();
     } catch (error) {
@@ -49,7 +54,7 @@ export function TimeTracker({ categories, activeEntry, onEntryChange }: Props) {
   const handleStop = async () => {
     if (!activeEntry) return;
     try {
-      await api.stopEntry(activeEntry.id);
+      await currentApi.stopEntry(activeEntry.id);
       setPausedEntry(null);
       onEntryChange();
     } catch (error) {
@@ -60,7 +65,7 @@ export function TimeTracker({ categories, activeEntry, onEntryChange }: Props) {
   const handlePause = async () => {
     if (!activeEntry) return;
     try {
-      await api.stopEntry(activeEntry.id);
+      await currentApi.stopEntry(activeEntry.id);
       setPausedEntry({ ...activeEntry, end_time: new Date().toISOString() });
       onEntryChange();
     } catch (error) {
@@ -71,7 +76,7 @@ export function TimeTracker({ categories, activeEntry, onEntryChange }: Props) {
   const handleResume = async () => {
     if (!pausedEntry) return;
     try {
-      await api.startEntry(pausedEntry.category_id, pausedEntry.note || undefined);
+      await currentApi.startEntry(pausedEntry.category_id, pausedEntry.note || undefined);
       setPausedEntry(null);
       onEntryChange();
     } catch (error) {
@@ -82,11 +87,12 @@ export function TimeTracker({ categories, activeEntry, onEntryChange }: Props) {
   const handleCreateCategory = async () => {
     if (!newCategoryName.trim()) return;
     try {
-      const category = await api.createCategory(newCategoryName, newCategoryColor);
+      const category = await currentApi.createCategory(newCategoryName, newCategoryColor);
       setSelectedCategory(category.id);
       setNewCategoryName('');
+      setNewCategoryColor('#6366f1');
       setShowNewCategory(false);
-      onEntryChange();
+      onCategoryChange();
     } catch (error) {
       console.error('Failed to create category:', error);
     }
@@ -178,7 +184,7 @@ export function TimeTracker({ categories, activeEntry, onEntryChange }: Props) {
                     className="quick-start-btn"
                     style={{ borderColor: cat.color || '#6366f1', color: cat.color || '#6366f1' }}
                     onClick={() => {
-                      api.startEntry(cat.id).then(onEntryChange);
+                      currentApi.startEntry(cat.id).then(onEntryChange);
                     }}
                   >
                     <span className="category-dot" style={{ backgroundColor: cat.color || '#6366f1' }} />

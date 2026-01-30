@@ -1,9 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { TimeTracker } from '../TimeTracker';
-import { api } from '../../api';
-
-vi.mock('../../api');
 
 describe('TimeTracker', () => {
   const mockCategories = [
@@ -11,54 +8,84 @@ describe('TimeTracker', () => {
     { id: 2, name: 'Meetings', color: '#28a745', created_at: '2024-01-01' }
   ];
 
-  const mockOnUpdate = vi.fn();
+  const mockOnEntryChange = vi.fn();
+  const mockOnCategoryChange = vi.fn();
+  const mockApi = {
+    startEntry: vi.fn().mockResolvedValue({ id: 1 }),
+    stopEntry: vi.fn().mockResolvedValue({ id: 1 }),
+    createCategory: vi.fn().mockResolvedValue({ id: 3, name: 'New', color: '#000' }),
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('renders start form when no active entry', () => {
-    render(<TimeTracker categories={mockCategories} activeEntry={null} onUpdate={mockOnUpdate} />);
-    expect(screen.getByText('Start Tracking')).toBeInTheDocument();
-    expect(screen.getByText('Start Timer')).toBeInTheDocument();
+    render(
+      <TimeTracker 
+        categories={mockCategories} 
+        activeEntry={null} 
+        onEntryChange={mockOnEntryChange}
+        onCategoryChange={mockOnCategoryChange}
+        currentApi={mockApi}
+      />
+    );
+    expect(screen.getByText('Category')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /start/i })).toBeInTheDocument();
   });
 
   it('starts timer when category selected and start clicked', async () => {
-    vi.mocked(api.startEntry).mockResolvedValue({} as any);
-    
-    render(<TimeTracker categories={mockCategories} activeEntry={null} onUpdate={mockOnUpdate} />);
+    render(
+      <TimeTracker 
+        categories={mockCategories} 
+        activeEntry={null} 
+        onEntryChange={mockOnEntryChange}
+        onCategoryChange={mockOnCategoryChange}
+        currentApi={mockApi}
+      />
+    );
     
     const select = screen.getByRole('combobox');
     fireEvent.change(select, { target: { value: '1' } });
     
-    const startButton = screen.getByText('Start Timer');
+    const startButton = screen.getByRole('button', { name: /start/i });
     fireEvent.click(startButton);
     
     await waitFor(() => {
-      expect(api.startEntry).toHaveBeenCalledWith(1, undefined);
-      expect(mockOnUpdate).toHaveBeenCalled();
+      expect(mockApi.startEntry).toHaveBeenCalledWith(1, undefined);
+      expect(mockOnEntryChange).toHaveBeenCalled();
     });
   });
 
-  it('displays active timer with elapsed time', () => {
+  it('displays active timer with category name', () => {
     const activeEntry = {
       id: 1,
       category_id: 1,
       category_name: 'Development',
       category_color: '#007bff',
       note: 'Working on feature',
-      start_time: new Date(Date.now() - 3661000).toISOString(), // 1h 1m 1s ago
+      start_time: new Date(Date.now() - 3661000).toISOString(),
       end_time: null,
       duration_minutes: null,
       created_at: '2024-01-01'
     };
 
-    render(<TimeTracker categories={mockCategories} activeEntry={activeEntry} onUpdate={mockOnUpdate} />);
+    render(
+      <TimeTracker 
+        categories={mockCategories} 
+        activeEntry={activeEntry} 
+        onEntryChange={mockOnEntryChange}
+        onCategoryChange={mockOnCategoryChange}
+        currentApi={mockApi}
+      />
+    );
     
     expect(screen.getByText('Development')).toBeInTheDocument();
     expect(screen.getByText('Working on feature')).toBeInTheDocument();
-    expect(screen.getByText('Stop Timer')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /stop/i })).toBeInTheDocument();
   });
 
   it('stops timer when stop button clicked', async () => {
-    vi.mocked(api.stopEntry).mockResolvedValue({} as any);
-    
     const activeEntry = {
       id: 1,
       category_id: 1,
@@ -71,21 +98,37 @@ describe('TimeTracker', () => {
       created_at: '2024-01-01'
     };
 
-    render(<TimeTracker categories={mockCategories} activeEntry={activeEntry} onUpdate={mockOnUpdate} />);
+    render(
+      <TimeTracker 
+        categories={mockCategories} 
+        activeEntry={activeEntry} 
+        onEntryChange={mockOnEntryChange}
+        onCategoryChange={mockOnCategoryChange}
+        currentApi={mockApi}
+      />
+    );
     
-    const stopButton = screen.getByText('Stop Timer');
+    const stopButton = screen.getByRole('button', { name: /stop/i });
     fireEvent.click(stopButton);
     
     await waitFor(() => {
-      expect(api.stopEntry).toHaveBeenCalledWith(1);
-      expect(mockOnUpdate).toHaveBeenCalled();
+      expect(mockApi.stopEntry).toHaveBeenCalledWith(1);
+      expect(mockOnEntryChange).toHaveBeenCalled();
     });
   });
 
   it('disables start button when no category selected', () => {
-    render(<TimeTracker categories={mockCategories} activeEntry={null} onUpdate={mockOnUpdate} />);
+    render(
+      <TimeTracker 
+        categories={mockCategories} 
+        activeEntry={null} 
+        onEntryChange={mockOnEntryChange}
+        onCategoryChange={mockOnCategoryChange}
+        currentApi={mockApi}
+      />
+    );
     
-    const startButton = screen.getByText('Start Timer');
+    const startButton = screen.getByRole('button', { name: /start/i });
     expect(startButton).toBeDisabled();
   });
 });

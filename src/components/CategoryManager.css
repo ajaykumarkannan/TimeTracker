@@ -21,30 +21,41 @@
 }
 
 .category-form label {
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 500;
   color: var(--text-secondary);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.025em;
 }
 
 .category-name-input {
   width: 100%;
+  height: 38px;
 }
 
 .color-picker {
-  width: 42px;
-  height: 42px;
-  padding: 4px;
-  border-radius: var(--radius-md);
+  width: 38px;
+  height: 38px;
+  padding: 3px;
+  border-radius: 6px;
   cursor: pointer;
   border: 1px solid var(--border);
-  background: var(--bg-tertiary);
+  background: var(--input-bg);
+}
+
+.color-picker:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-alpha);
 }
 
 .form-actions {
   display: flex;
   gap: 8px;
+}
+
+.form-actions .btn {
+  height: 38px;
 }
 
 .empty-state .empty-icon {
