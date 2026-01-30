@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import { getDb, saveDatabase } from '../database';
 import { logger } from '../logger';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'chronoflow-secret-key-change-in-production';
@@ -7,6 +8,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'chronoflow-secret-key-change-in-pr
 export interface AuthRequest extends Request {
   userId?: number;
   userEmail?: string;
+  isAnonymous?: boolean;
 }
 
 export interface JwtPayload {
@@ -30,6 +32,95 @@ export function verifyToken(token: string): JwtPayload | null {
   }
 }
 
+// Get or create anonymous user by session ID
+export function getOrCreateAnonymousUser(sessionId: string): number {
+  const db = getDb();
+  const email = `anon_${sessionId}@local`;
+  
+  // Check if anonymous user exists for this session
+  const existing = db.exec(
+    `SELECT id FROM users WHERE email = ?`,
+    [email]
+  );
+  
+  if (existing.length > 0 && existing[0].values.length > 0) {
+    return existing[0].values[0][0] as number;
+  }
+  
+  // Create anonymous user with unique username based on session ID
+  const shortId = sessionId.substring(0, 8);
+  db.run(
+    `INSERT INTO users (email, username, password_hash) VALUES (?, ?, ?)`,
+    [email, `Guest_${shortId}`, 'anonymous-no-password']
+  );
+  saveDatabase();
+  
+  // Query for the newly created user to get the ID
+  const newUser = db.exec(`SELECT id FROM users WHERE email = ?`, [email]);
+  const userId = newUser[0].values[0][0] as number;
+  
+  // Create default categories for new user
+  createDefaultCategories(userId);
+  
+  logger.info('Created anonymous user', { userId, sessionId });
+  return userId;
+}
+
+// Create default categories for a new user
+export function createDefaultCategories(userId: number) {
+  const db = getDb();
+  const defaults = [
+    { name: 'Meetings', color: '#6366f1' },
+    { name: 'Deep Work', color: '#10b981' },
+    { name: 'Email & Communication', color: '#f59e0b' },
+    { name: 'Planning', color: '#8b5cf6' },
+    { name: 'Break', color: '#64748b' }
+  ];
+  
+  for (const cat of defaults) {
+    try {
+      db.run(
+        `INSERT INTO categories (user_id, name, color) VALUES (?, ?, ?)`,
+        [userId, cat.name, cat.color]
+      );
+    } catch {
+      // Ignore if category already exists
+    }
+  }
+  saveDatabase();
+  logger.info('Created default categories', { userId });
+}
+
+// Flexible auth - allows anonymous sessions
+export function flexAuthMiddleware(req: AuthRequest, res: Response, next: NextFunction) {
+  const authHeader = req.headers.authorization;
+  const sessionId = req.headers['x-session-id'] as string;
+  
+  // Try JWT auth first
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.substring(7);
+    const payload = verifyToken(token);
+    
+    if (payload) {
+      req.userId = payload.userId;
+      req.userEmail = payload.email;
+      req.isAnonymous = false;
+      return next();
+    }
+  }
+  
+  // Fall back to anonymous session
+  if (sessionId) {
+    req.userId = getOrCreateAnonymousUser(sessionId);
+    req.isAnonymous = true;
+    return next();
+  }
+  
+  logger.warn('No authentication provided');
+  return res.status(401).json({ error: 'Authentication required' });
+}
+
+// Strict auth - requires JWT (for auth routes)
 export function authMiddleware(req: AuthRequest, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
   
@@ -48,5 +139,6 @@ export function authMiddleware(req: AuthRequest, res: Response, next: NextFuncti
 
   req.userId = payload.userId;
   req.userEmail = payload.email;
+  req.isAnonymous = false;
   next();
 }

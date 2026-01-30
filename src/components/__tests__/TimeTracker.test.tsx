@@ -1,6 +1,17 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { TimeTracker } from '../TimeTracker';
+
+// Mock the api module
+vi.mock('../../api', () => ({
+  api: {
+    startEntry: vi.fn().mockResolvedValue({ id: 1 }),
+    stopEntry: vi.fn().mockResolvedValue({ id: 1 }),
+    createCategory: vi.fn().mockResolvedValue({ id: 3, name: 'New', color: '#000' }),
+  }
+}));
+
+import { api } from '../../api';
 
 describe('TimeTracker', () => {
   const mockCategories = [
@@ -10,11 +21,6 @@ describe('TimeTracker', () => {
 
   const mockOnEntryChange = vi.fn();
   const mockOnCategoryChange = vi.fn();
-  const mockApi = {
-    startEntry: vi.fn().mockResolvedValue({ id: 1 }),
-    stopEntry: vi.fn().mockResolvedValue({ id: 1 }),
-    createCategory: vi.fn().mockResolvedValue({ id: 3, name: 'New', color: '#000' }),
-  };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -27,7 +33,6 @@ describe('TimeTracker', () => {
         activeEntry={null} 
         onEntryChange={mockOnEntryChange}
         onCategoryChange={mockOnCategoryChange}
-        currentApi={mockApi}
       />
     );
     expect(screen.getByText('Category')).toBeInTheDocument();
@@ -41,7 +46,6 @@ describe('TimeTracker', () => {
         activeEntry={null} 
         onEntryChange={mockOnEntryChange}
         onCategoryChange={mockOnCategoryChange}
-        currentApi={mockApi}
       />
     );
     
@@ -52,7 +56,7 @@ describe('TimeTracker', () => {
     fireEvent.click(startButton);
     
     await waitFor(() => {
-      expect(mockApi.startEntry).toHaveBeenCalledWith(1, undefined);
+      expect(api.startEntry).toHaveBeenCalledWith(1, undefined);
       expect(mockOnEntryChange).toHaveBeenCalled();
     });
   });
@@ -76,7 +80,6 @@ describe('TimeTracker', () => {
         activeEntry={activeEntry} 
         onEntryChange={mockOnEntryChange}
         onCategoryChange={mockOnCategoryChange}
-        currentApi={mockApi}
       />
     );
     
@@ -104,7 +107,6 @@ describe('TimeTracker', () => {
         activeEntry={activeEntry} 
         onEntryChange={mockOnEntryChange}
         onCategoryChange={mockOnCategoryChange}
-        currentApi={mockApi}
       />
     );
     
@@ -112,7 +114,7 @@ describe('TimeTracker', () => {
     fireEvent.click(stopButton);
     
     await waitFor(() => {
-      expect(mockApi.stopEntry).toHaveBeenCalledWith(1);
+      expect(api.stopEntry).toHaveBeenCalledWith(1);
       expect(mockOnEntryChange).toHaveBeenCalled();
     });
   });
@@ -124,7 +126,6 @@ describe('TimeTracker', () => {
         activeEntry={null} 
         onEntryChange={mockOnEntryChange}
         onCategoryChange={mockOnCategoryChange}
-        currentApi={mockApi}
       />
     );
     

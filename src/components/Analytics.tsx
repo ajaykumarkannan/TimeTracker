@@ -1,19 +1,12 @@
 import { useState, useEffect } from 'react';
 import { api } from '../api';
-import { localApi } from '../localStore';
 import { AnalyticsData, Period } from '../types';
 import './Analytics.css';
 
-interface Props {
-  mode?: 'local' | 'cloud';
-}
-
-export function Analytics({ mode = 'cloud' }: Props) {
+export function Analytics() {
   const [period, setPeriod] = useState<Period>('week');
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
-
-  const currentApi = mode === 'local' ? localApi : api;
 
   const getDateRange = (p: Period): { start: string; end: string } => {
     const end = new Date();
@@ -42,7 +35,7 @@ export function Analytics({ mode = 'cloud' }: Props) {
       setLoading(true);
       try {
         const { start, end } = getDateRange(period);
-        const analytics = await currentApi.getAnalytics(start, end);
+        const analytics = await api.getAnalytics(start, end);
         setData(analytics);
       } catch (error) {
         console.error('Failed to load analytics:', error);
@@ -51,7 +44,7 @@ export function Analytics({ mode = 'cloud' }: Props) {
     };
 
     loadAnalytics();
-  }, [period, mode]);
+  }, [period]);
 
   const formatDuration = (minutes: number) => {
     const h = Math.floor(minutes / 60);
@@ -156,24 +149,7 @@ export function Analytics({ mode = 'cloud' }: Props) {
                   <div 
                     className="chart-bar"
                     style={{ height: `${(day.minutes / maxMinutes) * 100}%` }}
-                  >
-                    <div className="chart-bar-segments">
-                      {Object.entries(day.byCategory).map(([cat, mins]) => {
-                        const catData = data.byCategory.find(c => c.name === cat);
-                        return (
-                          <div
-                            key={cat}
-                            className="chart-segment"
-                            style={{
-                              height: `${(mins / day.minutes) * 100}%`,
-                              backgroundColor: catData?.color || '#6366f1'
-                            }}
-                            title={`${cat}: ${formatDuration(mins)}`}
-                          />
-                        );
-                      })}
-                    </div>
-                  </div>
+                  />
                 </div>
                 <div className="chart-label">{formatDate(day.date).split(',')[0]}</div>
                 <div className="chart-value">{formatDuration(day.minutes)}</div>

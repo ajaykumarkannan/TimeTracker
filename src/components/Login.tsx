@@ -4,9 +4,10 @@ import './Login.css';
 
 interface Props {
   onBack: () => void;
+  onSuccess?: () => void;
 }
 
-export function Login({ onBack }: Props) {
+export function Login({ onBack, onSuccess }: Props) {
   const { login, register } = useAuth();
   const [isRegister, setIsRegister] = useState(false);
   const [email, setEmail] = useState('');
@@ -26,6 +27,7 @@ export function Login({ onBack }: Props) {
       } else {
         await login(email, password);
       }
+      onSuccess?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {

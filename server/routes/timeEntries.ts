@@ -1,11 +1,11 @@
 import { Router, Response } from 'express';
 import { getDb, saveDatabase } from '../database';
 import { logger } from '../logger';
-import { authMiddleware, AuthRequest } from '../middleware/auth';
+import { flexAuthMiddleware, AuthRequest } from '../middleware/auth';
 
 const router = Router();
 
-router.use(authMiddleware);
+router.use(flexAuthMiddleware);
 
 // Get all time entries for user
 router.get('/', (req: AuthRequest, res: Response) => {
@@ -211,11 +211,11 @@ router.post('/:id/stop', (req: AuthRequest, res: Response) => {
 router.put('/:id', (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { category_id, note } = req.body;
+    const { category_id, note, start_time, end_time } = req.body;
     const db = getDb();
 
     const existing = db.exec(
-      `SELECT id FROM time_entries WHERE id = ? AND user_id = ?`,
+      `SELECT id, start_time, end_time FROM time_entries WHERE id = ? AND user_id = ?`,
       [id, req.userId as number]
     );
 
@@ -233,9 +233,26 @@ router.put('/:id', (req: AuthRequest, res: Response) => {
       }
     }
 
+    // Calculate new duration if times are being updated
+    const currentStart = existing[0].values[0][1] as string;
+    const currentEnd = existing[0].values[0][2] as string | null;
+    const newStart = start_time || currentStart;
+    const newEnd = end_time !== undefined ? end_time : currentEnd;
+    
+    let duration: number | null = null;
+    if (newEnd) {
+      duration = Math.round((new Date(newEnd).getTime() - new Date(newStart).getTime()) / 60000);
+    }
+
     db.run(
-      `UPDATE time_entries SET category_id = COALESCE(?, category_id), note = ? WHERE id = ?`,
-      [category_id || null, note, id]
+      `UPDATE time_entries 
+       SET category_id = COALESCE(?, category_id), 
+           note = ?, 
+           start_time = COALESCE(?, start_time),
+           end_time = ?,
+           duration_minutes = ?
+       WHERE id = ?`,
+      [category_id || null, note, start_time || null, newEnd, duration, id]
     );
     saveDatabase();
 

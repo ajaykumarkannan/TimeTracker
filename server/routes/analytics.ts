@@ -1,11 +1,11 @@
 import { Router, Response } from 'express';
 import { getDb } from '../database';
 import { logger } from '../logger';
-import { authMiddleware, AuthRequest } from '../middleware/auth';
+import { flexAuthMiddleware, AuthRequest } from '../middleware/auth';
 
 const router = Router();
 
-router.use(authMiddleware);
+router.use(flexAuthMiddleware);
 
 router.get('/', (req: AuthRequest, res: Response) => {
   try {

@@ -2,9 +2,19 @@ import { Category, TimeEntry, AnalyticsData, AuthResponse, User } from './types'
 
 const API_BASE = '/api';
 
-// Token management
+// Session management
 let accessToken: string | null = localStorage.getItem('accessToken');
 let refreshToken: string | null = localStorage.getItem('refreshToken');
+let sessionId: string | null = localStorage.getItem('sessionId');
+
+// Generate or get session ID for anonymous users
+function getSessionId(): string {
+  if (!sessionId) {
+    sessionId = crypto.randomUUID();
+    localStorage.setItem('sessionId', sessionId);
+  }
+  return sessionId;
+}
 
 export function setTokens(access: string, refresh: string) {
   accessToken = access;
@@ -30,19 +40,26 @@ export function setStoredUser(user: User) {
   localStorage.setItem('user', JSON.stringify(user));
 }
 
-async function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
+export function isLoggedIn(): boolean {
+  return !!accessToken;
+}
+
+async function apiFetch(url: string, options: RequestInit = {}): Promise<Response> {
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
     ...(options.headers || {})
   };
 
+  // Add auth header if logged in, otherwise add session ID
   if (accessToken) {
     (headers as Record<string, string>)['Authorization'] = `Bearer ${accessToken}`;
+  } else {
+    (headers as Record<string, string>)['X-Session-ID'] = getSessionId();
   }
 
   let res = await fetch(url, { ...options, headers });
 
-  // If unauthorized, try to refresh token
+  // If unauthorized and we have a refresh token, try to refresh
   if (res.status === 401 && refreshToken) {
     const refreshRes = await fetch(`${API_BASE}/auth/refresh`, {
       method: 'POST',
@@ -56,10 +73,10 @@ async function authFetch(url: string, options: RequestInit = {}): Promise<Respon
       setStoredUser(data.user);
       
       (headers as Record<string, string>)['Authorization'] = `Bearer ${data.accessToken}`;
+      delete (headers as Record<string, string>)['X-Session-ID'];
       res = await fetch(url, { ...options, headers });
     } else {
       clearTokens();
-      window.location.reload();
     }
   }
 
@@ -101,31 +118,34 @@ export const api = {
   },
 
   async logout(): Promise<void> {
-    try {
-      await authFetch(`${API_BASE}/auth/logout`, {
-        method: 'POST',
-        body: JSON.stringify({ refreshToken })
-      });
-    } finally {
-      clearTokens();
+    if (accessToken) {
+      try {
+        await apiFetch(`${API_BASE}/auth/logout`, {
+          method: 'POST',
+          body: JSON.stringify({ refreshToken })
+        });
+      } catch {
+        // Ignore logout errors
+      }
     }
+    clearTokens();
   },
 
   async getMe(): Promise<User> {
-    const res = await authFetch(`${API_BASE}/auth/me`);
+    const res = await apiFetch(`${API_BASE}/auth/me`);
     if (!res.ok) throw new Error('Failed to get user');
     return res.json();
   },
 
   // Categories
   async getCategories(): Promise<Category[]> {
-    const res = await authFetch(`${API_BASE}/categories`);
+    const res = await apiFetch(`${API_BASE}/categories`);
     if (!res.ok) throw new Error('Failed to fetch categories');
     return res.json();
   },
 
   async createCategory(name: string, color?: string): Promise<Category> {
-    const res = await authFetch(`${API_BASE}/categories`, {
+    const res = await apiFetch(`${API_BASE}/categories`, {
       method: 'POST',
       body: JSON.stringify({ name, color })
     });
@@ -134,7 +154,7 @@ export const api = {
   },
 
   async updateCategory(id: number, name: string, color?: string): Promise<Category> {
-    const res = await authFetch(`${API_BASE}/categories/${id}`, {
+    const res = await apiFetch(`${API_BASE}/categories/${id}`, {
       method: 'PUT',
       body: JSON.stringify({ name, color })
     });
@@ -143,7 +163,7 @@ export const api = {
   },
 
   async deleteCategory(id: number): Promise<void> {
-    const res = await authFetch(`${API_BASE}/categories/${id}`, {
+    const res = await apiFetch(`${API_BASE}/categories/${id}`, {
       method: 'DELETE'
     });
     if (!res.ok) throw new Error('Failed to delete category');
@@ -151,19 +171,19 @@ export const api = {
 
   // Time entries
   async getTimeEntries(): Promise<TimeEntry[]> {
-    const res = await authFetch(`${API_BASE}/time-entries`);
+    const res = await apiFetch(`${API_BASE}/time-entries`);
     if (!res.ok) throw new Error('Failed to fetch time entries');
     return res.json();
   },
 
   async getActiveEntry(): Promise<TimeEntry | null> {
-    const res = await authFetch(`${API_BASE}/time-entries/active`);
+    const res = await apiFetch(`${API_BASE}/time-entries/active`);
     if (!res.ok) throw new Error('Failed to fetch active entry');
     return res.json();
   },
 
   async startEntry(category_id: number, note?: string): Promise<TimeEntry> {
-    const res = await authFetch(`${API_BASE}/time-entries/start`, {
+    const res = await apiFetch(`${API_BASE}/time-entries/start`, {
       method: 'POST',
       body: JSON.stringify({ category_id, note })
     });
@@ -172,7 +192,7 @@ export const api = {
   },
 
   async stopEntry(id: number): Promise<TimeEntry> {
-    const res = await authFetch(`${API_BASE}/time-entries/${id}/stop`, {
+    const res = await apiFetch(`${API_BASE}/time-entries/${id}/stop`, {
       method: 'POST'
     });
     if (!res.ok) throw new Error('Failed to stop entry');
@@ -180,7 +200,7 @@ export const api = {
   },
 
   async updateEntry(id: number, data: Partial<TimeEntry>): Promise<TimeEntry> {
-    const res = await authFetch(`${API_BASE}/time-entries/${id}`, {
+    const res = await apiFetch(`${API_BASE}/time-entries/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data)
     });
@@ -189,7 +209,7 @@ export const api = {
   },
 
   async deleteEntry(id: number): Promise<void> {
-    const res = await authFetch(`${API_BASE}/time-entries/${id}`, {
+    const res = await apiFetch(`${API_BASE}/time-entries/${id}`, {
       method: 'DELETE'
     });
     if (!res.ok) throw new Error('Failed to delete entry');
@@ -197,7 +217,7 @@ export const api = {
 
   // Analytics
   async getAnalytics(start: string, end: string): Promise<AnalyticsData> {
-    const res = await authFetch(`${API_BASE}/analytics?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`);
+    const res = await apiFetch(`${API_BASE}/analytics?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`);
     if (!res.ok) throw new Error('Failed to fetch analytics');
     return res.json();
   }

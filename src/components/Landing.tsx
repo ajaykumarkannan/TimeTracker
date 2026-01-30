@@ -3,10 +3,10 @@ import './Landing.css';
 
 interface Props {
   onLogin: () => void;
-  onLocalMode: () => void;
+  onGuest: () => void;
 }
 
-export function Landing({ onLogin, onLocalMode }: Props) {
+export function Landing({ onLogin, onGuest }: Props) {
   return (
     <div className="landing">
       <header className="landing-header">
@@ -34,8 +34,8 @@ export function Landing({ onLogin, onLocalMode }: Props) {
             <button className="btn btn-primary btn-lg" onClick={onLogin}>
               Get Started Free
             </button>
-            <button className="btn btn-outline btn-lg" onClick={onLocalMode}>
-              Try Without Account
+            <button className="btn btn-outline btn-lg" onClick={onGuest}>
+              Continue as Guest
             </button>
           </div>
         </div>
@@ -68,15 +68,15 @@ export function Landing({ onLogin, onLocalMode }: Props) {
           <div className="modes-grid">
             <div className="mode-card">
               <div className="mode-icon">☁️</div>
-              <h3>Cloud Mode</h3>
+              <h3>With Account</h3>
               <p>Create an account to sync your data across devices and never lose your tracking history.</p>
               <button className="btn btn-primary" onClick={onLogin}>Sign Up / Login</button>
             </div>
             <div className="mode-card">
-              <div className="mode-icon">💾</div>
-              <h3>Local Mode</h3>
-              <p>Keep everything in your browser. No account needed, your data stays on your device.</p>
-              <button className="btn btn-outline" onClick={onLocalMode}>Use Locally</button>
+              <div className="mode-icon">👤</div>
+              <h3>Guest Mode</h3>
+              <p>Start tracking immediately. Your data is saved on the server and you can create an account later.</p>
+              <button className="btn btn-outline" onClick={onGuest}>Continue as Guest</button>
             </div>
           </div>
         </div>

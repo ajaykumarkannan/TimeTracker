@@ -7,7 +7,8 @@ import {
   generateRefreshToken, 
   verifyToken,
   authMiddleware,
-  AuthRequest 
+  AuthRequest,
+  createDefaultCategories
 } from '../middleware/auth';
 
 const router = Router();
@@ -48,6 +49,9 @@ router.post('/register', async (req: Request, res: Response) => {
       username: result[0].values[0][2] as string,
       created_at: result[0].values[0][3] as string
     };
+
+    // Create default categories for new user
+    createDefaultCategories(user.id);
 
     const accessToken = generateAccessToken(user.id, user.email);
     const refreshToken = generateRefreshToken(user.id, user.email);

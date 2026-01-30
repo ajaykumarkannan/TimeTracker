@@ -1,12 +1,12 @@
 import { Router, Response } from 'express';
 import { getDb, saveDatabase, Category } from '../database';
 import { logger } from '../logger';
-import { authMiddleware, AuthRequest } from '../middleware/auth';
+import { flexAuthMiddleware, AuthRequest } from '../middleware/auth';
 
 const router = Router();
 
-// All routes require authentication
-router.use(authMiddleware);
+// All routes use flexible auth (JWT or anonymous session)
+router.use(flexAuthMiddleware);
 
 // Get all categories for user
 router.get('/', (req: AuthRequest, res: Response) => {

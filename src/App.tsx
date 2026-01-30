@@ -8,32 +8,36 @@ import { CategoryManager } from './components/CategoryManager';
 import { Analytics } from './components/Analytics';
 import { ThemeToggle } from './components/ThemeToggle';
 import { api } from './api';
-import { localApi, isLocalMode, setLocalMode, clearLocalMode } from './localStore';
 import { Category, TimeEntry } from './types';
 import './App.css';
 
 type Tab = 'tracker' | 'history' | 'categories' | 'analytics';
-type AppMode = 'landing' | 'login' | 'local' | 'cloud';
 
-function AppContent({ mode, onLogout }: { mode: 'local' | 'cloud'; onLogout: () => void }) {
+function AppContent({ isLoggedIn, onLogout }: { isLoggedIn: boolean; onLogout: () => void }) {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<Tab>('tracker');
+  const [activeTab, setActiveTab] = useState<Tab>(() => {
+    const saved = localStorage.getItem('chronoflow_tab');
+    return (saved as Tab) || 'tracker';
+  });
   const [categories, setCategories] = useState<Category[]>([]);
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [activeEntry, setActiveEntry] = useState<TimeEntry | null>(null);
 
-  const currentApi = mode === 'local' ? localApi : api;
-
   useEffect(() => {
     loadData();
-  }, [mode]);
+  }, []);
+
+  const handleTabChange = (tab: Tab) => {
+    setActiveTab(tab);
+    localStorage.setItem('chronoflow_tab', tab);
+  };
 
   const loadData = async () => {
     try {
       const [cats, ents, active] = await Promise.all([
-        currentApi.getCategories(),
-        currentApi.getTimeEntries(),
-        currentApi.getActiveEntry()
+        api.getCategories(),
+        api.getTimeEntries(),
+        api.getActiveEntry()
       ]);
       setCategories(cats);
       setEntries(ents);
@@ -44,14 +48,14 @@ function AppContent({ mode, onLogout }: { mode: 'local' | 'cloud'; onLogout: () 
   };
 
   const handleCategoryChange = async () => {
-    const cats = await currentApi.getCategories();
+    const cats = await api.getCategories();
     setCategories(cats);
   };
 
   const handleEntryChange = async () => {
     const [ents, active] = await Promise.all([
-      currentApi.getTimeEntries(),
-      currentApi.getActiveEntry()
+      api.getTimeEntries(),
+      api.getActiveEntry()
     ]);
     setEntries(ents);
     setActiveEntry(active);
@@ -77,17 +81,17 @@ function AppContent({ mode, onLogout }: { mode: 'local' | 'cloud'; onLogout: () 
             </svg>
             <span className="logo-text">ChronoFlow</span>
           </div>
-          {mode === 'local' && (
-            <span className="mode-badge">Local Mode</span>
+          {!isLoggedIn && (
+            <span className="mode-badge">Guest Mode</span>
           )}
         </div>
         <div className="header-right">
           <ThemeToggle />
           <div className="user-menu">
-            {mode === 'cloud' && user && (
+            {isLoggedIn && user && (
               <span className="username">{user.username}</span>
             )}
-            <button onClick={onLogout} className="logout-btn" title={mode === 'local' ? 'Exit local mode' : 'Sign out'}>
+            <button onClick={onLogout} className="logout-btn" title={isLoggedIn ? 'Sign out' : 'Exit'}>
               <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
                 <polyline points="16,17 21,12 16,7" />
@@ -103,7 +107,7 @@ function AppContent({ mode, onLogout }: { mode: 'local' | 'cloud'; onLogout: () 
           <button
             key={tab.id}
             className={`nav-btn ${activeTab === tab.id ? 'active' : ''}`}
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => handleTabChange(tab.id)}
           >
             <span className="nav-icon">{tab.icon}</span>
             <span className="nav-label">{tab.label}</span>
@@ -117,6 +121,7 @@ function AppContent({ mode, onLogout }: { mode: 'local' | 'cloud'; onLogout: () 
             categories={categories}
             activeEntry={activeEntry}
             onEntryChange={handleEntryChange}
+            onCategoryChange={handleCategoryChange}
           />
         )}
         {activeTab === 'history' && (
@@ -132,7 +137,7 @@ function AppContent({ mode, onLogout }: { mode: 'local' | 'cloud'; onLogout: () 
             onCategoryChange={handleCategoryChange}
           />
         )}
-        {activeTab === 'analytics' && <Analytics mode={mode} />}
+        {activeTab === 'analytics' && <Analytics />}
       </main>
     </div>
   );
@@ -140,16 +145,13 @@ function AppContent({ mode, onLogout }: { mode: 'local' | 'cloud'; onLogout: () 
 
 export default function App() {
   const { user, loading, logout } = useAuth();
-  const [appMode, setAppMode] = useState<AppMode>(() => {
-    if (isLocalMode()) return 'local';
-    return 'landing';
+  const [showLanding, setShowLanding] = useState(() => {
+    // Show landing if no session and not logged in
+    const hasSession = !!localStorage.getItem('sessionId');
+    const hasToken = !!localStorage.getItem('accessToken');
+    return !hasSession && !hasToken;
   });
-
-  useEffect(() => {
-    if (!loading && user && appMode === 'login') {
-      setAppMode('cloud');
-    }
-  }, [user, loading, appMode]);
+  const [showLogin, setShowLogin] = useState(false);
 
   if (loading) {
     return (
@@ -161,37 +163,41 @@ export default function App() {
   }
 
   const handleLogout = async () => {
-    if (appMode === 'cloud') {
-      await logout();
-    }
-    clearLocalMode();
-    setAppMode('landing');
+    await logout();
+    // Clear session for guest users too
+    localStorage.removeItem('sessionId');
+    localStorage.removeItem('chronoflow_tab');
+    setShowLanding(true);
   };
 
-  const handleLocalMode = () => {
-    setLocalMode(true);
-    setAppMode('local');
+  const handleStartGuest = () => {
+    // Session ID will be created automatically on first API call
+    setShowLanding(false);
   };
 
-  const handleLoginMode = () => {
-    setAppMode('login');
+  const handleLogin = () => {
+    setShowLogin(true);
   };
 
-  // Already logged in via cloud
-  if (user && appMode !== 'local') {
-    return <AppContent mode="cloud" onLogout={handleLogout} />;
+  const handleLoginBack = () => {
+    setShowLogin(false);
+  };
+
+  const handleLoginSuccess = () => {
+    setShowLogin(false);
+    setShowLanding(false);
+  };
+
+  // Show login screen
+  if (showLogin) {
+    return <Login onBack={handleLoginBack} onSuccess={handleLoginSuccess} />;
   }
 
-  // Local mode
-  if (appMode === 'local') {
-    return <AppContent mode="local" onLogout={handleLogout} />;
+  // Show landing page
+  if (showLanding && !user) {
+    return <Landing onLogin={handleLogin} onGuest={handleStartGuest} />;
   }
 
-  // Login/Register screen
-  if (appMode === 'login') {
-    return <Login onBack={() => setAppMode('landing')} />;
-  }
-
-  // Landing page
-  return <Landing onLogin={handleLoginMode} onLocalMode={handleLocalMode} />;
+  // Show main app
+  return <AppContent isLoggedIn={!!user} onLogout={handleLogout} />;
 }
