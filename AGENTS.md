@@ -102,6 +102,20 @@ main (production-ready)
 3. **Create PRs for main merges**: Use `gh pr create --base main --head develop` when ready to merge
 4. **Wait for human approval**: After creating a PR to main, stop and ask the human to review and approve
 
+#### Feature Branch Guidelines
+
+1. **One branch per major feature**: Create a feature branch with a unique, descriptive name (e.g., `feature/csv-export`, `feature/idle-detection`)
+2. **Continue on the same branch**: If the user requests additional changes related to the feature, continue working on the same branch without renaming it
+3. **Update PR descriptions**: When adding new functionality to an existing feature branch, update the PR description to reflect all changes included
+4. **Keep documentation current**: Always update `AGENTS.md` and `README.md` when adding or modifying features
+
+#### Code Quality Standards
+
+1. **Simplify and refactor**: Continuously look for opportunities to reduce code complexity and improve readability
+2. **Delete unused code**: Remove dead code, unused imports, and deprecated functionality
+3. **DRY principle**: Avoid duplication; extract common patterns into reusable functions or components
+4. **Test coverage**: All new features must have corresponding tests. If existing features lack tests, add them
+
 ### Commands
 
 - `npm run dev` - Start both client and server in dev mode
