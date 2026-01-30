@@ -100,7 +100,7 @@ app.get('/api/health', (req, res) => {
       status: 'healthy',
       timestamp: new Date().toISOString()
     });
-  } catch (error) {
+  } catch {
     res.status(503).json({ 
       status: 'unhealthy',
       error: 'Database unavailable'
