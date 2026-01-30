@@ -9,8 +9,8 @@ test.describe('Time Tracker E2E', () => {
     });
     await page.reload();
     
-    // Wait for landing page and click "Start as Guest"
-    await page.click('button:has-text("Start as Guest")');
+    // Wait for landing page and click "Continue as Guest"
+    await page.click('button:has-text("Continue as Guest")');
     
     // Wait for main app to load
     await expect(page.locator('.app-nav')).toBeVisible();
