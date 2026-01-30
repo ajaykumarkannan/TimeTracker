@@ -32,6 +32,9 @@ WORKDIR /app
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/package*.json ./
 
+# Create a package.json for the server that uses CommonJS (no "type": "module")
+RUN node -e "const p=require('./package.json'); delete p.type; require('fs').writeFileSync('./dist/server/package.json', JSON.stringify({name:p.name,version:p.version,private:true}))"
+
 # Install production dependencies only
 RUN npm ci --omit=dev && \
     npm cache clean --force
@@ -43,18 +46,19 @@ RUN mkdir -p /app/data /app/logs && \
 # Switch to non-root user
 USER chronoflow
 
-# Expose port
-EXPOSE 4739
+# Port configuration (can be overridden at build or runtime)
+ARG PORT=4739
+ENV PORT=${PORT}
+EXPOSE ${PORT}
 
 # Environment defaults
 ENV NODE_ENV=production
-ENV PORT=4739
 ENV DB_PATH=/app/data/timetracker.db
 ENV TRUST_PROXY=true
 
-# Health check
+# Health check uses the PORT env var
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:4739/api/health || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://localhost:${PORT}/api/health || exit 1
 
 # Start server
 CMD ["node", "dist/server/index.js"]
