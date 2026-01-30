@@ -30,15 +30,76 @@ npm install
 npm run dev
 ```
 
-## Deployment
+## Docker Deployment
 
-For production deployment (Raspberry Pi, VPS, etc.), see **[DEPLOYMENT.md](DEPLOYMENT.md)**.
+### Local Development with Docker
 
-Highlights:
-- Auto-updates via Watchtower when you push new tags
-- Cloudflare Tunnel support (no exposed ports)
-- Database migrations run automatically
-- Health checks at `/api/health` and `/api/version`
+Build and run locally:
+
+```bash
+# Build and start
+docker-compose up --build -d
+
+# View logs
+docker-compose logs -f
+
+# Stop
+docker-compose down
+```
+
+The app runs on port 3001 with persistent volumes for data and logs.
+
+### Production Deployment
+
+For production, use `docker-compose.prod.yml` which includes:
+- Pre-built images from GitHub Container Registry
+- Cloudflare Tunnel for secure access (no exposed ports)
+- Watchtower for automatic updates
+- Required environment variables
+
+```bash
+# Create .env file
+cat > .env << 'EOF'
+GITHUB_REPO=your-username/chronoflow
+JWT_SECRET=$(openssl rand -base64 32)
+CLOUDFLARE_TUNNEL_TOKEN=your-tunnel-token
+CORS_ORIGIN=https://chronoflow.yourdomain.com
+EOF
+
+# Deploy
+docker-compose -f docker-compose.prod.yml up -d
+```
+
+### Building the Docker Image
+
+```bash
+# Build for local architecture
+docker build -t chronoflow .
+
+# Run standalone
+docker run -d \
+  -p 3001:3001 \
+  -v chronoflow-data:/app/data \
+  -e JWT_SECRET=your-secret-here \
+  chronoflow
+```
+
+### Health Checks
+
+```bash
+curl http://localhost:3001/api/health   # Basic health
+curl http://localhost:3001/api/version  # App version
+```
+
+### Resource Limits
+
+Default limits (suitable for Raspberry Pi):
+- Memory: 256MB limit, 128MB reserved
+- Logs: 10MB max, 3 files retained
+
+Adjust in `docker-compose.yml` under `deploy.resources`.
+
+For detailed production setup (Raspberry Pi, VPS, auto-updates, backups), see **[DEPLOYMENT.md](DEPLOYMENT.md)**.
 
 ## Usage Modes
 
