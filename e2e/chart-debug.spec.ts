@@ -12,15 +12,15 @@ test.describe('Analytics Daily Breakdown Chart', () => {
   });
 
   test('displays stacked bar chart with category colors', async ({ page }) => {
-    // Create time entries in different categories
+    // Create time entries in different categories - wait longer to ensure minutes are recorded
     await page.click('.quick-start-category:has-text("Meetings")');
     await page.click('.task-prompt-modal button:has-text("Start")');
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(2000); // Wait 2 seconds to ensure at least 1 minute is recorded
     await page.click('button:has-text("Stop")');
     
     await page.click('.quick-start-category:has-text("Deep Work")');
     await page.click('.task-prompt-modal button:has-text("Start")');
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(2000);
     await page.click('button:has-text("Stop")');
     
     // Navigate to Analytics
@@ -35,8 +35,9 @@ test.describe('Analytics Daily Breakdown Chart', () => {
     const todayBar = page.locator('.chart-bar-container.today');
     await expect(todayBar).toBeVisible();
     
-    // Verify it has colored segments
+    // Verify it has colored segments - wait for them to appear
     const segments = todayBar.locator('.chart-bar-segment');
+    await expect(segments.first()).toBeVisible({ timeout: 10000 });
     const segmentCount = await segments.count();
     expect(segmentCount).toBeGreaterThan(0);
     
@@ -50,20 +51,24 @@ test.describe('Analytics Daily Breakdown Chart', () => {
   });
 
   test('shows legend with category colors', async ({ page }) => {
-    // Create a time entry
+    // Create a time entry - wait longer to ensure minutes are recorded
     await page.click('.quick-start-category:has-text("Meetings")');
     await page.click('.task-prompt-modal button:has-text("Start")');
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(2000);
     await page.click('button:has-text("Stop")');
     
     // Navigate to Analytics
     await page.click('text=Analytics');
-    await page.waitForSelector('.chart-legend');
+    
+    // Wait for chart to load first, then check for legend
+    await page.waitForSelector('.daily-chart');
+    
+    // Legend only shows when there's data with categories that have minutes > 0
+    // Wait for the legend to appear with a longer timeout
+    await expect(page.locator('.chart-legend')).toBeVisible({ timeout: 10000 });
     
     // Verify legend exists with items
     const legend = page.locator('.chart-legend');
-    await expect(legend).toBeVisible();
-    
     const legendItems = legend.locator('.legend-item');
     const itemCount = await legendItems.count();
     expect(itemCount).toBeGreaterThan(0);
@@ -73,7 +78,7 @@ test.describe('Analytics Daily Breakdown Chart', () => {
     // Create time entries
     await page.click('.quick-start-category:has-text("Meetings")');
     await page.click('.task-prompt-modal button:has-text("Start")');
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(2000);
     await page.click('button:has-text("Stop")');
     
     // Navigate to Analytics

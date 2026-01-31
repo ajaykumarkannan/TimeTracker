@@ -98,6 +98,7 @@ main (production-ready)
 2. **Never commit directly to main**: All changes must go through a feature branch first
 3. **Create PRs for main merges**: Use `gh pr create --base main --head feature/your-branch` when ready to merge
 4. **Wait for human approval**: After creating a PR to main, stop and ask the human to review and approve
+5. **Run tests locally before pushing**: Always run `npm test` and `npm run test:e2e` locally before pushing to a PR to catch issues early
 
 #### Feature Branch Guidelines
 
