@@ -34,10 +34,14 @@ export function Analytics() {
         start.setMonth(end.getMonth() - 3);
         break;
       case 'year':
-        start.setFullYear(end.getFullYear() - 1);
+        // Go back to the first day of the month, 11 months ago
+        // This gives us 12 months total (11 previous + current)
+        start.setMonth(end.getMonth() - 11);
+        start.setDate(1);
         break;
       case 'all':
-        start.setFullYear(2000); // Far enough back to capture all data
+        // Only go back 5 years max for performance - most users won't have data older than this
+        start.setFullYear(end.getFullYear() - 5);
         break;
     }
     
@@ -111,9 +115,14 @@ export function Analytics() {
     loadAnalytics();
   }, [period]);
 
-  // Fill in missing days with 0 minutes
+  // Fill in missing days with 0 minutes (skip for 'all' period - too slow)
   const filledDaily = useMemo(() => {
     if (!data) return [];
+    
+    // For 'all' period, just use the raw data - no need to fill gaps
+    if (period === 'all') {
+      return data.daily;
+    }
     
     const { start, end } = getDateRange(period);
     const dailyMap = new Map(data.daily.map(d => [d.date, d]));

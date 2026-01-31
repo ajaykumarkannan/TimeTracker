@@ -157,6 +157,11 @@
   scroll-behavior: smooth;
 }
 
+/* Taller chart when using vertical labels to accommodate fixed label height */
+.daily-chart.vertical-labels {
+  height: 12rem;
+}
+
 /* Hide scrollbar but keep functionality */
 .daily-chart::-webkit-scrollbar {
   height: 6px;
@@ -202,16 +207,25 @@
   width: auto;
 }
 
-/* Fixed width for scrollable views */
-.daily-chart.view-week .chart-bar-container,
-.daily-chart.view-month .chart-bar-container {
+/* Fixed width for scrollable week views */
+.daily-chart.view-week .chart-bar-container {
   flex: 0 0 auto;
   min-width: 4rem;
   width: 4rem;
 }
 
+/* Monthly view uses full width when not scrollable */
+.daily-chart.view-month:not(.scrollable) .chart-bar-container {
+  flex: 1;
+  min-width: 2.5rem;
+  width: auto;
+}
+
+/* When scrollable, use fixed widths */
 .daily-chart.scrollable .chart-bar-container {
   flex: 0 0 auto;
+  min-width: 4rem;
+  width: 4rem;
 }
 
 .chart-bar-container.today {
@@ -302,7 +316,9 @@
   writing-mode: vertical-rl;
   text-orientation: mixed;
   transform: rotate(180deg);
-  max-height: 4rem;
+  height: 4.5rem;
+  min-height: 4.5rem;
+  max-height: 4.5rem;
   overflow: hidden;
   text-overflow: ellipsis;
   font-size: 0.625rem;
