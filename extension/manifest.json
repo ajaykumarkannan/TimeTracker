@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Quick access to your time tracker",
   "permissions": ["storage"],
-  "host_permissions": ["http://localhost:3001/*"],
+  "host_permissions": ["http://localhost:4849/*"],
   "action": {
     "default_popup": "popup.html",
     "default_icon": {

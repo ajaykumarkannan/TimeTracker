@@ -68,10 +68,12 @@ test.describe('Time Tracker E2E', () => {
     await page.click('button:has-text("Update")');
     await expect(page.locator('.category-name:has-text("RenamedCategory")')).toBeVisible();
 
-    // Delete category
-    page.on('dialog', dialog => dialog.accept());
+    // Delete category - categories without time entries delete immediately
+    // Categories with time entries show a modal to select replacement
     const renamedRow = page.locator('.category-item', { has: page.locator('.category-name:has-text("RenamedCategory")') });
     await renamedRow.locator('button[title="Delete"]').click();
+    
+    // Verify category is gone (no modal needed since no time entries)
     await expect(page.locator('.category-name:has-text("RenamedCategory")')).not.toBeVisible();
   });
 

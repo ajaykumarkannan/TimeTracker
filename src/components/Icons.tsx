@@ -137,3 +137,30 @@ export function DatabaseIcon({ size = 16, className = '' }: IconProps) {
     </svg>
   );
 }
+
+export function SettingsIcon({ size = 16, className = '' }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className={className}>
+      <circle cx="8" cy="8" r="2"/>
+      <path d="M13.5 8a5.5 5.5 0 01-.15 1.2l1.4.8-.9 1.6-1.4-.8a5.5 5.5 0 01-2.1 1.2v1.6h-1.8V12a5.5 5.5 0 01-2.1-1.2l-1.4.8-.9-1.6 1.4-.8A5.5 5.5 0 015.5 8c0-.4.05-.8.15-1.2l-1.4-.8.9-1.6 1.4.8A5.5 5.5 0 018.5 4V2.4h1.8V4a5.5 5.5 0 012.1 1.2l1.4-.8.9 1.6-1.4.8c.1.4.15.8.15 1.2z"/>
+    </svg>
+  );
+}
+
+export function MenuIcon({ size = 16, className = '' }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className={className}>
+      <path d="M2 4h12M2 8h12M2 12h12" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
+export function HelpIcon({ size = 16, className = '' }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className={className}>
+      <circle cx="8" cy="8" r="6.5"/>
+      <path d="M6 6a2 2 0 113 1.73c-.5.29-1 .77-1 1.27v.5" strokeLinecap="round" strokeLinejoin="round"/>
+      <circle cx="8" cy="12" r="0.5" fill="currentColor" stroke="none"/>
+    </svg>
+  );
+}

@@ -1,22 +1,19 @@
-version: '3.8'
-
 services:
   chronoflow:
     build: .
     container_name: chronoflow
     ports:
-      - "4739:4739"
+      - "4849:4849"
     volumes:
       # Persist database and logs
       - chronoflow-data:/app/data
       - chronoflow-logs:/app/logs
     environment:
       - NODE_ENV=production
-      - PORT=4739
+      - PORT=4849
       - DB_PATH=/app/data/timetracker.db
       - TRUST_PROXY=true
-      # Security: Set these in production!
-      # - JWT_SECRET=your-secure-secret-here
+      - JWT_SECRET=local-dev-secret-change-in-real-production
       # - CORS_ORIGIN=https://your-domain.com
     restart: unless-stopped
     # Resource limits (adjust for Raspberry Pi)
@@ -27,7 +24,7 @@ services:
         reservations:
           memory: 128M
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4739/api/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4849/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3

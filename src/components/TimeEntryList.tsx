@@ -31,7 +31,9 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
   const [showManualEntry, setShowManualEntry] = useState(false);
   const [manualCategory, setManualCategory] = useState<number | ''>('');
   const [manualNote, setManualNote] = useState('');
+  const [manualStartDate, setManualStartDate] = useState('');
   const [manualStartTime, setManualStartTime] = useState('');
+  const [manualEndDate, setManualEndDate] = useState('');
   const [manualEndTime, setManualEndTime] = useState('');
   const [manualError, setManualError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -135,11 +137,31 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
     return local.toISOString().slice(0, 16);
   };
 
+  const formatDateOnly = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const offset = date.getTimezoneOffset();
+    const local = new Date(date.getTime() - offset * 60000);
+    return local.toISOString().slice(0, 10);
+  };
+
+  const formatTimeOnly = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const offset = date.getTimezoneOffset();
+    const local = new Date(date.getTime() - offset * 60000);
+    return local.toISOString().slice(11, 16);
+  };
+
+  const combineDateAndTime = (dateStr: string, timeStr: string) => {
+    return new Date(`${dateStr}T${timeStr}`);
+  };
+
   const openManualEntry = () => {
     const now = new Date();
     const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
-    setManualStartTime(formatDateTimeLocal(oneHourAgo.toISOString()));
-    setManualEndTime(formatDateTimeLocal(now.toISOString()));
+    setManualStartDate(formatDateOnly(oneHourAgo.toISOString()));
+    setManualStartTime(formatTimeOnly(oneHourAgo.toISOString()));
+    setManualEndDate(formatDateOnly(now.toISOString()));
+    setManualEndTime(formatTimeOnly(now.toISOString()));
     setManualCategory('');
     setManualNote('');
     setManualError('');
@@ -156,12 +178,12 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
       setManualError('Please select a category');
       return;
     }
-    if (!manualStartTime || !manualEndTime) {
-      setManualError('Please set start and end times');
+    if (!manualStartDate || !manualStartTime || !manualEndDate || !manualEndTime) {
+      setManualError('Please set start and end date/time');
       return;
     }
-    const start = new Date(manualStartTime);
-    const end = new Date(manualEndTime);
+    const start = combineDateAndTime(manualStartDate, manualStartTime);
+    const end = combineDateAndTime(manualEndDate, manualEndTime);
     if (end <= start) {
       setManualError('End time must be after start time');
       return;
@@ -315,14 +337,24 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
                 <label>Note <span className="optional">(optional)</span></label>
                 <input type="text" value={manualNote} onChange={(e) => setManualNote(e.target.value)} placeholder="What were you working on?" />
               </div>
-              <div className="form-row-times">
+              <div className="form-row-datetime">
+                <div className="form-group">
+                  <label>Start Date</label>
+                  <input type="date" value={manualStartDate} onChange={(e) => setManualStartDate(e.target.value)} />
+                </div>
                 <div className="form-group">
                   <label>Start Time</label>
-                  <input type="datetime-local" value={manualStartTime} onChange={(e) => setManualStartTime(e.target.value)} />
+                  <input type="time" value={manualStartTime} onChange={(e) => setManualStartTime(e.target.value)} />
+                </div>
+              </div>
+              <div className="form-row-datetime">
+                <div className="form-group">
+                  <label>End Date</label>
+                  <input type="date" value={manualEndDate} onChange={(e) => setManualEndDate(e.target.value)} />
                 </div>
                 <div className="form-group">
                   <label>End Time</label>
-                  <input type="datetime-local" value={manualEndTime} onChange={(e) => setManualEndTime(e.target.value)} />
+                  <input type="time" value={manualEndTime} onChange={(e) => setManualEndTime(e.target.value)} />
                 </div>
               </div>
               {manualError && <div className="manual-entry-error">{manualError}</div>}

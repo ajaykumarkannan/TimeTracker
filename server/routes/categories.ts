@@ -121,9 +121,10 @@ router.put('/:id', (req: AuthRequest, res: Response) => {
 router.delete('/:id', (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
+    const { replacementCategoryId } = req.body;
     const db = getDb();
 
-    // Verify ownership
+    // Verify ownership of category to delete
     const existing = db.exec(
       `SELECT id FROM categories WHERE id = ? AND user_id = ?`,
       [id, req.userId as number]
@@ -133,10 +134,58 @@ router.delete('/:id', (req: AuthRequest, res: Response) => {
       return res.status(404).json({ error: 'Category not found' });
     }
 
+    // Count total categories for this user
+    const countResult = db.exec(
+      `SELECT COUNT(*) FROM categories WHERE user_id = ?`,
+      [req.userId as number]
+    );
+    const totalCategories = countResult[0].values[0][0] as number;
+
+    // Check if there are any time entries linked to this category
+    const entriesResult = db.exec(
+      `SELECT COUNT(*) FROM time_entries WHERE category_id = ? AND user_id = ?`,
+      [id, req.userId as number]
+    );
+    const linkedEntries = entriesResult[0].values[0][0] as number;
+
+    // Prevent deletion of last category only if there are linked entries
+    if (totalCategories <= 1 && linkedEntries > 0) {
+      return res.status(400).json({ error: 'Cannot delete the last category when it has linked entries' });
+    }
+
+    // Only require replacement if there are linked entries
+    if (linkedEntries > 0) {
+      if (!replacementCategoryId) {
+        return res.status(400).json({ error: 'Replacement category is required' });
+      }
+
+      // Verify ownership of replacement category
+      const replacementExists = db.exec(
+        `SELECT id FROM categories WHERE id = ? AND user_id = ?`,
+        [replacementCategoryId, req.userId as number]
+      );
+      
+      if (replacementExists.length === 0 || replacementExists[0].values.length === 0) {
+        return res.status(400).json({ error: 'Replacement category not found' });
+      }
+
+      // Reassign all time entries to the replacement category
+      db.run(
+        `UPDATE time_entries SET category_id = ? WHERE category_id = ? AND user_id = ?`,
+        [replacementCategoryId, id, req.userId as number]
+      );
+    }
+
+    // Delete the category
     db.run(`DELETE FROM categories WHERE id = ? AND user_id = ?`, [id, req.userId as number]);
     saveDatabase();
 
-    logger.info('Category deleted', { categoryId: id, userId: req.userId as number });
+    logger.info('Category deleted', { 
+      categoryId: id, 
+      replacementCategoryId: linkedEntries > 0 ? replacementCategoryId : null,
+      entriesReassigned: linkedEntries,
+      userId: req.userId as number 
+    });
     res.status(204).send();
   } catch (error) {
     logger.error('Error deleting category', { error, userId: req.userId as number });

@@ -162,11 +162,16 @@ export const api = {
     return res.json();
   },
 
-  async deleteCategory(id: number): Promise<void> {
+  async deleteCategory(id: number, replacementCategoryId?: number): Promise<void> {
     const res = await apiFetch(`${API_BASE}/categories/${id}`, {
-      method: 'DELETE'
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ replacementCategoryId })
     });
-    if (!res.ok) throw new Error('Failed to delete category');
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ error: 'Failed to delete category' }));
+      throw new Error(error.error || 'Failed to delete category');
+    }
   },
 
   // Time entries

@@ -95,9 +95,9 @@ describe('CategoryManager', () => {
     });
   });
 
-  it('deletes category with confirmation', async () => {
-    // Mock window.confirm
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+  it('deletes category directly when no linked entries', async () => {
+    // Mock successful delete (no linked entries)
+    vi.mocked(api.deleteCategory).mockResolvedValueOnce(undefined);
     
     render(
       <CategoryManager 
@@ -106,20 +106,23 @@ describe('CategoryManager', () => {
       />
     );
     
+    // Click delete on first category
     const deleteButtons = screen.getAllByTitle('Delete');
     fireEvent.click(deleteButtons[0]);
     
+    // Should delete directly without modal
     await waitFor(() => {
-      expect(confirmSpy).toHaveBeenCalled();
       expect(api.deleteCategory).toHaveBeenCalledWith(1);
       expect(mockOnCategoryChange).toHaveBeenCalled();
     });
     
-    confirmSpy.mockRestore();
+    // Modal should NOT appear
+    expect(screen.queryByText(/Delete Category/)).not.toBeInTheDocument();
   });
 
-  it('cancels delete when not confirmed', async () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+  it('shows replacement modal when category has linked entries', async () => {
+    // Mock delete failure requiring replacement
+    vi.mocked(api.deleteCategory).mockRejectedValueOnce(new Error('Replacement category is required'));
     
     render(
       <CategoryManager 
@@ -128,14 +131,106 @@ describe('CategoryManager', () => {
       />
     );
     
+    // Click delete on first category
     const deleteButtons = screen.getAllByTitle('Delete');
     fireEvent.click(deleteButtons[0]);
     
+    // Modal should appear after failed delete attempt
     await waitFor(() => {
-      expect(confirmSpy).toHaveBeenCalled();
-      expect(api.deleteCategory).not.toHaveBeenCalled();
+      expect(screen.getByText(/Delete Category/)).toBeInTheDocument();
+      expect(screen.getByText(/Move entries to:/)).toBeInTheDocument();
     });
     
-    confirmSpy.mockRestore();
+    // Confirm deletion with replacement
+    const confirmButton = screen.getByRole('button', { name: /^Delete$/i });
+    fireEvent.click(confirmButton);
+    
+    await waitFor(() => {
+      expect(api.deleteCategory).toHaveBeenCalledWith(1, 2); // Delete category 1, move to category 2
+    });
+  });
+
+  it('cancels delete when cancel button clicked', async () => {
+    // Mock delete failure requiring replacement
+    vi.mocked(api.deleteCategory).mockRejectedValueOnce(new Error('Replacement category is required'));
+    
+    render(
+      <CategoryManager 
+        categories={mockCategories} 
+        onCategoryChange={mockOnCategoryChange}
+      />
+    );
+    
+    // Click delete on first category
+    const deleteButtons = screen.getAllByTitle('Delete');
+    fireEvent.click(deleteButtons[0]);
+    
+    // Modal should appear
+    await waitFor(() => {
+      expect(screen.getByText(/Delete Category/)).toBeInTheDocument();
+    });
+    
+    // Click cancel
+    const cancelButton = screen.getByRole('button', { name: /cancel/i });
+    fireEvent.click(cancelButton);
+    
+    // Modal should close
+    await waitFor(() => {
+      expect(screen.queryByText(/Delete Category/)).not.toBeInTheDocument();
+    });
+  });
+
+  it('allows deletion of last category when no linked entries', async () => {
+    const singleCategory = [
+      { id: 1, name: 'Only Category', color: '#007bff', created_at: '2024-01-01' }
+    ];
+    
+    // Mock successful delete (no linked entries)
+    vi.mocked(api.deleteCategory).mockResolvedValueOnce(undefined);
+    
+    render(
+      <CategoryManager 
+        categories={singleCategory} 
+        onCategoryChange={mockOnCategoryChange}
+      />
+    );
+    
+    // Click delete on the only category
+    const deleteButton = screen.getByTitle('Delete');
+    fireEvent.click(deleteButton);
+    
+    // Should delete directly
+    await waitFor(() => {
+      expect(api.deleteCategory).toHaveBeenCalledWith(1);
+      expect(mockOnCategoryChange).toHaveBeenCalled();
+    });
+  });
+
+  it('prevents deletion of last category when it has linked entries', async () => {
+    const singleCategory = [
+      { id: 1, name: 'Only Category', color: '#007bff', created_at: '2024-01-01' }
+    ];
+    
+    // Mock delete failure requiring replacement (has linked entries)
+    vi.mocked(api.deleteCategory).mockRejectedValueOnce(new Error('Replacement category is required'));
+    
+    render(
+      <CategoryManager 
+        categories={singleCategory} 
+        onCategoryChange={mockOnCategoryChange}
+      />
+    );
+    
+    // Click delete on the only category
+    const deleteButton = screen.getByTitle('Delete');
+    fireEvent.click(deleteButton);
+    
+    // Should show error since we can't offer a replacement
+    await waitFor(() => {
+      expect(screen.getByText(/Cannot delete the last category when it has linked entries/)).toBeInTheDocument();
+    });
+    
+    // Modal should NOT appear (no replacement options available)
+    expect(screen.queryByText(/Delete Category/)).not.toBeInTheDocument();
   });
 });

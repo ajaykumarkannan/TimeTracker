@@ -25,8 +25,16 @@ if (config.trustProxy) {
   app.set('trust proxy', 1);
 }
 
-// Security middleware (before everything else)
+// Security headers for all requests
 app.use(securityHeaders);
+
+// Serve static files in production BEFORE rate limiting
+// Static assets shouldn't count against API rate limits
+if (config.nodeEnv === 'production') {
+  app.use(express.static(path.join(__dirname, '..')));
+}
+
+// Rate limiting for API routes only
 app.use(rateLimiter);
 
 // CORS configuration
@@ -41,11 +49,6 @@ app.use(cors(corsOptions));
 // Body parsing with size limit
 app.use(express.json({ limit: config.maxRequestSize }));
 app.use(sanitizeInput);
-
-// Serve static files in production
-if (config.nodeEnv === 'production') {
-  app.use(express.static(path.join(__dirname, '..')));
-}
 
 // Request logging
 app.use((req, res, next) => {
