@@ -37,6 +37,9 @@ RUN npm ci --omit=dev && npm cache clean --force
 # Copy built files from builder
 COPY --from=builder /app/dist ./dist
 
+# Create a package.json for the server without "type": "module" since server is compiled to CommonJS
+RUN node -e "const p=require('./package.json'); delete p.type; require('fs').writeFileSync('./dist/server/package.json', JSON.stringify({name:p.name,version:p.version,private:true}))"
+
 # Create data directory with correct permissions
 RUN mkdir -p /app/data /app/logs && \
     chown -R chronoflow:chronoflow /app
