@@ -138,6 +138,6 @@ export interface TimeEntry {
   note: string | null;
   start_time: string;
   end_time: string | null;
-  duration_minutes: number | null;
+  duration_minutes: number | null; // Cached value, computed from start_time and end_time
   created_at: string;
 }

@@ -272,10 +272,10 @@ export const api = {
     return res.json();
   },
 
-  async previewCSV(csv: string, columnMapping?: ColumnMapping): Promise<CSVPreviewResponse> {
+  async previewCSV(csv: string, columnMapping?: ColumnMapping, timeOffsetMinutes?: number): Promise<CSVPreviewResponse> {
     const res = await apiFetch(`${API_BASE}/export/csv/preview`, {
       method: 'POST',
-      body: JSON.stringify({ csv, columnMapping })
+      body: JSON.stringify({ csv, columnMapping, timeOffsetMinutes })
     });
     if (!res.ok) {
       const error = await res.json();

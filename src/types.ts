@@ -81,7 +81,6 @@ export interface ColumnMapping {
   note?: number;
   startTime?: number;
   endTime?: number;
-  duration?: number;
 }
 
 export interface ImportEntry {
@@ -91,7 +90,7 @@ export interface ImportEntry {
   note: string | null;
   startTime: string;
   endTime: string | null;
-  duration: number | null;
+  duration: number | null; // Calculated for display only, not stored
   isNewCategory?: boolean;
   error: string | null;
   skip?: boolean;

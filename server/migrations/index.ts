@@ -120,6 +120,9 @@ const migrations: Migration[] = [
       db.run(`CREATE INDEX IF NOT EXISTS idx_user_settings_user ON user_settings(user_id)`);
     }
   },
+  // Note: duration_minutes is kept as a cached/computed value for analytics query performance.
+  // It's automatically calculated from start_time and end_time when entries are created/updated.
+  // It's not included in CSV import/export since it can be derived from the timestamps.
 ];
 
 export function runMigrations(db: SqlJsDatabase): void {

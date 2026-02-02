@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { api } from '../api';
 import { ColumnMapping, ImportEntry } from '../types';
 import './ImportWizard.css';
@@ -12,17 +12,46 @@ interface Props {
 type Step = 'mapping' | 'preview' | 'importing';
 
 const REQUIRED_FIELDS = ['category', 'startTime'] as const;
-const OPTIONAL_FIELDS = ['note', 'endTime', 'duration', 'color'] as const;
+const OPTIONAL_FIELDS = ['note', 'endTime', 'color'] as const;
 const ALL_FIELDS = [...REQUIRED_FIELDS, ...OPTIONAL_FIELDS] as const;
 
 const FIELD_LABELS: Record<string, string> = {
   category: 'Category',
   startTime: 'Start Time',
   endTime: 'End Time',
-  duration: 'Duration',
   note: 'Note',
-  color: 'Color'
+  color: 'Color (optional)'
 };
+
+// Common timezone offsets
+const TIMEZONE_OFFSETS = [
+  { label: 'UTC-12:00 (Baker Island)', value: -720 },
+  { label: 'UTC-11:00 (Samoa)', value: -660 },
+  { label: 'UTC-10:00 (Hawaii)', value: -600 },
+  { label: 'UTC-09:00 (Alaska)', value: -540 },
+  { label: 'UTC-08:00 (Pacific)', value: -480 },
+  { label: 'UTC-07:00 (Mountain)', value: -420 },
+  { label: 'UTC-06:00 (Central)', value: -360 },
+  { label: 'UTC-05:00 (Eastern)', value: -300 },
+  { label: 'UTC-04:00 (Atlantic)', value: -240 },
+  { label: 'UTC-03:00 (Buenos Aires)', value: -180 },
+  { label: 'UTC-02:00 (Mid-Atlantic)', value: -120 },
+  { label: 'UTC-01:00 (Azores)', value: -60 },
+  { label: 'UTC+00:00 (London, UTC)', value: 0 },
+  { label: 'UTC+01:00 (Paris, Berlin)', value: 60 },
+  { label: 'UTC+02:00 (Cairo, Helsinki)', value: 120 },
+  { label: 'UTC+03:00 (Moscow, Istanbul)', value: 180 },
+  { label: 'UTC+04:00 (Dubai)', value: 240 },
+  { label: 'UTC+05:00 (Karachi)', value: 300 },
+  { label: 'UTC+05:30 (Mumbai)', value: 330 },
+  { label: 'UTC+06:00 (Dhaka)', value: 360 },
+  { label: 'UTC+07:00 (Bangkok)', value: 420 },
+  { label: 'UTC+08:00 (Singapore, Beijing)', value: 480 },
+  { label: 'UTC+09:00 (Tokyo, Seoul)', value: 540 },
+  { label: 'UTC+10:00 (Sydney)', value: 600 },
+  { label: 'UTC+11:00 (Solomon Islands)', value: 660 },
+  { label: 'UTC+12:00 (Auckland)', value: 720 },
+];
 
 export function ImportWizard({ csv, onClose, onSuccess }: Props) {
   const [step, setStep] = useState<Step>('mapping');
@@ -33,11 +62,13 @@ export function ImportWizard({ csv, onClose, onSuccess }: Props) {
   const [newCategories, setNewCategories] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  // Default to browser's current timezone offset (negative because JS returns offset from UTC)
+  const [timeOffset, setTimeOffset] = useState(() => -new Date().getTimezoneOffset());
 
   // Load initial preview on mount
-  useState(() => {
+  useEffect(() => {
     loadPreview();
-  });
+  }, []);
 
   const loadPreview = async () => {
     setLoading(true);
@@ -59,7 +90,7 @@ export function ImportWizard({ csv, onClose, onSuccess }: Props) {
     setLoading(true);
     setError('');
     try {
-      const result = await api.previewCSV(csv, mapping);
+      const result = await api.previewCSV(csv, mapping, timeOffset);
       if (result.entries) {
         setEntries(result.entries);
         setNewCategories(result.newCategories || []);
@@ -206,6 +237,18 @@ export function ImportWizard({ csv, onClose, onSuccess }: Props) {
                   </select>
                 </div>
               ))}
+              
+              <div className="mapping-row">
+                <label>Time Offset</label>
+                <select
+                  value={timeOffset}
+                  onChange={e => setTimeOffset(parseInt(e.target.value))}
+                >
+                  {TIMEZONE_OFFSETS.map(tz => (
+                    <option key={tz.value} value={tz.value}>{tz.label}</option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             {preview.length > 0 && (
