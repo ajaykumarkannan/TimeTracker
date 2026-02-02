@@ -185,47 +185,34 @@
   height: auto;
   min-height: 3rem;
   align-items: flex-end;
-  overflow: visible;
 }
 
 .chart-bar-container {
-  flex: 0 0 auto;
-  min-width: 3rem;
-  width: 3rem;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0.25rem;
   cursor: default;
   overflow: visible;
+  /* Fixed minimum width ensures readability, flex-shrink: 0 prevents squishing */
+  flex: 0 0 auto;
+  min-width: 3.5rem;
 }
 
-/* Wider bars for week view (fewer items) */
+/* Week view (7 days) - bars can expand to fill space */
 .daily-chart.view-day .chart-bar-container {
-  flex: 1;
-  min-width: 2.5rem;
-  width: auto;
+  flex: 1 0 3rem;
 }
 
-/* Fixed width for scrollable week views */
+/* Week aggregation (month/quarter) - fixed width for consistency */
 .daily-chart.view-week .chart-bar-container {
   flex: 0 0 auto;
   min-width: 4rem;
-  width: 4rem;
 }
 
-/* Monthly view uses full width when not scrollable */
-.daily-chart.view-month:not(.scrollable) .chart-bar-container {
-  flex: 1;
-  min-width: 2.5rem;
-  width: auto;
-}
-
-/* When scrollable, use fixed widths */
-.daily-chart.scrollable .chart-bar-container {
-  flex: 0 0 auto;
-  min-width: 4rem;
-  width: 4rem;
+/* Month aggregation (year/all) - can expand when few items */
+.daily-chart.view-month .chart-bar-container {
+  flex: 1 0 3rem;
 }
 
 .chart-bar-container.today {

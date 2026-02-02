@@ -228,11 +228,12 @@ export function Analytics() {
     return aggregation === 'week' || aggregatedData.length > 12;
   }, [aggregatedData, period]);
 
-  // Determine if chart needs scrolling
+  // Determine if chart needs scrolling based on period and item count
   const needsScrolling = useMemo(() => {
     const aggregation = getAggregation(period);
-    if (aggregation === 'day') return false; // Week view fits
-    return aggregatedData.length > 8;
+    if (aggregation === 'day') return false; // Week view (7 days) always fits
+    if (aggregation === 'week') return aggregatedData.length > 6; // Month (5 weeks) fits, quarter (13+ weeks) scrolls
+    return aggregatedData.length > 12; // Year (12 months) fits, all time may scroll
   }, [aggregatedData, period]);
 
   // Ref for scrolling to end

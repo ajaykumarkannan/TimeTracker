@@ -12,6 +12,9 @@ export function CategoryManager({ categories, onCategoryChange }: Props) {
   const [name, setName] = useState('');
   const [color, setColor] = useState('#6366f1');
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [deletingCategory, setDeletingCategory] = useState<Category | null>(null);
+  const [replacementId, setReplacementId] = useState<number | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,16 +41,51 @@ export function CategoryManager({ categories, onCategoryChange }: Props) {
     setEditingId(category.id);
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('Delete this category? All associated time entries will also be deleted.')) {
-      return;
-    }
+  const handleDeleteClick = async (category: Category) => {
+    // Try to delete without replacement first (works if no linked entries)
     try {
-      await api.deleteCategory(id);
+      await api.deleteCategory(category.id);
+      onCategoryChange();
+      return;
+    } catch (error) {
+      // If replacement is required, show the modal
+      if (error instanceof Error && error.message === 'Replacement category is required') {
+        // Can't show replacement modal if this is the last category
+        if (categories.length <= 1) {
+          setDeleteError('Cannot delete the last category when it has linked entries');
+          setTimeout(() => setDeleteError(null), 3000);
+          return;
+        }
+        const defaultReplacement = categories.find(c => c.id !== category.id);
+        setReplacementId(defaultReplacement?.id || null);
+        setDeletingCategory(category);
+        return;
+      }
+      // Other errors
+      console.error('Failed to delete category:', error);
+      setDeleteError(error instanceof Error ? error.message : 'Failed to delete category');
+      setTimeout(() => setDeleteError(null), 3000);
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deletingCategory || !replacementId) return;
+    
+    try {
+      await api.deleteCategory(deletingCategory.id, replacementId);
+      setDeletingCategory(null);
+      setReplacementId(null);
       onCategoryChange();
     } catch (error) {
       console.error('Failed to delete category:', error);
+      setDeleteError(error instanceof Error ? error.message : 'Failed to delete category');
+      setTimeout(() => setDeleteError(null), 3000);
     }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeletingCategory(null);
+    setReplacementId(null);
   };
 
   const handleCancel = () => {
@@ -55,6 +93,8 @@ export function CategoryManager({ categories, onCategoryChange }: Props) {
     setColor('#6366f1');
     setEditingId(null);
   };
+
+  const availableReplacements = categories.filter(c => c.id !== deletingCategory?.id);
 
   return (
     <div className="category-manager">
@@ -129,7 +169,7 @@ export function CategoryManager({ categories, onCategoryChange }: Props) {
                   </button>
                   <button 
                     className="btn-icon" 
-                    onClick={() => handleDelete(category.id)}
+                    onClick={() => handleDeleteClick(category)}
                     title="Delete"
                   >
                     🗑️
@@ -139,7 +179,48 @@ export function CategoryManager({ categories, onCategoryChange }: Props) {
             ))}
           </div>
         )}
+        
+        {deleteError && (
+          <div className="error-toast">{deleteError}</div>
+        )}
       </div>
+
+      {deletingCategory && (
+        <div className="modal-overlay" onClick={handleDeleteCancel}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <h3>Delete Category</h3>
+            <p>
+              Deleting "<strong>{deletingCategory.name}</strong>" will reassign all its time entries to another category.
+            </p>
+            <div className="form-group">
+              <label>Move entries to:</label>
+              <select 
+                value={replacementId || ''} 
+                onChange={e => setReplacementId(Number(e.target.value))}
+                className="replacement-select"
+              >
+                {availableReplacements.map(cat => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="modal-actions">
+              <button className="btn btn-ghost" onClick={handleDeleteCancel}>
+                Cancel
+              </button>
+              <button 
+                className="btn btn-danger" 
+                onClick={handleDeleteConfirm}
+                disabled={!replacementId}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

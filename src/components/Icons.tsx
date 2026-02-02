@@ -154,3 +154,13 @@ export function MenuIcon({ size = 16, className = '' }: IconProps) {
     </svg>
   );
 }
+
+export function HelpIcon({ size = 16, className = '' }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className={className}>
+      <circle cx="8" cy="8" r="6.5"/>
+      <path d="M6 6a2 2 0 113 1.73c-.5.29-1 .77-1 1.27v.5" strokeLinecap="round" strokeLinejoin="round"/>
+      <circle cx="8" cy="12" r="0.5" fill="currentColor" stroke="none"/>
+    </svg>
+  );
+}
