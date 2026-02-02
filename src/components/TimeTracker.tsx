@@ -191,10 +191,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
 
   const handleSwitchTask = async (categoryId: number, taskNote?: string) => {
     try {
-      // Stop current entry and start new one
-      if (activeEntry) {
-        await api.stopEntry(activeEntry.id);
-      }
+      // The /start endpoint automatically stops any active entry, so just start the new one
       await api.startEntry(categoryId, taskNote);
       setShowNewTaskForm(false);
       setSwitchTaskPrompt(null);
