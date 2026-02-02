@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from './contexts/AuthContext';
+import { TimezoneProvider, useTimezone } from './contexts/TimezoneContext';
 import { Landing } from './components/Landing';
 import { Login } from './components/Login';
 import { TimeTracker } from './components/TimeTracker';
@@ -18,6 +19,7 @@ type Tab = 'tracker' | 'categories' | 'analytics';
 
 function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLoggedIn: boolean; onLogout: () => void; onConvertSuccess: () => void }) {
   const { user } = useAuth();
+  const { showTimezonePrompt, detectedTimezone, acceptDetectedTimezone, dismissTimezonePrompt, timezone } = useTimezone();
   const [activeTab, setActiveTab] = useState<Tab>(() => {
     const saved = localStorage.getItem('chronoflow_tab');
     // Reset to tracker if saved tab was settings or help (now in menu)
@@ -159,6 +161,24 @@ function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLoggedIn: bo
           </div>
         </div>
       </header>
+
+      {/* Timezone change prompt */}
+      {showTimezonePrompt && detectedTimezone && (
+        <div className="timezone-prompt">
+          <span>
+            Your timezone appears to have changed to <strong>{detectedTimezone.replace(/_/g, ' ')}</strong>. 
+            Currently using <strong>{timezone.replace(/_/g, ' ')}</strong>.
+          </span>
+          <div className="timezone-prompt-actions">
+            <button className="btn-small btn-primary" onClick={acceptDetectedTimezone}>
+              Update
+            </button>
+            <button className="btn-small btn-ghost" onClick={dismissTimezonePrompt}>
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
 
       <nav className="app-nav">
         <div className="nav-content">
@@ -307,5 +327,9 @@ export default function App() {
   }
 
   // Show main app
-  return <AppContent isLoggedIn={!!user} onLogout={handleLogout} onConvertSuccess={handleConvertSuccess} />;
+  return (
+    <TimezoneProvider>
+      <AppContent isLoggedIn={!!user} onLogout={handleLogout} onConvertSuccess={handleConvertSuccess} />
+    </TimezoneProvider>
+  );
 }
