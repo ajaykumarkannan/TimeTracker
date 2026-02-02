@@ -37,6 +37,7 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const [activePreset, setActivePreset] = useState<'today' | 'week' | 'month' | 'all' | null>(null);
   
   // Manual entry form state
   const [showManualEntry, setShowManualEntry] = useState(false);
@@ -174,13 +175,14 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
       // Date range filter
       const entryDate = new Date(entry.start_time);
       if (dateFrom) {
-        const fromDate = new Date(dateFrom);
-        fromDate.setHours(0, 0, 0, 0);
+        // Parse YYYY-MM-DD as local date by splitting and using Date constructor
+        const [year, month, day] = dateFrom.split('-').map(Number);
+        const fromDate = new Date(year, month - 1, day, 0, 0, 0, 0);
         if (entryDate < fromDate) return false;
       }
       if (dateTo) {
-        const toDate = new Date(dateTo);
-        toDate.setHours(23, 59, 59, 999);
+        const [year, month, day] = dateTo.split('-').map(Number);
+        const toDate = new Date(year, month - 1, day, 23, 59, 59, 999);
         if (entryDate > toDate) return false;
       }
       
@@ -195,6 +197,41 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
     setCategoryFilter('all');
     setDateFrom('');
     setDateTo('');
+    setActivePreset(null);
+  };
+
+  const applyDatePreset = (preset: 'today' | 'week' | 'month' | 'all') => {
+    const today = new Date();
+    // Format as YYYY-MM-DD in local timezone
+    const formatDateLocal = (d: Date) => {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+    
+    if (preset === 'all') {
+      setDateFrom('');
+      setDateTo('');
+      setActivePreset('all');
+      return;
+    }
+    
+    let fromDate: Date;
+    
+    if (preset === 'today') {
+      fromDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    } else if (preset === 'week') {
+      const dayOfWeek = today.getDay();
+      const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Monday as start of week
+      fromDate = new Date(today.getFullYear(), today.getMonth(), today.getDate() - diff);
+    } else { // month
+      fromDate = new Date(today.getFullYear(), today.getMonth(), 1);
+    }
+    
+    setDateFrom(formatDateLocal(fromDate));
+    setDateTo(formatDateLocal(today));
+    setActivePreset(preset);
   };
 
   const handleSelect = (id: number) => {
@@ -540,6 +577,32 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
 
       {showFilters && (
         <div className="filters-panel">
+          <div className="date-presets">
+            <button 
+              className={`preset-btn ${activePreset === 'today' ? 'active' : ''}`}
+              onClick={() => applyDatePreset('today')}
+            >
+              Today
+            </button>
+            <button 
+              className={`preset-btn ${activePreset === 'week' ? 'active' : ''}`}
+              onClick={() => applyDatePreset('week')}
+            >
+              This Week
+            </button>
+            <button 
+              className={`preset-btn ${activePreset === 'month' ? 'active' : ''}`}
+              onClick={() => applyDatePreset('month')}
+            >
+              This Month
+            </button>
+            <button 
+              className={`preset-btn ${activePreset === 'all' ? 'active' : ''}`}
+              onClick={() => applyDatePreset('all')}
+            >
+              All Time
+            </button>
+          </div>
           <div className="filter-row">
             <div className="filter-group search-group">
               <input
@@ -573,7 +636,7 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
                 type="date"
                 className="filter-input date-input"
                 value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
+                onChange={(e) => { setDateFrom(e.target.value); setActivePreset(null); }}
               />
             </div>
             <div className="filter-group date-group">
@@ -582,7 +645,7 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
                 type="date"
                 className="filter-input date-input"
                 value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
+                onChange={(e) => { setDateTo(e.target.value); setActivePreset(null); }}
               />
             </div>
             {hasActiveFilters && (

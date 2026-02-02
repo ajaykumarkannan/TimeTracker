@@ -9,7 +9,9 @@ vi.mock('../../api', () => ({
     getAnalytics: vi.fn(),
     exportData: vi.fn(),
     exportCSV: vi.fn(),
-    getActiveEntry: vi.fn()
+    getActiveEntry: vi.fn(),
+    getDescriptions: vi.fn(),
+    getCategoryDrilldown: vi.fn()
   }
 }));
 
@@ -47,6 +49,15 @@ describe('Analytics', () => {
     vi.clearAllMocks();
     (api.getAnalytics as ReturnType<typeof vi.fn>).mockResolvedValue(mockAnalyticsData);
     (api.getActiveEntry as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (api.getDescriptions as ReturnType<typeof vi.fn>).mockResolvedValue({
+      descriptions: [],
+      pagination: { page: 1, pageSize: 20, totalCount: 0, totalPages: 0 }
+    });
+    (api.getCategoryDrilldown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      category: { name: 'Meetings', color: '#6366f1', minutes: 600, count: 5 },
+      descriptions: [],
+      pagination: { page: 1, pageSize: 20, totalCount: 0, totalPages: 0 }
+    });
   });
 
   it('renders loading state initially', () => {

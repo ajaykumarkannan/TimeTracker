@@ -1,4 +1,4 @@
-import { Category, TimeEntry, AnalyticsData, AuthResponse, User, ColumnMapping, ImportEntry, CSVPreviewResponse, UserSettings } from './types';
+import { Category, TimeEntry, AnalyticsData, AuthResponse, User, ColumnMapping, ImportEntry, CSVPreviewResponse, UserSettings, CategoryDrilldown, DescriptionsPaginated } from './types';
 
 const API_BASE = '/api';
 
@@ -244,6 +244,30 @@ export const api = {
   async getAnalytics(start: string, end: string): Promise<AnalyticsData> {
     const res = await apiFetch(`${API_BASE}/analytics?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`);
     if (!res.ok) throw new Error('Failed to fetch analytics');
+    return res.json();
+  },
+
+  async getCategoryDrilldown(categoryName: string, start: string, end: string, page: number = 1, pageSize: number = 20): Promise<CategoryDrilldown> {
+    const params = new URLSearchParams({
+      start,
+      end,
+      page: page.toString(),
+      pageSize: pageSize.toString()
+    });
+    const res = await apiFetch(`${API_BASE}/analytics/category/${encodeURIComponent(categoryName)}?${params}`);
+    if (!res.ok) throw new Error('Failed to fetch category drilldown');
+    return res.json();
+  },
+
+  async getDescriptions(start: string, end: string, page: number = 1, pageSize: number = 20): Promise<DescriptionsPaginated> {
+    const params = new URLSearchParams({
+      start,
+      end,
+      page: page.toString(),
+      pageSize: pageSize.toString()
+    });
+    const res = await apiFetch(`${API_BASE}/analytics/descriptions?${params}`);
+    if (!res.ok) throw new Error('Failed to fetch descriptions');
     return res.json();
   },
 

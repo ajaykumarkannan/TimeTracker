@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { api } from '../api';
-import { AnalyticsData, Period, DailyTotal, TimeEntry } from '../types';
+import { AnalyticsData, Period, DailyTotal, TimeEntry, CategoryDrilldown, DescriptionsPaginated } from '../types';
 import './Analytics.css';
 
 type AggregatedTotal = {
@@ -37,6 +37,17 @@ export function Analytics() {
   const [activeEntry, setActiveEntry] = useState<TimeEntry | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const previousMenuRef = useRef<HTMLDivElement>(null);
+  
+  // Drill-down state
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [categoryDrilldown, setCategoryDrilldown] = useState<CategoryDrilldown | null>(null);
+  const [categoryDrilldownPage, setCategoryDrilldownPage] = useState(1);
+  const [categoryDrilldownLoading, setCategoryDrilldownLoading] = useState(false);
+  
+  // All descriptions state (paginated)
+  const [descriptions, setDescriptions] = useState<DescriptionsPaginated | null>(null);
+  const [descriptionsPage, setDescriptionsPage] = useState(1);
+  const [descriptionsLoading, setDescriptionsLoading] = useState(false);
 
   // Close menus when clicking outside
   useEffect(() => {
@@ -209,7 +220,6 @@ export function Analytics() {
 
   const handleExport = async () => {
     setExporting(true);
-    setShowExportMenu(false);
     try {
       const csvData = await api.exportCSV();
       const blob = new Blob([csvData], { type: 'text/csv' });
@@ -255,6 +265,11 @@ export function Analytics() {
         const { start, end } = getDateRange(period, periodOffset);
         const analytics = await api.getAnalytics(start.toISOString(), end.toISOString());
         setData(analytics);
+        // Reset drill-down state when period changes
+        setSelectedCategory(null);
+        setCategoryDrilldown(null);
+        setCategoryDrilldownPage(1);
+        setDescriptionsPage(1);
       } catch (error) {
         console.error('Failed to load analytics:', error);
       }
@@ -263,6 +278,45 @@ export function Analytics() {
 
     loadAnalytics();
   }, [period, periodOffset]);
+
+  // Load all descriptions (paginated)
+  useEffect(() => {
+    const loadDescriptions = async () => {
+      if (!data) return;
+      setDescriptionsLoading(true);
+      try {
+        const { start, end } = getDateRange(period, periodOffset);
+        const result = await api.getDescriptions(start.toISOString(), end.toISOString(), descriptionsPage, 20);
+        setDescriptions(result);
+      } catch (error) {
+        console.error('Failed to load descriptions:', error);
+      }
+      setDescriptionsLoading(false);
+    };
+
+    loadDescriptions();
+  }, [data, descriptionsPage, period, periodOffset]);
+
+  // Load category drilldown when a category is selected
+  useEffect(() => {
+    const loadCategoryDrilldown = async () => {
+      if (!selectedCategory || !data) {
+        setCategoryDrilldown(null);
+        return;
+      }
+      setCategoryDrilldownLoading(true);
+      try {
+        const { start, end } = getDateRange(period, periodOffset);
+        const result = await api.getCategoryDrilldown(selectedCategory, start.toISOString(), end.toISOString(), categoryDrilldownPage, 20);
+        setCategoryDrilldown(result);
+      } catch (error) {
+        console.error('Failed to load category drilldown:', error);
+      }
+      setCategoryDrilldownLoading(false);
+    };
+
+    loadCategoryDrilldown();
+  }, [selectedCategory, categoryDrilldownPage, data, period, periodOffset]);
 
   // Fill in missing days with 0 minutes (skip for 'all' period - too slow)
   const filledDaily = useMemo(() => {
@@ -675,15 +729,82 @@ export function Analytics() {
       <div className="card">
         <div className="card-header">
           <h2 className="card-title">By Category</h2>
+          {selectedCategory && (
+            <button className="back-btn" onClick={() => { setSelectedCategory(null); setCategoryDrilldownPage(1); }}>
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="15,18 9,12 15,6" />
+              </svg>
+              Back to all
+            </button>
+          )}
         </div>
         {!hasData ? (
           <div className="empty-state"><p>No data for this period</p></div>
+        ) : selectedCategory && categoryDrilldown ? (
+          // Category drilldown view
+          <div className="category-drilldown">
+            <div className="drilldown-header">
+              <div className="category-info">
+                <div className="category-dot" style={{ backgroundColor: categoryDrilldown.category.color }} />
+                <span className="category-name">{categoryDrilldown.category.name}</span>
+              </div>
+              <div className="category-stats">
+                <span className="category-time">{formatDuration(categoryDrilldown.category.minutes)}</span>
+                <span className="category-count">{categoryDrilldown.category.count} entries</span>
+              </div>
+            </div>
+            {categoryDrilldownLoading ? (
+              <div className="drilldown-loading">Loading...</div>
+            ) : categoryDrilldown.descriptions.length === 0 ? (
+              <div className="empty-state"><p>No descriptions for this category</p></div>
+            ) : (
+              <>
+                <div className="descriptions-list">
+                  {categoryDrilldown.descriptions.map((item, i) => (
+                    <div key={i} className="task-row">
+                      <span className="task-name">{item.description}</span>
+                      <span className="task-count">{item.count}×</span>
+                      <span className="task-time">{formatDuration(item.total_minutes)}</span>
+                    </div>
+                  ))}
+                </div>
+                {categoryDrilldown.pagination.totalPages > 1 && (
+                  <div className="pagination">
+                    <button 
+                      className="pagination-btn" 
+                      disabled={categoryDrilldownPage === 1}
+                      onClick={() => setCategoryDrilldownPage(p => p - 1)}
+                    >
+                      Previous
+                    </button>
+                    <span className="pagination-info">
+                      Page {categoryDrilldown.pagination.page} of {categoryDrilldown.pagination.totalPages}
+                    </span>
+                    <button 
+                      className="pagination-btn" 
+                      disabled={categoryDrilldownPage >= categoryDrilldown.pagination.totalPages}
+                      onClick={() => setCategoryDrilldownPage(p => p + 1)}
+                    >
+                      Next
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         ) : (
           <div className="category-breakdown">
             {data.byCategory.filter(c => c.minutes > 0).map(cat => {
               const percentage = Math.round((cat.minutes / data.summary.totalMinutes) * 100);
               return (
-                <div key={cat.name} className="category-row">
+                <div 
+                  key={cat.name} 
+                  className="category-row clickable"
+                  onClick={() => { setSelectedCategory(cat.name); setCategoryDrilldownPage(1); }}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { setSelectedCategory(cat.name); setCategoryDrilldownPage(1); } }}
+                >
                   <div className="category-info">
                     <div className="category-dot" style={{ backgroundColor: cat.color }} />
                     <span className="category-name">{cat.name}</span>
@@ -695,6 +816,9 @@ export function Analytics() {
                     <span className="category-time">{formatDuration(cat.minutes)}</span>
                     <span className="category-percent">{percentage}%</span>
                   </div>
+                  <svg className="chevron-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="9,18 15,12 9,6" />
+                  </svg>
                 </div>
               );
             })}
@@ -702,22 +826,50 @@ export function Analytics() {
         )}
       </div>
 
-      {/* Top tasks */}
-      {data.topNotes.length > 0 && (
+      {/* All descriptions (paginated) */}
+      {descriptions && descriptions.pagination.totalCount > 0 && (
         <div className="card">
           <div className="card-header">
-            <h2 className="card-title">Top Descriptions</h2>
+            <h2 className="card-title">All Descriptions</h2>
+            <span className="descriptions-count">{descriptions.pagination.totalCount} total</span>
           </div>
-          <div className="top-tasks">
-            {data.topNotes.map((item, i) => (
-              <div key={i} className="task-row">
-                <span className="task-rank">#{i + 1}</span>
-                <span className="task-name">{item.description}</span>
-                <span className="task-count">{item.count}×</span>
-                <span className="task-time">{formatDuration(item.total_minutes)}</span>
+          {descriptionsLoading ? (
+            <div className="drilldown-loading">Loading...</div>
+          ) : (
+            <>
+              <div className="top-tasks">
+                {descriptions.descriptions.map((item, i) => (
+                  <div key={i} className="task-row">
+                    <span className="task-rank">#{(descriptionsPage - 1) * 20 + i + 1}</span>
+                    <span className="task-name">{item.description}</span>
+                    <span className="task-count">{item.count}×</span>
+                    <span className="task-time">{formatDuration(item.total_minutes)}</span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+              {descriptions.pagination.totalPages > 1 && (
+                <div className="pagination">
+                  <button 
+                    className="pagination-btn" 
+                    disabled={descriptionsPage === 1}
+                    onClick={() => setDescriptionsPage(p => p - 1)}
+                  >
+                    Previous
+                  </button>
+                  <span className="pagination-info">
+                    Page {descriptions.pagination.page} of {descriptions.pagination.totalPages}
+                  </span>
+                  <button 
+                    className="pagination-btn" 
+                    disabled={descriptionsPage >= descriptions.pagination.totalPages}
+                    onClick={() => setDescriptionsPage(p => p + 1)}
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
+            </>
+          )}
         </div>
       )}
 

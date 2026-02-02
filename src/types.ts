@@ -51,6 +51,33 @@ export interface TopNote {
   total_minutes: number;
 }
 
+export interface CategoryDescription {
+  description: string;
+  count: number;
+  total_minutes: number;
+}
+
+export interface CategoryDrilldown {
+  category: CategoryTotal;
+  descriptions: CategoryDescription[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    totalCount: number;
+    totalPages: number;
+  };
+}
+
+export interface DescriptionsPaginated {
+  descriptions: TopNote[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    totalCount: number;
+    totalPages: number;
+  };
+}
+
 export interface AnalyticsData {
   period: { start: string; end: string };
   summary: {
