@@ -244,6 +244,16 @@
   min-width: 150px;
 }
 
+.switch-description-wrapper {
+  flex: 1;
+  min-width: 150px;
+  position: relative;
+}
+
+.switch-description-wrapper .switch-description-input {
+  width: 100%;
+}
+
 .switch-description-input:focus,
 .switch-category-select:focus {
   outline: none;

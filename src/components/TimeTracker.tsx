@@ -607,18 +607,75 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                     <option key={cat.id} value={cat.id}>{cat.name}</option>
                   ))}
                 </select>
-                <input 
-                  type="text"
-                  className="switch-description-input"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Task name (optional)"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && selectedCategory) {
-                      handleSwitchTask(selectedCategory, description || undefined);
-                    }
-                  }}
-                />
+                <div className="description-input-wrapper switch-description-wrapper">
+                  <input 
+                    ref={descriptionInputRef}
+                    type="text"
+                    className="switch-description-input"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Task name (optional)"
+                    autoComplete="off"
+                    onFocus={() => {
+                      if (suggestions.length > 0) setShowSuggestions(true);
+                    }}
+                    onKeyDown={(e) => {
+                      if (!showSuggestions || suggestions.length === 0) {
+                        if (e.key === 'Enter' && selectedCategory) {
+                          handleSwitchTask(selectedCategory, description || undefined);
+                        }
+                        return;
+                      }
+                      switch (e.key) {
+                        case 'ArrowDown':
+                          e.preventDefault();
+                          setSelectedSuggestionIndex(prev => 
+                            prev < suggestions.length - 1 ? prev + 1 : prev
+                          );
+                          break;
+                        case 'ArrowUp':
+                          e.preventDefault();
+                          setSelectedSuggestionIndex(prev => prev > 0 ? prev - 1 : -1);
+                          break;
+                        case 'Enter':
+                          e.preventDefault();
+                          if (selectedSuggestionIndex >= 0) {
+                            handleSuggestionSelect(suggestions[selectedSuggestionIndex]);
+                          } else if (selectedCategory) {
+                            handleSwitchTask(selectedCategory, description || undefined);
+                          }
+                          break;
+                        case 'Escape':
+                          setShowSuggestions(false);
+                          setSelectedSuggestionIndex(-1);
+                          break;
+                      }
+                    }}
+                  />
+                  {showSuggestions && suggestions.length > 0 && (
+                    <div className="description-suggestions" ref={suggestionsRef}>
+                      {suggestions.map((suggestion, idx) => {
+                        const cat = categories.find(c => c.id === suggestion.categoryId);
+                        const colors = getCategoryColors(cat?.color || null);
+                        return (
+                          <button
+                            key={`${suggestion.categoryId}-${suggestion.description}`}
+                            className={`suggestion-item ${idx === selectedSuggestionIndex ? 'selected' : ''}`}
+                            onClick={() => handleSuggestionSelect(suggestion)}
+                            onMouseEnter={() => setSelectedSuggestionIndex(idx)}
+                          >
+                            <span className="suggestion-text">{suggestion.description}</span>
+                            <span className="suggestion-meta">
+                              <span className="category-dot" style={{ backgroundColor: colors.dotColor }} />
+                              <span className="suggestion-category">{cat?.name || 'Unknown'}</span>
+                              <span className="suggestion-count">×{suggestion.count}</span>
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
                 <button 
                   className="btn btn-success btn-sm"
                   onClick={() => selectedCategory && handleSwitchTask(selectedCategory, description || undefined)}
