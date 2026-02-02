@@ -11,6 +11,17 @@ interface Props {
 
 type EditField = 'category' | 'note' | 'startTime' | 'endTime' | null;
 
+interface MergeCandidate {
+  entries: TimeEntry[];
+  categoryName: string;
+  note: string | null;
+}
+
+interface ShortEntry {
+  entry: TimeEntry;
+  durationSeconds: number;
+}
+
 export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
   const [selected, setSelected] = useState<number | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -37,6 +48,79 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
   const [manualEndTime, setManualEndTime] = useState('');
   const [manualError, setManualError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Cleanup suggestions state
+  const [showCleanupBanner, setShowCleanupBanner] = useState(true);
+  const [dismissedMerges, setDismissedMerges] = useState<Set<string>>(new Set());
+  const [dismissedShortEntries, setDismissedShortEntries] = useState<Set<number>>(new Set());
+
+  // Detect back-to-back entries that can be merged (same category + note, consecutive)
+  const mergeCandidates = useMemo((): MergeCandidate[] => {
+    const candidates: MergeCandidate[] = [];
+    // Sort by start time ascending to find consecutive entries
+    const sorted = [...entries]
+      .filter(e => e.end_time) // Only completed entries
+      .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+    
+    let i = 0;
+    while (i < sorted.length) {
+      const current = sorted[i];
+      const group: TimeEntry[] = [current];
+      
+      // Look for consecutive entries with same category and note
+      let j = i + 1;
+      while (j < sorted.length) {
+        const next = sorted[j];
+        const prev = group[group.length - 1];
+        
+        // Check if same category and note
+        if (next.category_id !== current.category_id || next.note !== current.note) break;
+        
+        // Check if back-to-back (within 1 minute gap)
+        const prevEnd = new Date(prev.end_time!).getTime();
+        const nextStart = new Date(next.start_time).getTime();
+        const gapMs = nextStart - prevEnd;
+        
+        if (gapMs < 0 || gapMs > 60000) break; // More than 1 minute gap
+        
+        group.push(next);
+        j++;
+      }
+      
+      if (group.length > 1) {
+        const key = group.map(e => e.id).sort((a, b) => a - b).join('-');
+        if (!dismissedMerges.has(key)) {
+          candidates.push({
+            entries: group,
+            categoryName: current.category_name,
+            note: current.note
+          });
+        }
+      }
+      
+      i = j > i + 1 ? j : i + 1;
+    }
+    
+    return candidates;
+  }, [entries, dismissedMerges]);
+
+  // Detect entries less than 1 minute
+  const shortEntries = useMemo((): ShortEntry[] => {
+    return entries
+      .filter(e => {
+        if (!e.end_time || dismissedShortEntries.has(e.id)) return false;
+        const start = new Date(e.start_time).getTime();
+        const end = new Date(e.end_time).getTime();
+        const durationMs = end - start;
+        return durationMs < 60000 && durationMs >= 0;
+      })
+      .map(e => ({
+        entry: e,
+        durationSeconds: Math.round((new Date(e.end_time!).getTime() - new Date(e.start_time).getTime()) / 1000)
+      }));
+  }, [entries, dismissedShortEntries]);
+
+  const hasCleanupSuggestions = mergeCandidates.length > 0 || shortEntries.length > 0;
 
   // Check for overlaps with other entries
   const checkOverlap = (entryId: number, start: Date, end: Date | null): TimeEntry | null => {
@@ -250,6 +334,67 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
     }
   };
 
+  const handleMergeEntries = async (candidate: MergeCandidate) => {
+    const sorted = [...candidate.entries].sort((a, b) => 
+      new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
+    );
+    const first = sorted[0];
+    const last = sorted[sorted.length - 1];
+    
+    try {
+      // Update the first entry to span the entire range
+      await api.updateEntry(first.id, {
+        category_id: first.category_id,
+        note: first.note,
+        start_time: first.start_time,
+        end_time: last.end_time
+      });
+      
+      // Delete the other entries
+      for (let i = 1; i < sorted.length; i++) {
+        await api.deleteEntry(sorted[i].id);
+      }
+      
+      onEntryChange();
+    } catch (error) {
+      console.error('Failed to merge entries:', error);
+    }
+  };
+
+  const handleDismissMerge = (candidate: MergeCandidate) => {
+    const key = candidate.entries.map(e => e.id).sort((a, b) => a - b).join('-');
+    setDismissedMerges(prev => new Set([...prev, key]));
+  };
+
+  const handleDeleteShortEntry = async (entry: TimeEntry) => {
+    try {
+      await api.deleteEntry(entry.id);
+      onEntryChange();
+    } catch (error) {
+      console.error('Failed to delete entry:', error);
+    }
+  };
+
+  const handleDismissShortEntry = (entryId: number) => {
+    setDismissedShortEntries(prev => new Set([...prev, entryId]));
+  };
+
+  const handleApplyAll = async () => {
+    // Merge all candidates first
+    for (const candidate of mergeCandidates) {
+      await handleMergeEntries(candidate);
+    }
+    // Then delete all short entries
+    for (const { entry } of shortEntries) {
+      try {
+        await api.deleteEntry(entry.id);
+      } catch (error) {
+        console.error('Failed to delete entry:', error);
+      }
+    }
+    onEntryChange();
+  };
+
   const formatTime = (dateStr: string) => {
     const date = new Date(dateStr);
     return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
@@ -422,6 +567,57 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
               </button>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Cleanup suggestions banner */}
+      {showCleanupBanner && hasCleanupSuggestions && (
+        <div className="cleanup-banner">
+          <div className="cleanup-header">
+            <span className="cleanup-icon">🧹</span>
+            <span className="cleanup-title">Cleanup Suggestions</span>
+            <button className="btn btn-sm btn-primary cleanup-apply-all" onClick={handleApplyAll}>
+              Apply All
+            </button>
+            <button className="btn-icon cleanup-close" onClick={() => setShowCleanupBanner(false)}>×</button>
+          </div>
+          
+          {mergeCandidates.map((candidate, idx) => {
+            const totalMinutes = candidate.entries.reduce((sum, e) => sum + (e.duration_minutes || 0), 0);
+            return (
+              <div key={idx} className="cleanup-item">
+                <div className="cleanup-item-info">
+                  <span className="cleanup-item-icon">🔗</span>
+                  <span className="cleanup-item-text">
+                    Merge {candidate.entries.length} consecutive "{candidate.categoryName}" entries
+                    {candidate.note && <span className="cleanup-note"> ({candidate.note})</span>}
+                    <span className="cleanup-duration"> — {formatDuration(totalMinutes)} total</span>
+                  </span>
+                </div>
+                <div className="cleanup-item-actions">
+                  <button className="btn btn-sm btn-primary" onClick={() => handleMergeEntries(candidate)}>Merge</button>
+                  <button className="btn btn-sm btn-ghost" onClick={() => handleDismissMerge(candidate)}>Dismiss</button>
+                </div>
+              </div>
+            );
+          })}
+          
+          {shortEntries.map(({ entry, durationSeconds }) => (
+            <div key={entry.id} className="cleanup-item">
+              <div className="cleanup-item-info">
+                <span className="cleanup-item-icon">⏱️</span>
+                <span className="cleanup-item-text">
+                  Short entry: "{entry.category_name}"
+                  {entry.note && <span className="cleanup-note"> ({entry.note})</span>}
+                  <span className="cleanup-duration"> — {durationSeconds}s</span>
+                </span>
+              </div>
+              <div className="cleanup-item-actions">
+                <button className="btn btn-sm btn-danger" onClick={() => handleDeleteShortEntry(entry)}>Delete</button>
+                <button className="btn btn-sm btn-ghost" onClick={() => handleDismissShortEntry(entry.id)}>Keep</button>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 

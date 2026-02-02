@@ -630,3 +630,125 @@
     opacity: 1;
   }
 }
+
+
+/* Cleanup Suggestions Banner */
+.cleanup-banner {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  margin-bottom: 1rem;
+  overflow: hidden;
+  animation: slideIn 0.2s ease;
+}
+
+.cleanup-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border);
+}
+
+.cleanup-icon {
+  font-size: 1rem;
+}
+
+.cleanup-title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  flex: 1;
+}
+
+.cleanup-apply-all {
+  margin-left: auto;
+}
+
+.cleanup-close {
+  font-size: 1.125rem;
+  color: var(--text-muted);
+  padding: 0.125rem 0.25rem;
+}
+
+.cleanup-close:hover {
+  color: var(--text-primary);
+}
+
+.cleanup-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.cleanup-item:last-child {
+  border-bottom: none;
+}
+
+.cleanup-item-info {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.cleanup-item-icon {
+  font-size: 0.875rem;
+  flex-shrink: 0;
+}
+
+.cleanup-item-text {
+  font-size: 0.8125rem;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cleanup-note {
+  color: var(--text-secondary);
+}
+
+.cleanup-duration {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.cleanup-item-actions {
+  display: flex;
+  gap: 0.375rem;
+  flex-shrink: 0;
+}
+
+.cleanup-item-actions .btn-sm {
+  padding: 0.25rem 0.625rem;
+  font-size: 0.75rem;
+}
+
+.cleanup-item-actions .btn-danger {
+  background: var(--error);
+  color: white;
+  border-color: var(--error);
+}
+
+.cleanup-item-actions .btn-danger:hover {
+  background: var(--error-hover, #dc2626);
+}
+
+@media (max-width: 640px) {
+  .cleanup-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.625rem;
+  }
+  
+  .cleanup-item-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
