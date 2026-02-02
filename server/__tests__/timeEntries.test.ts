@@ -44,7 +44,7 @@ beforeAll(async () => {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
       category_id INTEGER NOT NULL,
-      note TEXT,
+      description TEXT,
       start_time DATETIME NOT NULL,
       end_time DATETIME,
       duration_minutes INTEGER,
@@ -70,7 +70,7 @@ beforeEach(() => {
 describe('Time Entries Database', () => {
   it('creates a time entry', () => {
     const now = new Date().toISOString();
-    db.run('INSERT INTO time_entries (user_id, category_id, note, start_time) VALUES (?, ?, ?, ?)',
+    db.run('INSERT INTO time_entries (user_id, category_id, description, start_time) VALUES (?, ?, ?, ?)',
       [testUserId, categoryId, 'Working on feature', now]);
     
     const lastId = db.exec('SELECT last_insert_rowid() as id')[0].values[0][0];
@@ -84,7 +84,7 @@ describe('Time Entries Database', () => {
     expect(entry).toMatchObject({
       user_id: testUserId,
       category_id: categoryId,
-      note: 'Working on feature'
+      description: 'Working on feature'
     });
   });
 
@@ -160,5 +160,62 @@ describe('Time Entries Database', () => {
     stmt.free();
     
     expect(hasRow).toBe(false);
+  });
+
+  it('retrieves description suggestions grouped by count', () => {
+    const time1 = new Date(Date.now() - 7200000).toISOString();
+    const time2 = new Date(Date.now() - 3600000).toISOString();
+    const time3 = new Date().toISOString();
+    
+    // Add entries with same description multiple times
+    db.run('INSERT INTO time_entries (user_id, category_id, description, start_time, end_time, duration_minutes) VALUES (?, ?, ?, ?, ?, ?)',
+      [testUserId, categoryId, 'Code review', time1, time2, 60]);
+    db.run('INSERT INTO time_entries (user_id, category_id, description, start_time, end_time, duration_minutes) VALUES (?, ?, ?, ?, ?, ?)',
+      [testUserId, categoryId, 'Code review', time2, time3, 60]);
+    db.run('INSERT INTO time_entries (user_id, category_id, description, start_time, end_time, duration_minutes) VALUES (?, ?, ?, ?, ?, ?)',
+      [testUserId, categoryId, 'Bug fix', time1, time2, 30]);
+    
+    const result = db.exec(`
+      SELECT description, category_id, COUNT(*) as count, SUM(duration_minutes) as total_minutes
+      FROM time_entries
+      WHERE user_id = ? AND description IS NOT NULL AND description != ''
+      GROUP BY description, category_id
+      ORDER BY count DESC
+    `, [testUserId]);
+    
+    expect(result.length).toBe(1);
+    expect(result[0].values.length).toBe(2);
+    
+    // First result should be 'Code review' with count 2
+    expect(result[0].values[0][0]).toBe('Code review');
+    expect(result[0].values[0][2]).toBe(2);
+    expect(result[0].values[0][3]).toBe(120);
+    
+    // Second result should be 'Bug fix' with count 1
+    expect(result[0].values[1][0]).toBe('Bug fix');
+    expect(result[0].values[1][2]).toBe(1);
+  });
+
+  it('filters suggestions by search query', () => {
+    const time1 = new Date(Date.now() - 7200000).toISOString();
+    const time2 = new Date(Date.now() - 3600000).toISOString();
+    
+    db.run('INSERT INTO time_entries (user_id, category_id, description, start_time, end_time, duration_minutes) VALUES (?, ?, ?, ?, ?, ?)',
+      [testUserId, categoryId, 'Code review', time1, time2, 60]);
+    db.run('INSERT INTO time_entries (user_id, category_id, description, start_time, end_time, duration_minutes) VALUES (?, ?, ?, ?, ?, ?)',
+      [testUserId, categoryId, 'Bug fix', time1, time2, 30]);
+    
+    const query = 'code';
+    const result = db.exec(`
+      SELECT description, category_id, COUNT(*) as count
+      FROM time_entries
+      WHERE user_id = ? AND description IS NOT NULL AND description != '' AND LOWER(description) LIKE ?
+      GROUP BY description, category_id
+      ORDER BY count DESC
+    `, [testUserId, `%${query}%`]);
+    
+    expect(result.length).toBe(1);
+    expect(result[0].values.length).toBe(1);
+    expect(result[0].values[0][0]).toBe('Code review');
   });
 });

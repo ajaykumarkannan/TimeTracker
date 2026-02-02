@@ -25,7 +25,7 @@ export interface TimeEntry {
   category_id: number;
   category_name: string;
   category_color: string | null;
-  note: string | null;
+  description: string | null;
   start_time: string;
   end_time: string | null;
   duration_minutes: number | null;
@@ -46,9 +46,36 @@ export interface DailyTotal {
 }
 
 export interface TopNote {
-  note: string;
+  description: string;
   count: number;
   total_minutes: number;
+}
+
+export interface CategoryDescription {
+  description: string;
+  count: number;
+  total_minutes: number;
+}
+
+export interface CategoryDrilldown {
+  category: CategoryTotal;
+  descriptions: CategoryDescription[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    totalCount: number;
+    totalPages: number;
+  };
+}
+
+export interface DescriptionsPaginated {
+  descriptions: TopNote[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    totalCount: number;
+    totalPages: number;
+  };
 }
 
 export interface AnalyticsData {
@@ -73,4 +100,41 @@ export interface ExportData {
   exportedAt: string;
   categories: Category[];
   timeEntries: TimeEntry[];
+}
+
+export interface ColumnMapping {
+  category?: number;
+  color?: number;
+  description?: number;
+  startTime?: number;
+  endTime?: number;
+}
+
+export interface ImportEntry {
+  rowIndex: number;
+  category: string;
+  color: string | null;
+  description: string | null;
+  startTime: string;
+  endTime: string | null;
+  duration: number | null; // Calculated for display only, not stored
+  isNewCategory?: boolean;
+  error: string | null;
+  skip?: boolean;
+}
+
+export interface CSVPreviewResponse {
+  headers?: string[];
+  rowCount?: number;
+  suggestedMapping?: ColumnMapping;
+  preview?: string[][];
+  entries?: ImportEntry[];
+  newCategories?: string[];
+  existingCategories?: string[];
+  validCount?: number;
+  errorCount?: number;
+}
+
+export interface UserSettings {
+  timezone: string;
 }

@@ -9,7 +9,7 @@ describe('PopOutTimer', () => {
     category_id: 1,
     category_name: 'Deep Work',
     category_color: '#6366f1',
-    note: 'Working on feature',
+    description: 'Working on feature',
     start_time: new Date(Date.now() - 3661000).toISOString(),
     end_time: null,
     duration_minutes: null,
@@ -275,8 +275,8 @@ describe('PopOutTimer', () => {
   });
 });
 
-describe('PopOutTimer without note', () => {
-  it('renders without note span when entry has no note', () => {
+describe('PopOutTimer without description', () => {
+  it('renders without description span when entry has no description', () => {
     vi.useFakeTimers();
     
     const mockPopup = {
@@ -292,12 +292,12 @@ describe('PopOutTimer without note', () => {
 
     vi.spyOn(window, 'open').mockReturnValue(mockPopup as unknown as Window);
 
-    const entryWithoutNote: TimeEntry = {
+    const entryWithoutDescription: TimeEntry = {
       id: 1,
       category_id: 1,
       category_name: 'Meeting',
       category_color: '#10b981',
-      note: null,
+      description: null,
       start_time: new Date(Date.now() - 60000).toISOString(),
       end_time: null,
       duration_minutes: null,
@@ -306,7 +306,7 @@ describe('PopOutTimer without note', () => {
 
     render(
       <PopOutTimer
-        activeEntry={entryWithoutNote}
+        activeEntry={entryWithoutDescription}
         onStop={vi.fn()}
         onPause={vi.fn()}
         onClose={vi.fn()}
@@ -316,16 +316,16 @@ describe('PopOutTimer without note', () => {
 
     const writeCall = mockPopup.document.write.mock.calls[0][0];
     expect(writeCall).toContain('Meeting');
-    // When note is null, there should be no span with class="popout-note" in the body
+    // When description is null, there should be no span with class="popout-description" in the body
     // The class exists in CSS but the element shouldn't be rendered
-    expect(writeCall).not.toContain('class="popout-note"');
+    expect(writeCall).not.toContain('class="popout-description"');
     
     vi.useRealTimers();
   });
 });
 
 describe('PopOutTimer HTML escaping', () => {
-  it('escapes HTML in category name and note', () => {
+  it('escapes HTML in category name and description', () => {
     vi.useFakeTimers();
     
     const mockPopup = {
@@ -346,7 +346,7 @@ describe('PopOutTimer HTML escaping', () => {
       category_id: 1,
       category_name: '<script>alert("xss")</script>',
       category_color: '#10b981',
-      note: '<img onerror="alert(1)">',
+      description: '<img onerror="alert(1)">',
       start_time: new Date(Date.now() - 60000).toISOString(),
       end_time: null,
       duration_minutes: null,

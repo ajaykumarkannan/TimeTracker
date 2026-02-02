@@ -54,7 +54,7 @@ test.describe('Analytics Daily Breakdown Chart', () => {
         category_id: category1.id,
         start_time: startTime1,
         end_time: endTime1,
-        note: 'Test meeting'
+        description: 'Test meeting'
       }
     });
     
@@ -64,7 +64,7 @@ test.describe('Analytics Daily Breakdown Chart', () => {
         category_id: category2.id,
         start_time: startTime2,
         end_time: endTime2,
-        note: 'Test deep work'
+        description: 'Test deep work'
       }
     });
     

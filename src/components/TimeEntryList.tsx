@@ -1,20 +1,19 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { TimeEntry, Category } from '../types';
 import { api } from '../api';
 import './TimeEntryList.css';
 
 interface Props {
-  entries: TimeEntry[];
   categories: Category[];
   onEntryChange: () => void;
 }
 
-type EditField = 'category' | 'note' | 'startTime' | 'endTime' | null;
+type EditField = 'category' | 'description' | 'startTime' | 'endTime' | null;
 
 interface MergeCandidate {
   entries: TimeEntry[];
   categoryName: string;
-  note: string | null;
+  description: string | null;
 }
 
 interface ShortEntry {
@@ -22,26 +21,40 @@ interface ShortEntry {
   durationSeconds: number;
 }
 
-export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
+export function TimeEntryList({ categories, onEntryChange }: Props) {
+  const [entries, setEntries] = useState<TimeEntry[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<number | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editField, setEditField] = useState<EditField>(null);
   const [editCategory, setEditCategory] = useState<number>(0);
-  const [editNote, setEditNote] = useState<string>('');
+  const [editDescription, setEditDescription] = useState<string>('');
   const [editStartTime, setEditStartTime] = useState<string>('');
   const [editEndTime, setEditEndTime] = useState<string>('');
   
   // Filter state
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<number | 'all'>('all');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const [activePreset, setActivePreset] = useState<'today' | 'week' | 'month' | 'all' | null>('week');
+  
+  // Initialize date filters to "This Week" on mount
+  const [dateFrom, setDateFrom] = useState(() => {
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+    const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    const fromDate = new Date(today.getFullYear(), today.getMonth(), today.getDate() - diff);
+    return `${fromDate.getFullYear()}-${String(fromDate.getMonth() + 1).padStart(2, '0')}-${String(fromDate.getDate()).padStart(2, '0')}`;
+  });
+  const [dateTo, setDateTo] = useState(() => {
+    const today = new Date();
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  });
   
   // Manual entry form state
   const [showManualEntry, setShowManualEntry] = useState(false);
   const [manualCategory, setManualCategory] = useState<number | ''>('');
-  const [manualNote, setManualNote] = useState('');
+  const [manualDescription, setManualDescription] = useState('');
   const [manualStartDate, setManualStartDate] = useState('');
   const [manualStartTime, setManualStartTime] = useState('');
   const [manualEndDate, setManualEndDate] = useState('');
@@ -53,6 +66,31 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
   const [showCleanupBanner, setShowCleanupBanner] = useState(true);
   const [dismissedMerges, setDismissedMerges] = useState<Set<string>>(new Set());
   const [dismissedShortEntries, setDismissedShortEntries] = useState<Set<number>>(new Set());
+
+  // Load entries based on date filter
+  const loadEntries = useCallback(async () => {
+    setLoading(true);
+    try {
+      const startDate = dateFrom ? `${dateFrom}T00:00:00.000Z` : undefined;
+      const endDate = dateTo ? `${dateTo}T23:59:59.999Z` : undefined;
+      const data = await api.getTimeEntries(startDate, endDate);
+      setEntries(data);
+    } catch (error) {
+      console.error('Failed to load entries:', error);
+    }
+    setLoading(false);
+  }, [dateFrom, dateTo]);
+
+  // Load entries when date filter changes
+  useEffect(() => {
+    loadEntries();
+  }, [loadEntries]);
+
+  // Reload entries when onEntryChange is triggered externally
+  const handleEntryChangeInternal = useCallback(async () => {
+    await loadEntries();
+    onEntryChange();
+  }, [loadEntries, onEntryChange]);
 
   // Detect back-to-back entries that can be merged (same category + note, consecutive)
   const mergeCandidates = useMemo((): MergeCandidate[] => {
@@ -73,8 +111,8 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
         const next = sorted[j];
         const prev = group[group.length - 1];
         
-        // Check if same category and note
-        if (next.category_id !== current.category_id || next.note !== current.note) break;
+        // Check if same category and description
+        if (next.category_id !== current.category_id || next.description !== current.description) break;
         
         // Check if back-to-back (within 1 minute gap)
         const prevEnd = new Date(prev.end_time!).getTime();
@@ -93,7 +131,7 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
           candidates.push({
             entries: group,
             categoryName: current.category_name,
-            note: current.note
+            description: current.description
           });
         }
       }
@@ -158,12 +196,12 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
   // Filter entries based on search, category, and date range
   const filteredEntries = useMemo(() => {
     return entries.filter(entry => {
-      // Search filter (note and category name)
+      // Search filter (description and category name)
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
-        const matchesNote = entry.note?.toLowerCase().includes(query);
+        const matchesDescription = entry.description?.toLowerCase().includes(query);
         const matchesCategory = entry.category_name.toLowerCase().includes(query);
-        if (!matchesNote && !matchesCategory) return false;
+        if (!matchesDescription && !matchesCategory) return false;
       }
       
       // Category filter
@@ -174,13 +212,14 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
       // Date range filter
       const entryDate = new Date(entry.start_time);
       if (dateFrom) {
-        const fromDate = new Date(dateFrom);
-        fromDate.setHours(0, 0, 0, 0);
+        // Parse YYYY-MM-DD as local date by splitting and using Date constructor
+        const [year, month, day] = dateFrom.split('-').map(Number);
+        const fromDate = new Date(year, month - 1, day, 0, 0, 0, 0);
         if (entryDate < fromDate) return false;
       }
       if (dateTo) {
-        const toDate = new Date(dateTo);
-        toDate.setHours(23, 59, 59, 999);
+        const [year, month, day] = dateTo.split('-').map(Number);
+        const toDate = new Date(year, month - 1, day, 23, 59, 59, 999);
         if (entryDate > toDate) return false;
       }
       
@@ -195,6 +234,41 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
     setCategoryFilter('all');
     setDateFrom('');
     setDateTo('');
+    setActivePreset(null);
+  };
+
+  const applyDatePreset = (preset: 'today' | 'week' | 'month' | 'all') => {
+    const today = new Date();
+    // Format as YYYY-MM-DD in local timezone
+    const formatDateLocal = (d: Date) => {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+    
+    if (preset === 'all') {
+      setDateFrom('');
+      setDateTo('');
+      setActivePreset('all');
+      return;
+    }
+    
+    let fromDate: Date;
+    
+    if (preset === 'today') {
+      fromDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    } else if (preset === 'week') {
+      const dayOfWeek = today.getDay();
+      const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Monday as start of week
+      fromDate = new Date(today.getFullYear(), today.getMonth(), today.getDate() - diff);
+    } else { // month
+      fromDate = new Date(today.getFullYear(), today.getMonth(), 1);
+    }
+    
+    setDateFrom(formatDateLocal(fromDate));
+    setDateTo(formatDateLocal(today));
+    setActivePreset(preset);
   };
 
   const handleSelect = (id: number) => {
@@ -209,7 +283,7 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
     setEditingId(entry.id);
     setEditField(field);
     setEditCategory(entry.category_id);
-    setEditNote(entry.note || '');
+    setEditDescription(entry.description || '');
     setEditStartTime(formatDateTimeLocal(entry.start_time));
     setEditEndTime(entry.end_time ? formatDateTimeLocal(entry.end_time) : '');
   };
@@ -247,7 +321,7 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
     setManualEndDate(formatDateOnly(now.toISOString()));
     setManualEndTime(formatTimeOnly(now.toISOString()));
     setManualCategory('');
-    setManualNote('');
+    setManualDescription('');
     setManualError('');
     setShowManualEntry(true);
   };
@@ -275,9 +349,9 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
     setIsSubmitting(true);
     setManualError('');
     try {
-      await api.createManualEntry(manualCategory as number, start.toISOString(), end.toISOString(), manualNote || undefined);
+      await api.createManualEntry(manualCategory as number, start.toISOString(), end.toISOString(), manualDescription || undefined);
       closeManualEntry();
-      onEntryChange();
+      handleEntryChangeInternal();
     } catch (error) {
       setManualError('Failed to create entry. Please try again.');
       console.error('Failed to create manual entry:', error);
@@ -298,13 +372,13 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
     try {
       await api.updateEntry(entryId, {
         category_id: editCategory,
-        note: editNote || null,
+        description: editDescription || null,
         start_time: newStart,
         end_time: newEnd
       });
       setEditingId(null);
       setEditField(null);
-      onEntryChange();
+      handleEntryChangeInternal();
     } catch (error) {
       console.error('Failed to update entry:', error);
     }
@@ -328,7 +402,7 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
     if (!confirm('Delete this time entry?')) return;
     try {
       await api.deleteEntry(id);
-      onEntryChange();
+      handleEntryChangeInternal();
     } catch (error) {
       console.error('Failed to delete entry:', error);
     }
@@ -345,7 +419,7 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
       // Update the first entry to span the entire range
       await api.updateEntry(first.id, {
         category_id: first.category_id,
-        note: first.note,
+        description: first.description,
         start_time: first.start_time,
         end_time: last.end_time
       });
@@ -355,7 +429,7 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
         await api.deleteEntry(sorted[i].id);
       }
       
-      onEntryChange();
+      handleEntryChangeInternal();
     } catch (error) {
       console.error('Failed to merge entries:', error);
     }
@@ -369,7 +443,7 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
   const handleDeleteShortEntry = async (entry: TimeEntry) => {
     try {
       await api.deleteEntry(entry.id);
-      onEntryChange();
+      handleEntryChangeInternal();
     } catch (error) {
       console.error('Failed to delete entry:', error);
     }
@@ -396,7 +470,7 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
     
     try {
       await api.deleteEntriesByDate(dateStr);
-      onEntryChange();
+      handleEntryChangeInternal();
     } catch (error) {
       console.error('Failed to delete entries:', error);
       alert('Failed to delete entries. Please try again.');
@@ -416,7 +490,7 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
         console.error('Failed to delete entry:', error);
       }
     }
-    onEntryChange();
+    handleEntryChangeInternal();
   };
 
   const formatTime = (dateStr: string) => {
@@ -503,8 +577,8 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
                 </select>
               </div>
               <div className="form-group">
-                <label>Note <span className="optional">(optional)</span></label>
-                <input type="text" value={manualNote} onChange={(e) => setManualNote(e.target.value)} placeholder="What were you working on?" />
+                <label>Description <span className="optional">(optional)</span></label>
+                <input type="text" value={manualDescription} onChange={(e) => setManualDescription(e.target.value)} placeholder="What were you working on?" />
               </div>
               <div className="form-row-datetime">
                 <div className="form-group">
@@ -540,12 +614,38 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
 
       {showFilters && (
         <div className="filters-panel">
+          <div className="date-presets">
+            <button 
+              className={`preset-btn ${activePreset === 'today' ? 'active' : ''}`}
+              onClick={() => applyDatePreset('today')}
+            >
+              Today
+            </button>
+            <button 
+              className={`preset-btn ${activePreset === 'week' ? 'active' : ''}`}
+              onClick={() => applyDatePreset('week')}
+            >
+              This Week
+            </button>
+            <button 
+              className={`preset-btn ${activePreset === 'month' ? 'active' : ''}`}
+              onClick={() => applyDatePreset('month')}
+            >
+              This Month
+            </button>
+            <button 
+              className={`preset-btn ${activePreset === 'all' ? 'active' : ''}`}
+              onClick={() => applyDatePreset('all')}
+            >
+              All Time
+            </button>
+          </div>
           <div className="filter-row">
             <div className="filter-group search-group">
               <input
                 type="text"
                 className="filter-input search-input"
-                placeholder="Search notes & categories..."
+                placeholder="Search descriptions & categories..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -573,7 +673,7 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
                 type="date"
                 className="filter-input date-input"
                 value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
+                onChange={(e) => { setDateFrom(e.target.value); setActivePreset(null); }}
               />
             </div>
             <div className="filter-group date-group">
@@ -582,7 +682,7 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
                 type="date"
                 className="filter-input date-input"
                 value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
+                onChange={(e) => { setDateTo(e.target.value); setActivePreset(null); }}
               />
             </div>
             {hasActiveFilters && (
@@ -614,7 +714,7 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
                   <span className="cleanup-item-icon">🔗</span>
                   <span className="cleanup-item-text">
                     Merge {candidate.entries.length} consecutive "{candidate.categoryName}" entries
-                    {candidate.note && <span className="cleanup-note"> ({candidate.note})</span>}
+                    {candidate.description && <span className="cleanup-description"> ({candidate.description})</span>}
                     <span className="cleanup-duration"> — {formatDuration(totalMinutes)} total</span>
                   </span>
                 </div>
@@ -632,7 +732,7 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
                 <span className="cleanup-item-icon">⏱️</span>
                 <span className="cleanup-item-text">
                   Short entry: "{entry.category_name}"
-                  {entry.note && <span className="cleanup-note"> ({entry.note})</span>}
+                  {entry.description && <span className="cleanup-description"> ({entry.description})</span>}
                   <span className="cleanup-duration"> — {durationSeconds}s</span>
                 </span>
               </div>
@@ -645,7 +745,12 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
         </div>
       )}
 
-      {entries.length === 0 ? (
+      {loading ? (
+        <div className="empty-state">
+          <div className="loading-spinner" />
+          <p>Loading entries...</p>
+        </div>
+      ) : entries.length === 0 ? (
         <div className="empty-state">
           <div className="empty-icon">📊</div>
           <p>No entries yet</p>
@@ -717,24 +822,24 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
                               {entry.category_name}
                             </span>
                           )}
-                          {isEditing && editField === 'note' ? (
+                          {isEditing && editField === 'description' ? (
                             <input
                               type="text"
                               className="inline-edit-input"
-                              value={editNote}
-                              onChange={(e) => setEditNote(e.target.value)}
+                              value={editDescription}
+                              onChange={(e) => setEditDescription(e.target.value)}
                               onBlur={() => handleSave(entry.id)}
                               onKeyDown={(e) => handleKeyDown(e, entry.id)}
-                              placeholder="Add a note..."
+                              placeholder="Add a description..."
                               autoFocus
                               onClick={(e) => e.stopPropagation()}
                             />
                           ) : (
                             <span 
-                              className="entry-note editable"
-                              onDoubleClick={(e) => { e.stopPropagation(); startEdit(entry, 'note'); }}
+                              className="entry-description editable"
+                              onDoubleClick={(e) => { e.stopPropagation(); startEdit(entry, 'description'); }}
                             >
-                              {entry.note || '—'}
+                              {entry.description || '—'}
                             </span>
                           )}
                         </div>

@@ -103,6 +103,77 @@ const migrations: Migration[] = [
       db.run(`CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user ON password_reset_tokens(user_id)`);
     }
   },
+  {
+    version: 3,
+    name: 'add_user_settings',
+    up: (db) => {
+      db.run(`
+        CREATE TABLE IF NOT EXISTS user_settings (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL UNIQUE,
+          timezone TEXT DEFAULT 'UTC',
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+      `);
+      db.run(`CREATE INDEX IF NOT EXISTS idx_user_settings_user ON user_settings(user_id)`);
+    }
+  },
+  // Note: duration_minutes is kept as a cached/computed value for analytics query performance.
+  // It's automatically calculated from start_time and end_time when entries are created/updated.
+  // It's not included in CSV import/export since it can be derived from the timestamps.
+  {
+    version: 4,
+    name: 'rename_note_to_description',
+    up: (db) => {
+      // SQLite doesn't support RENAME COLUMN in older versions, so we use the table recreation pattern
+      // Check if the column already exists with the new name
+      const tableInfo = db.exec(`PRAGMA table_info(time_entries)`);
+      const columns = tableInfo[0]?.values.map(row => row[1] as string) || [];
+      
+      if (columns.includes('description')) {
+        // Already migrated
+        return;
+      }
+      
+      if (!columns.includes('note')) {
+        // Neither column exists - something is wrong, but let's not fail
+        return;
+      }
+
+      // Rename note column to description using table recreation
+      db.run(`
+        CREATE TABLE time_entries_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL,
+          category_id INTEGER NOT NULL,
+          description TEXT,
+          start_time DATETIME NOT NULL,
+          end_time DATETIME,
+          duration_minutes INTEGER,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+          FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE
+        )
+      `);
+      
+      db.run(`
+        INSERT INTO time_entries_new (id, user_id, category_id, description, start_time, end_time, duration_minutes, created_at)
+        SELECT id, user_id, category_id, note, start_time, end_time, duration_minutes, created_at
+        FROM time_entries
+      `);
+      
+      db.run(`DROP TABLE time_entries`);
+      db.run(`ALTER TABLE time_entries_new RENAME TO time_entries`);
+      
+      // Recreate indexes
+      db.run(`CREATE INDEX IF NOT EXISTS idx_time_entries_user ON time_entries(user_id)`);
+      db.run(`CREATE INDEX IF NOT EXISTS idx_time_entries_start ON time_entries(start_time)`);
+      db.run(`CREATE INDEX IF NOT EXISTS idx_time_entries_user_start ON time_entries(user_id, start_time DESC)`);
+      db.run(`CREATE INDEX IF NOT EXISTS idx_time_entries_user_end ON time_entries(user_id, end_time)`);
+    }
+  },
 ];
 
 export function runMigrations(db: SqlJsDatabase): void {

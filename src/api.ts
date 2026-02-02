@@ -1,4 +1,4 @@
-import { Category, TimeEntry, AnalyticsData, AuthResponse, User } from './types';
+import { Category, TimeEntry, AnalyticsData, AuthResponse, User, ColumnMapping, ImportEntry, CSVPreviewResponse, UserSettings, CategoryDrilldown, DescriptionsPaginated } from './types';
 
 const API_BASE = '/api';
 
@@ -58,6 +58,11 @@ async function apiFetch(url: string, options: RequestInit = {}): Promise<Respons
   }
 
   let res = await fetch(url, { ...options, headers });
+
+  // Handle rate limiting - don't treat as auth failure
+  if (res.status === 429) {
+    return res; // Let the caller handle rate limit errors
+  }
 
   // If unauthorized and we have a refresh token, try to refresh
   if (res.status === 401 && refreshToken) {
@@ -175,9 +180,42 @@ export const api = {
   },
 
   // Time entries
-  async getTimeEntries(): Promise<TimeEntry[]> {
-    const res = await apiFetch(`${API_BASE}/time-entries`);
+  async getTimeEntries(startDate?: string, endDate?: string): Promise<TimeEntry[]> {
+    const params = new URLSearchParams();
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+    const queryString = params.toString();
+    const url = queryString ? `${API_BASE}/time-entries?${queryString}` : `${API_BASE}/time-entries`;
+    const res = await apiFetch(url);
     if (!res.ok) throw new Error('Failed to fetch time entries');
+    return res.json();
+  },
+
+  async getRecentEntries(limit: number = 20): Promise<TimeEntry[]> {
+    const res = await apiFetch(`${API_BASE}/time-entries?limit=${limit}`);
+    if (!res.ok) throw new Error('Failed to fetch recent entries');
+    return res.json();
+  },
+
+  async getDescriptionSuggestions(categoryId?: number, query?: string): Promise<{ description: string; categoryId: number; count: number; totalMinutes: number; lastUsed: string }[]> {
+    const params = new URLSearchParams();
+    if (categoryId) params.set('categoryId', categoryId.toString());
+    if (query) params.set('q', query);
+    params.set('limit', '50'); // Fetch more for client-side caching
+    const res = await apiFetch(`${API_BASE}/time-entries/suggestions?${params}`);
+    if (!res.ok) throw new Error('Failed to fetch suggestions');
+    return res.json();
+  },
+
+  async mergeDescriptions(sourceDescriptions: string[], targetDescription: string): Promise<{ merged: number; entriesUpdated: number; targetDescription: string }> {
+    const res = await apiFetch(`${API_BASE}/time-entries/merge-descriptions`, {
+      method: 'POST',
+      body: JSON.stringify({ sourceDescriptions, targetDescription })
+    });
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || 'Failed to merge descriptions');
+    }
     return res.json();
   },
 
@@ -187,10 +225,10 @@ export const api = {
     return res.json();
   },
 
-  async startEntry(category_id: number, note?: string): Promise<TimeEntry> {
+  async startEntry(category_id: number, description?: string): Promise<TimeEntry> {
     const res = await apiFetch(`${API_BASE}/time-entries/start`, {
       method: 'POST',
-      body: JSON.stringify({ category_id, note })
+      body: JSON.stringify({ category_id, description })
     });
     if (!res.ok) throw new Error('Failed to start entry');
     return res.json();
@@ -231,10 +269,10 @@ export const api = {
     return res.json();
   },
 
-  async createManualEntry(category_id: number, start_time: string, end_time: string, note?: string): Promise<TimeEntry> {
+  async createManualEntry(category_id: number, start_time: string, end_time: string, description?: string): Promise<TimeEntry> {
     const res = await apiFetch(`${API_BASE}/time-entries`, {
       method: 'POST',
-      body: JSON.stringify({ category_id, start_time, end_time, note })
+      body: JSON.stringify({ category_id, start_time, end_time, description })
     });
     if (!res.ok) throw new Error('Failed to create entry');
     return res.json();
@@ -247,27 +285,77 @@ export const api = {
     return res.json();
   },
 
-  // Export
-  async exportData(): Promise<{ exportedAt: string; categories: Category[]; timeEntries: TimeEntry[] }> {
-    const res = await apiFetch(`${API_BASE}/export`);
-    if (!res.ok) throw new Error('Failed to export data');
+  async getCategoryDrilldown(categoryName: string, start: string, end: string, page: number = 1, pageSize: number = 20): Promise<CategoryDrilldown> {
+    const params = new URLSearchParams({
+      start,
+      end,
+      page: page.toString(),
+      pageSize: pageSize.toString()
+    });
+    const res = await apiFetch(`${API_BASE}/analytics/category/${encodeURIComponent(categoryName)}?${params}`);
+    if (!res.ok) throw new Error('Failed to fetch category drilldown');
     return res.json();
   },
 
+  async getDescriptions(start: string, end: string, page: number = 1, pageSize: number = 20, sortBy: 'time' | 'alpha' | 'count' | 'recent' = 'time'): Promise<DescriptionsPaginated> {
+    const params = new URLSearchParams({
+      start,
+      end,
+      page: page.toString(),
+      pageSize: pageSize.toString(),
+      sortBy
+    });
+    const res = await apiFetch(`${API_BASE}/analytics/descriptions?${params}`);
+    if (!res.ok) throw new Error('Failed to fetch descriptions');
+    return res.json();
+  },
+
+  // Export
   async exportCSV(): Promise<string> {
     const res = await apiFetch(`${API_BASE}/export/csv`);
     if (!res.ok) throw new Error('Failed to export CSV');
     return res.text();
   },
 
-  async importCSV(csv: string): Promise<{ imported: number; skipped: number; errors: string[] }> {
+  async importCSV(csv: string, columnMapping?: ColumnMapping, entries?: ImportEntry[]): Promise<{ imported: number; skipped: number; errors: string[] }> {
     const res = await apiFetch(`${API_BASE}/export/csv`, {
       method: 'POST',
-      body: JSON.stringify({ csv })
+      body: JSON.stringify({ csv, columnMapping, entries })
     });
     if (!res.ok) {
       const error = await res.json();
       throw new Error(error.error || 'Failed to import CSV');
+    }
+    return res.json();
+  },
+
+  async previewCSV(csv: string, columnMapping?: ColumnMapping, timeOffsetMinutes?: number): Promise<CSVPreviewResponse> {
+    const res = await apiFetch(`${API_BASE}/export/csv/preview`, {
+      method: 'POST',
+      body: JSON.stringify({ csv, columnMapping, timeOffsetMinutes })
+    });
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || 'Failed to preview CSV');
+    }
+    return res.json();
+  },
+
+  // Settings
+  async getSettings(): Promise<UserSettings> {
+    const res = await apiFetch(`${API_BASE}/settings`);
+    if (!res.ok) throw new Error('Failed to fetch settings');
+    return res.json();
+  },
+
+  async updateSettings(settings: Partial<UserSettings>): Promise<UserSettings> {
+    const res = await apiFetch(`${API_BASE}/settings`, {
+      method: 'PUT',
+      body: JSON.stringify(settings)
+    });
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || 'Failed to update settings');
     }
     return res.json();
   },

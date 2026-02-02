@@ -9,6 +9,7 @@ vi.mock('../../api', () => ({
     startEntry: vi.fn().mockResolvedValue({ id: 1 }),
     stopEntry: vi.fn().mockResolvedValue({ id: 1 }),
     createCategory: vi.fn().mockResolvedValue({ id: 3, name: 'New', color: '#000' }),
+    getDescriptionSuggestions: vi.fn().mockResolvedValue([]),
   }
 }));
 
@@ -31,7 +32,7 @@ describe('TimeTracker', () => {
       category_id: 1,
       category_name: 'Development',
       category_color: '#007bff',
-      note: 'Previous task',
+      description: 'Previous task',
       start_time: '2024-01-01T10:00:00Z',
       end_time: '2024-01-01T11:00:00Z',
       duration_minutes: 60,
@@ -89,7 +90,7 @@ describe('TimeTracker', () => {
       category_id: 1,
       category_name: 'Development',
       category_color: '#007bff',
-      note: 'Working on feature',
+      description: 'Working on feature',
       start_time: new Date(Date.now() - 3661000).toISOString(),
       end_time: null,
       duration_minutes: null,
@@ -118,7 +119,7 @@ describe('TimeTracker', () => {
       category_id: 1,
       category_name: 'Development',
       category_color: '#007bff',
-      note: null,
+      description: null,
       start_time: new Date().toISOString(),
       end_time: null,
       duration_minutes: null,

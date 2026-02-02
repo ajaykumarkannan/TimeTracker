@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useTimezone } from '../contexts/TimezoneContext';
 import { api } from '../api';
+import { ImportWizard } from './ImportWizard';
 import './Settings.css';
 
 interface SettingsProps {
@@ -8,8 +10,31 @@ interface SettingsProps {
   onConvertSuccess: () => void;
 }
 
+// Common timezones for quick selection
+const COMMON_TIMEZONES = [
+  'America/New_York',
+  'America/Chicago',
+  'America/Denver',
+  'America/Los_Angeles',
+  'America/Toronto',
+  'America/Vancouver',
+  'Europe/London',
+  'Europe/Paris',
+  'Europe/Berlin',
+  'Europe/Amsterdam',
+  'Asia/Tokyo',
+  'Asia/Shanghai',
+  'Asia/Singapore',
+  'Asia/Dubai',
+  'Australia/Sydney',
+  'Australia/Melbourne',
+  'Pacific/Auckland',
+  'UTC'
+];
+
 export function Settings({ onLogout, onConvertSuccess }: SettingsProps) {
   const { user, updateUser } = useAuth();
+  const { timezone, setTimezone } = useTimezone();
   const isGuest = !user;
 
   // Convert guest form
@@ -28,10 +53,13 @@ export function Settings({ onLogout, onConvertSuccess }: SettingsProps) {
   const [updateError, setUpdateError] = useState('');
   const [updateSuccess, setUpdateSuccess] = useState('');
 
+  // Timezone state
+  const [timezoneLoading, setTimezoneLoading] = useState(false);
+
   // Export/Reset state
-  const [exporting, setExporting] = useState(false);
   const [exportingCSV, setExportingCSV] = useState(false);
-  const [importing, setImporting] = useState(false);
+  const [showImportWizard, setShowImportWizard] = useState(false);
+  const [importCSV, setImportCSV] = useState<string | null>(null);
   const [importResult, setImportResult] = useState<{ imported: number; skipped: number; errors: string[] } | null>(null);
   const [importError, setImportError] = useState('');
   const [resetting, setResetting] = useState(false);
@@ -83,25 +111,6 @@ export function Settings({ onLogout, onConvertSuccess }: SettingsProps) {
     setUpdateLoading(false);
   };
 
-  const handleExport = async () => {
-    setExporting(true);
-    try {
-      const exportData = await api.exportData();
-      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `chronoflow-export-${new Date().toISOString().split('T')[0]}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Export failed:', error);
-    }
-    setExporting(false);
-  };
-
   const handleExportCSV = async () => {
     setExportingCSV(true);
     try {
@@ -121,24 +130,43 @@ export function Settings({ onLogout, onConvertSuccess }: SettingsProps) {
     setExportingCSV(false);
   };
 
-  const handleImportCSV = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImportCSVFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setImporting(true);
     setImportError('');
     setImportResult(null);
 
     try {
       const csv = await file.text();
-      const result = await api.importCSV(csv);
-      setImportResult(result);
+      setImportCSV(csv);
+      setShowImportWizard(true);
     } catch (error) {
-      setImportError(error instanceof Error ? error.message : 'Import failed');
+      setImportError(error instanceof Error ? error.message : 'Failed to read file');
     }
-    setImporting(false);
     // Reset file input
     e.target.value = '';
+  };
+
+  const handleImportSuccess = (result: { imported: number; skipped: number; errors: string[] }) => {
+    setImportResult(result);
+    setShowImportWizard(false);
+    setImportCSV(null);
+  };
+
+  const handleImportClose = () => {
+    setShowImportWizard(false);
+    setImportCSV(null);
+  };
+
+  const handleTimezoneChange = async (tz: string) => {
+    setTimezoneLoading(true);
+    try {
+      await setTimezone(tz);
+    } catch (error) {
+      console.error('Failed to update timezone:', error);
+    }
+    setTimezoneLoading(false);
   };
 
   const handleReset = async () => {
@@ -269,6 +297,29 @@ export function Settings({ onLogout, onConvertSuccess }: SettingsProps) {
         </div>
       )}
 
+      {/* Timezone settings */}
+      <div className="card">
+        <div className="card-header">
+          <h2 className="card-title">Timezone</h2>
+        </div>
+        <div className="settings-form">
+          <div className="form-group">
+            <label htmlFor="timezone-select">Display Timezone</label>
+            <select
+              id="timezone-select"
+              value={timezone}
+              onChange={e => handleTimezoneChange(e.target.value)}
+              disabled={timezoneLoading}
+            >
+              {COMMON_TIMEZONES.map(tz => (
+                <option key={tz} value={tz}>{tz.replace(/_/g, ' ')}</option>
+              ))}
+            </select>
+            <p className="form-hint">Times will be displayed in this timezone.</p>
+          </div>
+        </div>
+      </div>
+
       {/* Data management */}
       <div className="card">
         <div className="card-header">
@@ -287,15 +338,14 @@ export function Settings({ onLogout, onConvertSuccess }: SettingsProps) {
           <div className="settings-action">
             <div className="action-info">
               <h3>Import from CSV</h3>
-              <p>Import time entries from a CSV file. New categories will be created automatically.</p>
+              <p>Import time entries from a CSV file. Map columns and review before importing.</p>
             </div>
             <label className="btn-secondary import-btn">
-              {importing ? 'Importing...' : 'Import CSV'}
+              Import CSV
               <input
                 type="file"
                 accept=".csv"
-                onChange={handleImportCSV}
-                disabled={importing}
+                onChange={handleImportCSVFile}
                 style={{ display: 'none' }}
               />
             </label>
@@ -315,15 +365,6 @@ export function Settings({ onLogout, onConvertSuccess }: SettingsProps) {
             </div>
           )}
           {importError && <div className="form-error">{importError}</div>}
-          <div className="settings-action">
-            <div className="action-info">
-              <h3>Export as JSON</h3>
-              <p>Download all your time entries and categories as JSON.</p>
-            </div>
-            <button className="btn-secondary" onClick={handleExport} disabled={exporting}>
-              {exporting ? 'Exporting...' : 'Export JSON'}
-            </button>
-          </div>
           <div className="settings-action danger">
             <div className="action-info">
               <h3>Reset All Data</h3>
@@ -376,6 +417,15 @@ export function Settings({ onLogout, onConvertSuccess }: SettingsProps) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Import Wizard Modal */}
+      {showImportWizard && importCSV && (
+        <ImportWizard
+          csv={importCSV}
+          onClose={handleImportClose}
+          onSuccess={handleImportSuccess}
+        />
       )}
     </div>
   );

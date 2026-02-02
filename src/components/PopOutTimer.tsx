@@ -29,7 +29,7 @@ export function PopOutTimer({ activeEntry, onStop, onPause, onClose, isDarkMode 
     startTime: activeEntry.start_time,
     categoryName: activeEntry.category_name,
     categoryColor: activeEntry.category_color,
-    note: activeEntry.note,
+    description: activeEntry.description,
     isDarkMode
   });
 
@@ -74,7 +74,7 @@ export function PopOutTimer({ activeEntry, onStop, onPause, onClose, isDarkMode 
         <span class="popout-dot" style="background-color: ${colors.dotColor};"></span>
         ${escapeHtml(config.categoryName)}
       </span>
-      ${config.note ? `<span class="popout-note" title="${escapeHtml(config.note)}">${escapeHtml(config.note)}</span>` : ''}
+      ${config.description ? `<span class="popout-description" title="${escapeHtml(config.description)}">${escapeHtml(config.description)}</span>` : ''}
     </div>
     <div class="popout-actions">
       <button class="popout-btn popout-btn-pause" id="pauseBtn" title="Pause">❚❚</button>
@@ -188,7 +188,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .popout-info{display:flex;flex-direction:column;align-items:center;gap:4px;max-width:100%}
 .popout-category{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:12px;font-size:12px;font-weight:500}
 .popout-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
-.popout-note{font-size:11px;color:${textMuted};max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.popout-description{font-size:11px;color:${textMuted};max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .popout-actions{display:flex;gap:8px;margin-top:4px}
 .popout-btn{width:36px;height:36px;border:1px solid ${border};border-radius:8px;background:${btnBg};color:${text};font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s ease}
 .popout-btn:hover{background:${btnHover}}

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { api } from '../api';
-import { AnalyticsData, Period, DailyTotal, TimeEntry } from '../types';
+import { AnalyticsData, Period, DailyTotal, TimeEntry, CategoryDrilldown, DescriptionsPaginated } from '../types';
 import './Analytics.css';
 
 type AggregatedTotal = {
@@ -31,23 +31,37 @@ export function Analytics() {
   const [period, setPeriod] = useState<Period>(getStoredPeriod);
   const [periodOffset, setPeriodOffset] = useState(0); // 0 = current, -1 = previous, etc.
   const [showPreviousMenu, setShowPreviousMenu] = useState(false);
-  const [showExportMenu, setShowExportMenu] = useState(false);
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [activeEntry, setActiveEntry] = useState<TimeEntry | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const previousMenuRef = useRef<HTMLDivElement>(null);
-  const exportMenuRef = useRef<HTMLDivElement>(null);
+  
+  // Drill-down state
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [categoryDrilldown, setCategoryDrilldown] = useState<CategoryDrilldown | null>(null);
+  const [categoryDrilldownPage, setCategoryDrilldownPage] = useState(1);
+  const [categoryDrilldownLoading, setCategoryDrilldownLoading] = useState(false);
+  
+  // All descriptions state (paginated)
+  const [descriptions, setDescriptions] = useState<DescriptionsPaginated | null>(null);
+  const [descriptionsPage, setDescriptionsPage] = useState(1);
+  const [descriptionsPageSize, setDescriptionsPageSize] = useState(10);
+  const [descriptionsLoading, setDescriptionsLoading] = useState(false);
+  const [descriptionsSortBy, setDescriptionsSortBy] = useState<'time' | 'alpha' | 'count' | 'recent'>('time');
+  
+  // Merge descriptions state
+  const [selectedDescriptions, setSelectedDescriptions] = useState<Set<string>>(new Set());
+  const [showMergeModal, setShowMergeModal] = useState(false);
+  const [mergeTarget, setMergeTarget] = useState<string>('');
+  const [merging, setMerging] = useState(false);
 
   // Close menus when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (previousMenuRef.current && !previousMenuRef.current.contains(e.target as Node)) {
         setShowPreviousMenu(false);
-      }
-      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
-        setShowExportMenu(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -212,33 +226,19 @@ export function Analytics() {
     return date.toLocaleDateString(undefined, { weekday: 'short' });
   };
 
-  const handleExport = async (format: 'json' | 'csv') => {
+  const handleExport = async () => {
     setExporting(true);
-    setShowExportMenu(false);
     try {
-      if (format === 'csv') {
-        const csvData = await api.exportCSV();
-        const blob = new Blob([csvData], { type: 'text/csv' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `chronoflow-export-${new Date().toISOString().split('T')[0]}.csv`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      } else {
-        const exportData = await api.exportData();
-        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `chronoflow-export-${new Date().toISOString().split('T')[0]}.json`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      }
+      const csvData = await api.exportCSV();
+      const blob = new Blob([csvData], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `chronoflow-export-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Export failed:', error);
     }
@@ -266,6 +266,45 @@ export function Analytics() {
     setPeriodOffset(prev => prev + direction);
   };
 
+  // Merge descriptions handlers
+  const toggleDescriptionSelection = (description: string) => {
+    setSelectedDescriptions(prev => {
+      const next = new Set(prev);
+      if (next.has(description)) {
+        next.delete(description);
+      } else {
+        next.add(description);
+      }
+      return next;
+    });
+  };
+
+  const openMergeModal = () => {
+    if (selectedDescriptions.size < 2) return;
+    // Default to the first selected description as target
+    setMergeTarget(Array.from(selectedDescriptions)[0]);
+    setShowMergeModal(true);
+  };
+
+  const handleMerge = async () => {
+    if (!mergeTarget || selectedDescriptions.size < 2) return;
+    setMerging(true);
+    try {
+      const sourceDescriptions = Array.from(selectedDescriptions);
+      await api.mergeDescriptions(sourceDescriptions, mergeTarget);
+      // Clear selection and refresh data
+      setSelectedDescriptions(new Set());
+      setShowMergeModal(false);
+      // Trigger data refresh
+      const { start, end } = getDateRange(period, periodOffset);
+      const result = await api.getDescriptions(start.toISOString(), end.toISOString(), descriptionsPage, descriptionsPageSize, descriptionsSortBy);
+      setDescriptions(result);
+    } catch (error) {
+      console.error('Failed to merge descriptions:', error);
+    }
+    setMerging(false);
+  };
+
   useEffect(() => {
     const loadAnalytics = async () => {
       setLoading(true);
@@ -273,6 +312,11 @@ export function Analytics() {
         const { start, end } = getDateRange(period, periodOffset);
         const analytics = await api.getAnalytics(start.toISOString(), end.toISOString());
         setData(analytics);
+        // Reset drill-down state when period changes
+        setSelectedCategory(null);
+        setCategoryDrilldown(null);
+        setCategoryDrilldownPage(1);
+        setDescriptionsPage(1);
       } catch (error) {
         console.error('Failed to load analytics:', error);
       }
@@ -281,6 +325,45 @@ export function Analytics() {
 
     loadAnalytics();
   }, [period, periodOffset]);
+
+  // Load all descriptions (paginated)
+  useEffect(() => {
+    const loadDescriptions = async () => {
+      if (!data) return;
+      setDescriptionsLoading(true);
+      try {
+        const { start, end } = getDateRange(period, periodOffset);
+        const result = await api.getDescriptions(start.toISOString(), end.toISOString(), descriptionsPage, descriptionsPageSize, descriptionsSortBy);
+        setDescriptions(result);
+      } catch (error) {
+        console.error('Failed to load descriptions:', error);
+      }
+      setDescriptionsLoading(false);
+    };
+
+    loadDescriptions();
+  }, [data, descriptionsPage, descriptionsPageSize, descriptionsSortBy, period, periodOffset]);
+
+  // Load category drilldown when a category is selected
+  useEffect(() => {
+    const loadCategoryDrilldown = async () => {
+      if (!selectedCategory || !data) {
+        setCategoryDrilldown(null);
+        return;
+      }
+      setCategoryDrilldownLoading(true);
+      try {
+        const { start, end } = getDateRange(period, periodOffset);
+        const result = await api.getCategoryDrilldown(selectedCategory, start.toISOString(), end.toISOString(), categoryDrilldownPage, 20);
+        setCategoryDrilldown(result);
+      } catch (error) {
+        console.error('Failed to load category drilldown:', error);
+      }
+      setCategoryDrilldownLoading(false);
+    };
+
+    loadCategoryDrilldown();
+  }, [selectedCategory, categoryDrilldownPage, data, period, periodOffset]);
 
   // Fill in missing days with 0 minutes (skip for 'all' period - too slow)
   const filledDaily = useMemo(() => {
@@ -567,25 +650,14 @@ export function Analytics() {
             </div>
           )}
         </div>
-        <div className="export-dropdown" ref={exportMenuRef}>
-          <button className="export-btn" onClick={() => setShowExportMenu(!showExportMenu)} disabled={exporting}>
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="7,10 12,15 17,10" />
-              <line x1="12" y1="15" x2="12" y2="3" />
-            </svg>
-            {exporting ? 'Exporting...' : 'Export'}
-            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2">
-              <polyline points="6,9 12,15 18,9" />
-            </svg>
-          </button>
-          {showExportMenu && (
-            <div className="dropdown-menu">
-              <button onClick={() => handleExport('json')}>Export as JSON</button>
-              <button onClick={() => handleExport('csv')}>Export as CSV</button>
-            </div>
-          )}
-        </div>
+        <button className="export-btn" onClick={handleExport} disabled={exporting}>
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="7,10 12,15 17,10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+          {exporting ? 'Exporting...' : 'Export CSV'}
+        </button>
       </div>
 
       {/* Current ongoing task */}
@@ -606,7 +678,7 @@ export function Analytics() {
               <span className="category-dot" style={{ backgroundColor: activeEntry.category_color || 'var(--primary)' }} />
               {activeEntry.category_name}
             </span>
-            {activeEntry.note && <span className="active-task-note">{activeEntry.note}</span>}
+            {activeEntry.description && <span className="active-task-description">{activeEntry.description}</span>}
           </div>
           <div className="active-task-timer">{formatElapsed(elapsed)}</div>
         </div>
@@ -704,15 +776,82 @@ export function Analytics() {
       <div className="card">
         <div className="card-header">
           <h2 className="card-title">By Category</h2>
+          {selectedCategory && (
+            <button className="back-btn" onClick={() => { setSelectedCategory(null); setCategoryDrilldownPage(1); }}>
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="15,18 9,12 15,6" />
+              </svg>
+              Back to all
+            </button>
+          )}
         </div>
         {!hasData ? (
           <div className="empty-state"><p>No data for this period</p></div>
+        ) : selectedCategory && categoryDrilldown ? (
+          // Category drilldown view
+          <div className="category-drilldown">
+            <div className="drilldown-header">
+              <div className="category-info">
+                <div className="category-dot" style={{ backgroundColor: categoryDrilldown.category.color }} />
+                <span className="category-name">{categoryDrilldown.category.name}</span>
+              </div>
+              <div className="category-stats">
+                <span className="category-time">{formatDuration(categoryDrilldown.category.minutes)}</span>
+                <span className="category-count">{categoryDrilldown.category.count} entries</span>
+              </div>
+            </div>
+            {categoryDrilldownLoading ? (
+              <div className="drilldown-loading">Loading...</div>
+            ) : categoryDrilldown.descriptions.length === 0 ? (
+              <div className="empty-state"><p>No descriptions for this category</p></div>
+            ) : (
+              <>
+                <div className="descriptions-list">
+                  {categoryDrilldown.descriptions.map((item, i) => (
+                    <div key={i} className="task-row">
+                      <span className="task-name">{item.description}</span>
+                      <span className="task-count">{item.count}×</span>
+                      <span className="task-time">{formatDuration(item.total_minutes)}</span>
+                    </div>
+                  ))}
+                </div>
+                {categoryDrilldown.pagination.totalPages > 1 && (
+                  <div className="pagination">
+                    <button 
+                      className="pagination-btn" 
+                      disabled={categoryDrilldownPage === 1}
+                      onClick={() => setCategoryDrilldownPage(p => p - 1)}
+                    >
+                      Previous
+                    </button>
+                    <span className="pagination-info">
+                      Page {categoryDrilldown.pagination.page} of {categoryDrilldown.pagination.totalPages}
+                    </span>
+                    <button 
+                      className="pagination-btn" 
+                      disabled={categoryDrilldownPage >= categoryDrilldown.pagination.totalPages}
+                      onClick={() => setCategoryDrilldownPage(p => p + 1)}
+                    >
+                      Next
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         ) : (
           <div className="category-breakdown">
             {data.byCategory.filter(c => c.minutes > 0).map(cat => {
               const percentage = Math.round((cat.minutes / data.summary.totalMinutes) * 100);
               return (
-                <div key={cat.name} className="category-row">
+                <div 
+                  key={cat.name} 
+                  className="category-row clickable"
+                  onClick={() => { setSelectedCategory(cat.name); setCategoryDrilldownPage(1); }}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { setSelectedCategory(cat.name); setCategoryDrilldownPage(1); } }}
+                >
                   <div className="category-info">
                     <div className="category-dot" style={{ backgroundColor: cat.color }} />
                     <span className="category-name">{cat.name}</span>
@@ -724,6 +863,9 @@ export function Analytics() {
                     <span className="category-time">{formatDuration(cat.minutes)}</span>
                     <span className="category-percent">{percentage}%</span>
                   </div>
+                  <svg className="chevron-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="9,18 15,12 9,6" />
+                  </svg>
                 </div>
               );
             })}
@@ -731,21 +873,117 @@ export function Analytics() {
         )}
       </div>
 
-      {/* Top tasks */}
-      {data.topNotes.length > 0 && (
+      {/* All descriptions (paginated) */}
+      {descriptions && descriptions.pagination.totalCount > 0 && (
         <div className="card">
           <div className="card-header">
-            <h2 className="card-title">Top Tasks</h2>
+            <h2 className="card-title">All Descriptions</h2>
+            <div className="descriptions-header-controls">
+              {selectedDescriptions.size >= 2 && (
+                <button className="merge-btn" onClick={openMergeModal}>
+                  Merge {selectedDescriptions.size} selected
+                </button>
+              )}
+              {selectedDescriptions.size > 0 && selectedDescriptions.size < 2 && (
+                <span className="merge-hint">Select 2+ to merge</span>
+              )}
+              <select 
+                className="sort-select"
+                value={descriptionsSortBy}
+                onChange={(e) => { setDescriptionsSortBy(e.target.value as 'time' | 'alpha' | 'count' | 'recent'); setDescriptionsPage(1); }}
+              >
+                <option value="time">Sort by Time</option>
+                <option value="alpha">Sort A-Z</option>
+                <option value="count">Sort by Instances</option>
+                <option value="recent">Sort by Recent</option>
+              </select>
+              <span className="descriptions-count">{descriptions.pagination.totalCount} total</span>
+            </div>
           </div>
-          <div className="top-tasks">
-            {data.topNotes.map((note, i) => (
-              <div key={i} className="task-row">
-                <span className="task-rank">#{i + 1}</span>
-                <span className="task-name">{note.note}</span>
-                <span className="task-count">{note.count}×</span>
-                <span className="task-time">{formatDuration(note.total_minutes)}</span>
+          {descriptionsLoading ? (
+            <div className="drilldown-loading">Loading...</div>
+          ) : (
+            <>
+              <div className="top-tasks">
+                {descriptions.descriptions.map((item, i) => (
+                  <div key={i} className={`task-row ${selectedDescriptions.has(item.description) ? 'selected' : ''}`}>
+                    <label className="task-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={selectedDescriptions.has(item.description)}
+                        onChange={() => toggleDescriptionSelection(item.description)}
+                      />
+                    </label>
+                    <span className="task-rank">#{(descriptionsPage - 1) * descriptionsPageSize + i + 1}</span>
+                    <span className="task-name">{item.description}</span>
+                    <span className="task-count">{item.count}×</span>
+                    <span className="task-time">{formatDuration(item.total_minutes)}</span>
+                  </div>
+                ))}
               </div>
-            ))}
+              <div className="pagination">
+                <button 
+                  className="pagination-btn" 
+                  disabled={descriptionsPage === 1}
+                  onClick={() => setDescriptionsPage(p => p - 1)}
+                >
+                  Previous
+                </button>
+                <span className="pagination-info">
+                  Page {descriptions.pagination.page} of {descriptions.pagination.totalPages}
+                </span>
+                <button 
+                  className="pagination-btn" 
+                  disabled={descriptionsPage >= descriptions.pagination.totalPages}
+                  onClick={() => setDescriptionsPage(p => p + 1)}
+                >
+                  Next
+                </button>
+                <select 
+                  className="page-size-select"
+                  value={descriptionsPageSize}
+                  onChange={(e) => { setDescriptionsPageSize(Number(e.target.value)); setDescriptionsPage(1); }}
+                >
+                  <option value={10}>10 per page</option>
+                  <option value={20}>20 per page</option>
+                  <option value={50}>50 per page</option>
+                </select>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Merge descriptions modal */}
+      {showMergeModal && (
+        <div className="modal-overlay" onClick={() => setShowMergeModal(false)}>
+          <div className="merge-modal" onClick={e => e.stopPropagation()}>
+            <h3>Merge Descriptions</h3>
+            <p className="merge-info">
+              Select which description to keep. All {selectedDescriptions.size} descriptions will be merged into the selected one.
+            </p>
+            <div className="merge-options">
+              {Array.from(selectedDescriptions).map(desc => (
+                <label key={desc} className={`merge-option ${mergeTarget === desc ? 'selected' : ''}`}>
+                  <input
+                    type="radio"
+                    name="mergeTarget"
+                    value={desc}
+                    checked={mergeTarget === desc}
+                    onChange={() => setMergeTarget(desc)}
+                  />
+                  <span className="merge-option-text">{desc}</span>
+                </label>
+              ))}
+            </div>
+            <div className="merge-actions">
+              <button className="btn btn-ghost" onClick={() => setShowMergeModal(false)} disabled={merging}>
+                Cancel
+              </button>
+              <button className="btn btn-primary" onClick={handleMerge} disabled={merging || !mergeTarget}>
+                {merging ? 'Merging...' : 'Merge'}
+              </button>
+            </div>
           </div>
         </div>
       )}

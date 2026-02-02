@@ -7,6 +7,181 @@ const router = Router();
 
 router.use(flexAuthMiddleware);
 
+// Get all descriptions (paginated) for a date range
+router.get('/descriptions', (req: AuthRequest, res: Response) => {
+  try {
+    const start = req.query.start as string;
+    const end = req.query.end as string;
+    const page = parseInt(req.query.page as string) || 1;
+    const pageSize = Math.min(parseInt(req.query.pageSize as string) || 20, 100);
+    const offset = (page - 1) * pageSize;
+    const sortBy = (req.query.sortBy as string) || 'time'; // time, alpha, count, recent
+
+    if (!start || !end) {
+      return res.status(400).json({ error: 'Start and end dates are required' });
+    }
+
+    const db = getDb();
+    const userId = req.userId as number;
+
+    // Get total count of unique descriptions
+    const countResult = db.exec(`
+      SELECT COUNT(DISTINCT description) as total
+      FROM time_entries
+      WHERE user_id = ? AND start_time >= ? AND start_time < ? 
+        AND description IS NOT NULL AND description != ''
+    `, [userId, start, end]);
+
+    const totalCount = countResult.length > 0 && countResult[0].values.length > 0
+      ? countResult[0].values[0][0] as number
+      : 0;
+
+    // Determine ORDER BY clause based on sortBy
+    let orderBy: string;
+    switch (sortBy) {
+      case 'alpha':
+        orderBy = 'description ASC';
+        break;
+      case 'count':
+        orderBy = 'count DESC, total_minutes DESC';
+        break;
+      case 'recent':
+        orderBy = 'last_used DESC, total_minutes DESC';
+        break;
+      case 'time':
+      default:
+        orderBy = 'total_minutes DESC, count DESC';
+        break;
+    }
+
+    // Get paginated descriptions
+    const descriptionsResult = db.exec(`
+      SELECT description, COUNT(*) as count, COALESCE(SUM(duration_minutes), 0) as total_minutes, MAX(start_time) as last_used
+      FROM time_entries
+      WHERE user_id = ? AND start_time >= ? AND start_time < ? 
+        AND description IS NOT NULL AND description != ''
+      GROUP BY description
+      ORDER BY ${orderBy}
+      LIMIT ? OFFSET ?
+    `, [userId, start, end, pageSize, offset]);
+
+    const descriptions = descriptionsResult.length > 0
+      ? descriptionsResult[0].values.map(row => ({
+          description: row[0] as string,
+          count: row[1] as number,
+          total_minutes: row[2] as number,
+          last_used: row[3] as string
+        }))
+      : [];
+
+    res.json({
+      descriptions,
+      pagination: {
+        page,
+        pageSize,
+        totalCount,
+        totalPages: Math.ceil(totalCount / pageSize)
+      }
+    });
+  } catch (error) {
+    logger.error('Error fetching descriptions', { error, userId: req.userId });
+    res.status(500).json({ error: 'Failed to fetch descriptions' });
+  }
+});
+
+// Get category drilldown with paginated descriptions
+router.get('/category/:categoryName', (req: AuthRequest, res: Response) => {
+  try {
+    const { categoryName } = req.params;
+    const start = req.query.start as string;
+    const end = req.query.end as string;
+    const page = parseInt(req.query.page as string) || 1;
+    const pageSize = Math.min(parseInt(req.query.pageSize as string) || 20, 100);
+    const offset = (page - 1) * pageSize;
+
+    if (!start || !end) {
+      return res.status(400).json({ error: 'Start and end dates are required' });
+    }
+
+    const db = getDb();
+    const userId = req.userId as number;
+
+    // Get category info
+    const categoryResult = db.exec(`
+      SELECT c.name, c.color, 
+             COALESCE(SUM(te.duration_minutes), 0) as minutes,
+             COUNT(te.id) as count
+      FROM categories c
+      LEFT JOIN time_entries te ON c.id = te.category_id 
+        AND te.start_time >= ? AND te.start_time < ?
+        AND te.user_id = ?
+      WHERE c.user_id = ? AND c.name = ?
+      GROUP BY c.id, c.name, c.color
+    `, [start, end, userId, userId, categoryName]);
+
+    if (categoryResult.length === 0 || categoryResult[0].values.length === 0) {
+      return res.status(404).json({ error: 'Category not found' });
+    }
+
+    const categoryRow = categoryResult[0].values[0];
+    const category = {
+      name: categoryRow[0] as string,
+      color: categoryRow[1] as string || '#6b7280',
+      minutes: categoryRow[2] as number,
+      count: categoryRow[3] as number
+    };
+
+    // Get total count of unique descriptions for this category
+    const countResult = db.exec(`
+      SELECT COUNT(DISTINCT te.description) as total
+      FROM time_entries te
+      JOIN categories c ON te.category_id = c.id
+      WHERE te.user_id = ? AND te.start_time >= ? AND te.start_time < ? 
+        AND c.name = ?
+        AND te.description IS NOT NULL AND te.description != ''
+    `, [userId, start, end, categoryName]);
+
+    const totalCount = countResult.length > 0 && countResult[0].values.length > 0
+      ? countResult[0].values[0][0] as number
+      : 0;
+
+    // Get paginated descriptions for this category
+    const descriptionsResult = db.exec(`
+      SELECT te.description, COUNT(*) as count, COALESCE(SUM(te.duration_minutes), 0) as total_minutes
+      FROM time_entries te
+      JOIN categories c ON te.category_id = c.id
+      WHERE te.user_id = ? AND te.start_time >= ? AND te.start_time < ? 
+        AND c.name = ?
+        AND te.description IS NOT NULL AND te.description != ''
+      GROUP BY te.description
+      ORDER BY total_minutes DESC, count DESC
+      LIMIT ? OFFSET ?
+    `, [userId, start, end, categoryName, pageSize, offset]);
+
+    const descriptions = descriptionsResult.length > 0
+      ? descriptionsResult[0].values.map(row => ({
+          description: row[0] as string,
+          count: row[1] as number,
+          total_minutes: row[2] as number
+        }))
+      : [];
+
+    res.json({
+      category,
+      descriptions,
+      pagination: {
+        page,
+        pageSize,
+        totalCount,
+        totalPages: Math.ceil(totalCount / pageSize)
+      }
+    });
+  } catch (error) {
+    logger.error('Error fetching category drilldown', { error, userId: req.userId });
+    res.status(500).json({ error: 'Failed to fetch category drilldown' });
+  }
+});
+
 router.get('/', (req: AuthRequest, res: Response) => {
   try {
     const start = req.query.start as string;
@@ -84,19 +259,19 @@ router.get('/', (req: AuthRequest, res: Response) => {
         }))
       : [];
 
-    // Get top notes
-    const notesResult = db.exec(`
-      SELECT note, COUNT(*) as count, COALESCE(SUM(duration_minutes), 0) as total_minutes
+    // Get top descriptions
+    const descriptionsResult = db.exec(`
+      SELECT description, COUNT(*) as count, COALESCE(SUM(duration_minutes), 0) as total_minutes
       FROM time_entries
-      WHERE user_id = ? AND start_time >= ? AND start_time < ? AND note IS NOT NULL AND note != ''
-      GROUP BY note
+      WHERE user_id = ? AND start_time >= ? AND start_time < ? AND description IS NOT NULL AND description != ''
+      GROUP BY description
       ORDER BY count DESC
       LIMIT 10
     `, [userId, start, end]);
 
-    const topNotes = notesResult.length > 0
-      ? notesResult[0].values.map(row => ({
-          note: row[0] as string,
+    const topNotes = descriptionsResult.length > 0
+      ? descriptionsResult[0].values.map(row => ({
+          description: row[0] as string,
           count: row[1] as number,
           total_minutes: row[2] as number
         }))

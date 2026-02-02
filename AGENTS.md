@@ -69,8 +69,8 @@ Both modes use the same server-side SQLite database - there is no localStorage-b
 ├── e2e/              # Playwright E2E tests
 ├── extension/        # Browser extension (popup)
 ├── public/           # Static assets
-├── logs/             # Winston log files
-└── data/             # SQLite database file
+├── logs/             # Winston log files (dev only; Docker uses named volume)
+└── data/             # SQLite database file (dev only; Docker uses named volume)
 ```
 
 ## Development Workflow
@@ -130,6 +130,19 @@ docker-compose up --build  # Build and run
 ```
 
 App runs on `http://localhost:4849`
+
+#### Data Persistence
+
+Docker uses **named volumes** (not bind mounts) for data persistence:
+- `chronoflow-data` - SQLite database (`/app/data/timetracker.db` in container)
+- `chronoflow-logs` - Winston log files (`/app/logs` in container)
+
+These are stored in Docker's internal storage (typically `/var/lib/docker/volumes/`). To find the exact path:
+```bash
+docker volume inspect chronoflow-data
+```
+
+Note: The local `./data` and `./logs` directories are for development only and are not used by Docker.
 
 ### Code Style
 
@@ -225,6 +238,22 @@ When the application needs to scale beyond a single server:
 2. Add Redis for session storage and caching
 3. Use a load balancer for horizontal scaling
 4. Consider read replicas for analytics queries
+
+## Database Schema Changes
+
+When making changes to the database schema, follow these guidelines:
+
+### Migration Best Practices
+1. **Always use migrations**: Add new migrations to `server/migrations/index.ts` - never modify existing migrations
+2. **Test migrations**: Ensure migrations work on both fresh databases and existing databases with data
+3. **SQLite limitations**: SQLite doesn't support `DROP COLUMN` directly - use the table recreation pattern (create new table, copy data, drop old, rename)
+4. **Backward compatibility**: Consider how changes affect existing deployments during the migration window
+5. **Avoid redundant columns**: Don't store values that can be computed from other columns (e.g., `duration_minutes` is computed from `start_time` and `end_time`)
+
+### Schema Design Principles
+- **Normalize where practical**: Avoid data duplication
+- **Index strategically**: Add indexes for frequently queried columns, especially in WHERE and JOIN clauses
+- **Use foreign keys**: Maintain referential integrity with CASCADE deletes where appropriate
 
 ## Documentation Maintenance
 

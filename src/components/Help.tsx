@@ -9,7 +9,7 @@ interface FAQItem {
 const faqs: FAQItem[] = [
   {
     question: 'How do I start tracking time?',
-    answer: 'Click the "Start" button on the Track tab, or use one of the quick-start category buttons to begin tracking immediately. You can add notes to describe what you\'re working on.'
+    answer: 'Click the "Start" button on the Track tab, or use one of the quick-start category buttons to begin tracking immediately. You can add descriptions to specify what you\'re working on.'
   },
   {
     question: 'What\'s the difference between Guest and Account mode?',
@@ -29,15 +29,15 @@ const faqs: FAQItem[] = [
   },
   {
     question: 'How do I export my data?',
-    answer: 'Go to Settings and use the "Export CSV" or "Export JSON" buttons. CSV is great for spreadsheets, while JSON includes all your data including categories.'
+    answer: 'Go to Settings and use the "Export CSV" button. You can also export from the Analytics page. CSV files work great with spreadsheets.'
   },
   {
     question: 'Can I import time entries?',
-    answer: 'Yes! You can import time entries from a CSV file in Settings. The CSV should have columns for date, duration, category, and notes. New categories will be created automatically.'
+    answer: 'Yes! You can import time entries from a CSV file in Settings. The CSV should have columns for date, duration, category, and description. New categories will be created automatically.'
   },
   {
     question: 'How do I edit or delete a time entry?',
-    answer: 'On the Track tab, find the entry in your history list. Click on it to expand and see edit/delete options. You can modify the duration, category, notes, or remove it entirely.'
+    answer: 'On the Track tab, find the entry in your history list. Click on it to expand and see edit/delete options. You can modify the duration, category, description, or remove it entirely.'
   }
 ];
 

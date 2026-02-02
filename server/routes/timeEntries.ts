@@ -18,7 +18,7 @@ router.get('/', (req: AuthRequest, res: Response) => {
     
     let query = `
       SELECT te.id, te.user_id, te.category_id, c.name as category_name, c.color as category_color,
-             te.note, te.start_time, te.end_time, te.duration_minutes, te.created_at
+             te.description, te.start_time, te.end_time, te.duration_minutes, te.created_at
       FROM time_entries te
       JOIN categories c ON te.category_id = c.id
       WHERE te.user_id = ?
@@ -47,7 +47,7 @@ router.get('/', (req: AuthRequest, res: Response) => {
           category_id: row[2] as number,
           category_name: row[3] as string,
           category_color: row[4] as string | null,
-          note: row[5] as string | null,
+          description: row[5] as string | null,
           start_time: row[6] as string,
           end_time: row[7] as string | null,
           duration_minutes: row[8] as number | null,
@@ -68,7 +68,7 @@ router.get('/active', (req: AuthRequest, res: Response) => {
     const db = getDb();
     const result = db.exec(`
       SELECT te.id, te.user_id, te.category_id, c.name as category_name, c.color as category_color,
-             te.note, te.start_time, te.end_time, te.duration_minutes, te.created_at
+             te.description, te.start_time, te.end_time, te.duration_minutes, te.created_at
       FROM time_entries te
       JOIN categories c ON te.category_id = c.id
       WHERE te.user_id = ? AND te.end_time IS NULL
@@ -86,7 +86,7 @@ router.get('/active', (req: AuthRequest, res: Response) => {
       category_id: row[2] as number,
       category_name: row[3] as string,
       category_color: row[4] as string | null,
-      note: row[5] as string | null,
+      description: row[5] as string | null,
       start_time: row[6] as string,
       end_time: row[7] as string | null,
       duration_minutes: row[8] as number | null,
@@ -101,7 +101,7 @@ router.get('/active', (req: AuthRequest, res: Response) => {
 // Start new entry
 router.post('/start', (req: AuthRequest, res: Response) => {
   try {
-    const { category_id, note } = req.body;
+    const { category_id, description } = req.body;
     
     if (!category_id) {
       return res.status(400).json({ error: 'Category is required' });
@@ -138,14 +138,14 @@ router.post('/start', (req: AuthRequest, res: Response) => {
 
     const startTime = new Date().toISOString();
     db.run(
-      `INSERT INTO time_entries (user_id, category_id, note, start_time) VALUES (?, ?, ?, ?)`,
-      [req.userId as number, category_id, note || null, startTime]
+      `INSERT INTO time_entries (user_id, category_id, description, start_time) VALUES (?, ?, ?, ?)`,
+      [req.userId as number, category_id, description || null, startTime]
     );
     saveDatabase();
 
     const result = db.exec(`
       SELECT te.id, te.user_id, te.category_id, c.name as category_name, c.color as category_color,
-             te.note, te.start_time, te.end_time, te.duration_minutes, te.created_at
+             te.description, te.start_time, te.end_time, te.duration_minutes, te.created_at
       FROM time_entries te
       JOIN categories c ON te.category_id = c.id
       WHERE te.user_id = ? AND te.end_time IS NULL
@@ -160,7 +160,7 @@ router.post('/start', (req: AuthRequest, res: Response) => {
       category_id: row[2] as number,
       category_name: row[3] as string,
       category_color: row[4] as string | null,
-      note: row[5] as string | null,
+      description: row[5] as string | null,
       start_time: row[6] as string,
       end_time: row[7] as string | null,
       duration_minutes: row[8] as number | null,
@@ -199,7 +199,7 @@ router.post('/:id/stop', (req: AuthRequest, res: Response) => {
 
     const result = db.exec(`
       SELECT te.id, te.user_id, te.category_id, c.name as category_name, c.color as category_color,
-             te.note, te.start_time, te.end_time, te.duration_minutes, te.created_at
+             te.description, te.start_time, te.end_time, te.duration_minutes, te.created_at
       FROM time_entries te
       JOIN categories c ON te.category_id = c.id
       WHERE te.id = ?
@@ -214,7 +214,7 @@ router.post('/:id/stop', (req: AuthRequest, res: Response) => {
       category_id: row[2] as number,
       category_name: row[3] as string,
       category_color: row[4] as string | null,
-      note: row[5] as string | null,
+      description: row[5] as string | null,
       start_time: row[6] as string,
       end_time: row[7] as string | null,
       duration_minutes: row[8] as number | null,
@@ -230,7 +230,7 @@ router.post('/:id/stop', (req: AuthRequest, res: Response) => {
 router.put('/:id', (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { category_id, note, start_time, end_time } = req.body;
+    const { category_id, description, start_time, end_time } = req.body;
     const db = getDb();
 
     const existing = db.exec(
@@ -266,18 +266,18 @@ router.put('/:id', (req: AuthRequest, res: Response) => {
     db.run(
       `UPDATE time_entries 
        SET category_id = COALESCE(?, category_id), 
-           note = ?, 
+           description = ?, 
            start_time = COALESCE(?, start_time),
            end_time = ?,
            duration_minutes = ?
        WHERE id = ?`,
-      [category_id || null, note, start_time || null, newEnd, duration, id]
+      [category_id || null, description, start_time || null, newEnd, duration, id]
     );
     saveDatabase();
 
     const result = db.exec(`
       SELECT te.id, te.user_id, te.category_id, c.name as category_name, c.color as category_color,
-             te.note, te.start_time, te.end_time, te.duration_minutes, te.created_at
+             te.description, te.start_time, te.end_time, te.duration_minutes, te.created_at
       FROM time_entries te
       JOIN categories c ON te.category_id = c.id
       WHERE te.id = ?
@@ -292,7 +292,7 @@ router.put('/:id', (req: AuthRequest, res: Response) => {
       category_id: row[2] as number,
       category_name: row[3] as string,
       category_color: row[4] as string | null,
-      note: row[5] as string | null,
+      description: row[5] as string | null,
       start_time: row[6] as string,
       end_time: row[7] as string | null,
       duration_minutes: row[8] as number | null,
@@ -307,7 +307,7 @@ router.put('/:id', (req: AuthRequest, res: Response) => {
 // Create manual entry (for past tasks)
 router.post('/', (req: AuthRequest, res: Response) => {
   try {
-    const { category_id, note, start_time, end_time } = req.body;
+    const { category_id, description, start_time, end_time } = req.body;
     
     if (!category_id || !start_time || !end_time) {
       return res.status(400).json({ error: 'Category, start time, and end time are required' });
@@ -332,8 +332,8 @@ router.post('/', (req: AuthRequest, res: Response) => {
     }
 
     db.run(
-      `INSERT INTO time_entries (user_id, category_id, note, start_time, end_time, duration_minutes) VALUES (?, ?, ?, ?, ?, ?)`,
-      [req.userId as number, category_id, note || null, start_time, end_time, duration]
+      `INSERT INTO time_entries (user_id, category_id, description, start_time, end_time, duration_minutes) VALUES (?, ?, ?, ?, ?, ?)`,
+      [req.userId as number, category_id, description || null, start_time, end_time, duration]
     );
     saveDatabase();
 
@@ -342,7 +342,7 @@ router.post('/', (req: AuthRequest, res: Response) => {
 
     const entryResult = db.exec(`
       SELECT te.id, te.user_id, te.category_id, c.name as category_name, c.color as category_color,
-             te.note, te.start_time, te.end_time, te.duration_minutes, te.created_at
+             te.description, te.start_time, te.end_time, te.duration_minutes, te.created_at
       FROM time_entries te
       JOIN categories c ON te.category_id = c.id
       WHERE te.id = ?
@@ -357,7 +357,7 @@ router.post('/', (req: AuthRequest, res: Response) => {
       category_id: row[2] as number,
       category_name: row[3] as string,
       category_color: row[4] as string | null,
-      note: row[5] as string | null,
+      description: row[5] as string | null,
       start_time: row[6] as string,
       end_time: row[7] as string | null,
       duration_minutes: row[8] as number | null,
@@ -392,6 +392,109 @@ router.delete('/:id', (req: AuthRequest, res: Response) => {
   } catch (error) {
     logger.error('Error deleting time entry', { error, userId: req.userId as number });
     res.status(500).json({ error: 'Failed to delete time entry' });
+  }
+});
+
+// Get description suggestions based on history
+router.get('/suggestions', (req: AuthRequest, res: Response) => {
+  try {
+    const db = getDb();
+    const categoryId = req.query.categoryId ? parseInt(req.query.categoryId as string) : null;
+    const query = (req.query.q as string || '').toLowerCase().trim();
+    const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
+
+    let sql = `
+      SELECT description, category_id, COUNT(*) as count, SUM(duration_minutes) as total_minutes, MAX(start_time) as last_used
+      FROM time_entries
+      WHERE user_id = ? AND description IS NOT NULL AND description != ''
+    `;
+    const params: (number | string)[] = [req.userId as number];
+
+    if (categoryId) {
+      sql += ` AND category_id = ?`;
+      params.push(categoryId);
+    }
+
+    if (query) {
+      sql += ` AND LOWER(description) LIKE ?`;
+      params.push(`%${query}%`);
+    }
+
+    sql += ` GROUP BY description, category_id ORDER BY count DESC, total_minutes DESC LIMIT ?`;
+    params.push(limit);
+
+    const result = db.exec(sql, params);
+
+    const suggestions = result.length > 0
+      ? result[0].values.map(row => ({
+          description: row[0] as string,
+          categoryId: row[1] as number,
+          count: row[2] as number,
+          totalMinutes: row[3] as number,
+          lastUsed: row[4] as string
+        }))
+      : [];
+
+    res.json(suggestions);
+  } catch (error) {
+    logger.error('Error fetching description suggestions', { error, userId: req.userId as number });
+    res.status(500).json({ error: 'Failed to fetch suggestions' });
+  }
+});
+
+// Merge descriptions - update all entries with source descriptions to use target description
+router.post('/merge-descriptions', (req: AuthRequest, res: Response) => {
+  try {
+    const { sourceDescriptions, targetDescription } = req.body;
+    
+    if (!Array.isArray(sourceDescriptions) || sourceDescriptions.length === 0) {
+      return res.status(400).json({ error: 'sourceDescriptions must be a non-empty array' });
+    }
+    
+    if (typeof targetDescription !== 'string' || !targetDescription.trim()) {
+      return res.status(400).json({ error: 'targetDescription must be a non-empty string' });
+    }
+
+    const db = getDb();
+    
+    // Build placeholders for IN clause
+    const placeholders = sourceDescriptions.map(() => '?').join(', ');
+    
+    // Count entries that will be updated
+    const countResult = db.exec(
+      `SELECT COUNT(*) as count FROM time_entries 
+       WHERE user_id = ? AND description IN (${placeholders})`,
+      [req.userId as number, ...sourceDescriptions]
+    );
+    const totalEntries = countResult.length > 0 ? countResult[0].values[0][0] as number : 0;
+    
+    if (totalEntries === 0) {
+      return res.status(404).json({ error: 'No entries found with the specified descriptions' });
+    }
+    
+    // Update all entries with source descriptions to use target description
+    db.run(
+      `UPDATE time_entries SET description = ? 
+       WHERE user_id = ? AND description IN (${placeholders})`,
+      [targetDescription.trim(), req.userId as number, ...sourceDescriptions]
+    );
+    saveDatabase();
+
+    logger.info('Descriptions merged', { 
+      sourceDescriptions, 
+      targetDescription, 
+      entriesUpdated: totalEntries, 
+      userId: req.userId as number 
+    });
+
+    res.json({ 
+      merged: sourceDescriptions.length, 
+      entriesUpdated: totalEntries,
+      targetDescription: targetDescription.trim()
+    });
+  } catch (error) {
+    logger.error('Error merging descriptions', { error, userId: req.userId as number });
+    res.status(500).json({ error: 'Failed to merge descriptions' });
   }
 });
 

@@ -1,10 +1,37 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Category, TimeEntry } from '../types';
 import { api } from '../api';
 import { useTheme } from '../contexts/ThemeContext';
 import { getAdaptiveCategoryColors } from '../hooks/useAdaptiveColors';
 import { PopOutTimer } from './PopOutTimer';
 import './TimeTracker.css';
+
+// Simple fuzzy match - checks if all characters in query appear in order in target
+function fuzzyMatch(query: string, target: string): { match: boolean; score: number } {
+  const q = query.toLowerCase();
+  const t = target.toLowerCase();
+  
+  if (!q) return { match: true, score: 1 };
+  if (t.includes(q)) return { match: true, score: 2 }; // Exact substring match scores highest
+  
+  let qIdx = 0;
+  let consecutiveMatches = 0;
+  let maxConsecutive = 0;
+  
+  for (let tIdx = 0; tIdx < t.length && qIdx < q.length; tIdx++) {
+    if (t[tIdx] === q[qIdx]) {
+      qIdx++;
+      consecutiveMatches++;
+      maxConsecutive = Math.max(maxConsecutive, consecutiveMatches);
+    } else {
+      consecutiveMatches = 0;
+    }
+  }
+  
+  const match = qIdx === q.length;
+  const score = match ? maxConsecutive / q.length : 0;
+  return { match, score };
+}
 
 // Primary color palette - visually distinct colors
 const COLOR_PALETTE = [
@@ -41,7 +68,7 @@ interface Props {
 }
 
 interface RecentTask {
-  note: string;
+  description: string;
   categoryId: number;
   categoryName: string;
   categoryColor: string | null;
@@ -58,7 +85,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   }, [categories]);
 
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
-  const [note, setNote] = useState('');
+  const [description, setDescription] = useState('');
   const [elapsed, setElapsed] = useState(0);
   const [showNewCategory, setShowNewCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -70,21 +97,223 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   const [switchTaskPrompt, setSwitchTaskPrompt] = useState<{ categoryId: number; categoryName: string; categoryColor: string | null } | null>(null);
   const [switchTaskName, setSwitchTaskName] = useState('');
   const [showPopOut, setShowPopOut] = useState(false);
+  
+  // Cached suggestions - fetched once, filtered locally
+  const [cachedSuggestions, setCachedSuggestions] = useState<{ description: string; categoryId: number; count: number; totalMinutes: number; lastUsed: string }[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
+  const descriptionInputRef = useRef<HTMLInputElement>(null);
+  const suggestionsRef = useRef<HTMLDivElement>(null);
+  
+  // Modal suggestions state
+  const [showModalSuggestions, setShowModalSuggestions] = useState(false);
+  const [selectedModalSuggestionIndex, setSelectedModalSuggestionIndex] = useState(-1);
+  const modalInputRef = useRef<HTMLInputElement>(null);
+  const modalSuggestionsRef = useRef<HTMLDivElement>(null);
 
-  // Get recent tasks from entries (unique note + category combinations)
+  // Fetch all suggestions once and cache them
+  useEffect(() => {
+    const fetchAllSuggestions = async () => {
+      try {
+        const results = await api.getDescriptionSuggestions(undefined, undefined);
+        setCachedSuggestions(results);
+      } catch (error) {
+        console.error('Failed to fetch suggestions:', error);
+      }
+    };
+    fetchAllSuggestions();
+  }, [entries.length]); // Refetch when entries change
+
+  // Filter suggestions locally with fuzzy matching
+  const suggestions = useMemo(() => {
+    let filtered = cachedSuggestions;
+    
+    // Filter by category if selected
+    if (selectedCategory) {
+      filtered = filtered.filter(s => s.categoryId === selectedCategory);
+    }
+    
+    // Fuzzy filter by description
+    if (description) {
+      filtered = filtered
+        .map(s => ({ ...s, ...fuzzyMatch(description, s.description) }))
+        .filter(s => s.match)
+        .sort((a, b) => b.score - a.score || b.count - a.count);
+    }
+    
+    return filtered.slice(0, 8);
+  }, [cachedSuggestions, selectedCategory, description]);
+
+  // Filter modal suggestions (for task/switch prompts)
+  const modalSuggestions = useMemo(() => {
+    const categoryId = taskNamePrompt?.categoryId || switchTaskPrompt?.categoryId;
+    const query = taskNamePrompt ? promptedTaskName : (switchTaskPrompt ? switchTaskName : '');
+    
+    if (!categoryId) return [];
+    
+    let filtered = cachedSuggestions.filter(s => s.categoryId === categoryId);
+    
+    if (query) {
+      filtered = filtered
+        .map(s => ({ ...s, ...fuzzyMatch(query, s.description) }))
+        .filter(s => s.match)
+        .sort((a, b) => b.score - a.score || b.count - a.count);
+    } else {
+      // No query - sort by count
+      filtered = filtered.sort((a, b) => b.count - a.count);
+    }
+    
+    return filtered.slice(0, 8);
+  }, [cachedSuggestions, taskNamePrompt, switchTaskPrompt, promptedTaskName, switchTaskName]);
+
+  // Show/hide suggestions based on filtered results
+  useEffect(() => {
+    if (suggestions.length > 0 && (selectedCategory || description)) {
+      setShowSuggestions(true);
+    }
+    setSelectedSuggestionIndex(-1);
+  }, [suggestions, selectedCategory, description]);
+
+  useEffect(() => {
+    // Show modal suggestions when modal opens and has suggestions
+    // This runs after modalSuggestions recalculates
+    if ((taskNamePrompt || switchTaskPrompt) && modalSuggestions.length > 0) {
+      setShowModalSuggestions(true);
+    } else if (!taskNamePrompt && !switchTaskPrompt) {
+      setShowModalSuggestions(false);
+    }
+    setSelectedModalSuggestionIndex(-1);
+  }, [modalSuggestions.length, taskNamePrompt, switchTaskPrompt]);
+
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        suggestionsRef.current && 
+        !suggestionsRef.current.contains(e.target as Node) &&
+        descriptionInputRef.current &&
+        !descriptionInputRef.current.contains(e.target as Node)
+      ) {
+        setShowSuggestions(false);
+      }
+      if (
+        modalSuggestionsRef.current && 
+        !modalSuggestionsRef.current.contains(e.target as Node) &&
+        modalInputRef.current &&
+        !modalInputRef.current.contains(e.target as Node)
+      ) {
+        setShowModalSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleSuggestionSelect = (suggestion: { description: string; categoryId: number }) => {
+    setDescription(suggestion.description);
+    if (!selectedCategory) {
+      setSelectedCategory(suggestion.categoryId);
+    }
+    setShowSuggestions(false);
+    descriptionInputRef.current?.focus();
+  };
+  
+  const handleModalSuggestionSelect = (suggestion: { description: string }, isSwitch: boolean) => {
+    if (isSwitch) {
+      setSwitchTaskName(suggestion.description);
+    } else {
+      setPromptedTaskName(suggestion.description);
+    }
+    setShowModalSuggestions(false);
+    modalInputRef.current?.focus();
+  };
+
+  const handleDescriptionKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!showSuggestions || suggestions.length === 0) {
+      if (e.key === 'Enter' && selectedCategory) {
+        handleStart();
+      }
+      return;
+    }
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setSelectedSuggestionIndex(prev => 
+          prev < suggestions.length - 1 ? prev + 1 : prev
+        );
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setSelectedSuggestionIndex(prev => prev > 0 ? prev - 1 : -1);
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (selectedSuggestionIndex >= 0) {
+          handleSuggestionSelect(suggestions[selectedSuggestionIndex]);
+        } else if (selectedCategory) {
+          handleStart();
+        }
+        break;
+      case 'Escape':
+        setShowSuggestions(false);
+        setSelectedSuggestionIndex(-1);
+        break;
+    }
+  };
+  
+  const handleModalKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, isSwitch: boolean, onSubmit: () => void, onCancel: () => void) => {
+    if (!showModalSuggestions || modalSuggestions.length === 0) {
+      if (e.key === 'Enter') onSubmit();
+      if (e.key === 'Escape') onCancel();
+      return;
+    }
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setSelectedModalSuggestionIndex(prev => 
+          prev < modalSuggestions.length - 1 ? prev + 1 : prev
+        );
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setSelectedModalSuggestionIndex(prev => prev > 0 ? prev - 1 : -1);
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (selectedModalSuggestionIndex >= 0) {
+          handleModalSuggestionSelect(modalSuggestions[selectedModalSuggestionIndex], isSwitch);
+        } else {
+          onSubmit();
+        }
+        break;
+      case 'Escape':
+        if (showModalSuggestions) {
+          e.preventDefault();
+          setShowModalSuggestions(false);
+          setSelectedModalSuggestionIndex(-1);
+        } else {
+          onCancel();
+        }
+        break;
+    }
+  };
+
+  // Get recent tasks from entries (unique description + category combinations)
   const recentTasks = useMemo((): RecentTask[] => {
     const taskMap = new Map<string, RecentTask>();
     
     entries
-      .filter(e => e.note && e.note.trim())
+      .filter(e => e.description && e.description.trim())
       .forEach(entry => {
-        const key = `${entry.category_id}:${entry.note}`;
+        const key = `${entry.category_id}:${entry.description}`;
         const existing = taskMap.get(key);
         if (existing) {
           existing.count++;
         } else {
           taskMap.set(key, {
-            note: entry.note!,
+            description: entry.description!,
             categoryId: entry.category_id,
             categoryName: entry.category_name,
             categoryColor: entry.category_color,
@@ -118,8 +347,8 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   const handleStart = async () => {
     if (!selectedCategory) return;
     try {
-      await api.startEntry(selectedCategory, note || undefined);
-      setNote('');
+      await api.startEntry(selectedCategory, description || undefined);
+      setDescription('');
       onEntryChange();
     } catch (error) {
       console.error('Failed to start entry:', error);
@@ -128,7 +357,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
 
   const handleQuickStartTask = async (task: RecentTask) => {
     try {
-      await api.startEntry(task.categoryId, task.note);
+      await api.startEntry(task.categoryId, task.description);
       onEntryChange();
     } catch (error) {
       console.error('Failed to start entry:', error);
@@ -181,7 +410,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   const handleResume = async () => {
     if (!pausedEntry) return;
     try {
-      await api.startEntry(pausedEntry.category_id, pausedEntry.note || undefined);
+      await api.startEntry(pausedEntry.category_id, pausedEntry.description || undefined);
       setPausedEntry(null);
       onEntryChange();
     } catch (error) {
@@ -189,10 +418,10 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
     }
   };
 
-  const handleSwitchTask = async (categoryId: number, taskNote?: string) => {
+  const handleSwitchTask = async (categoryId: number, taskDescription?: string) => {
     try {
       // The /start endpoint automatically stops any active entry, so just start the new one
-      await api.startEntry(categoryId, taskNote);
+      await api.startEntry(categoryId, taskDescription);
       setShowNewTaskForm(false);
       setSwitchTaskPrompt(null);
       setSwitchTaskName('');
@@ -273,7 +502,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                     </span>
                   );
                 })()}
-                {activeEntry.note && <span className="timer-note">{activeEntry.note}</span>}
+                {activeEntry.description && <span className="timer-description">{activeEntry.description}</span>}
               </div>
             </div>
             <div className="timer-actions">
@@ -312,18 +541,37 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                       );
                     })()}
                   </div>
-                  <input
-                    type="text"
-                    className="task-prompt-input"
-                    value={switchTaskName}
-                    onChange={(e) => setSwitchTaskName(e.target.value)}
-                    placeholder="What are you working on? (optional)"
-                    autoFocus
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handlePromptedSwitch();
-                      if (e.key === 'Escape') setSwitchTaskPrompt(null);
-                    }}
-                  />
+                  <div className="description-input-wrapper">
+                    <input
+                      ref={modalInputRef}
+                      type="text"
+                      className="task-prompt-input"
+                      value={switchTaskName}
+                      onChange={(e) => setSwitchTaskName(e.target.value)}
+                      placeholder="What are you working on? (optional)"
+                      autoFocus
+                      autoComplete="off"
+                      onFocus={() => {
+                        if (modalSuggestions.length > 0) setShowModalSuggestions(true);
+                      }}
+                      onKeyDown={(e) => handleModalKeyDown(e, true, handlePromptedSwitch, () => setSwitchTaskPrompt(null))}
+                    />
+                    {showModalSuggestions && modalSuggestions.length > 0 && (
+                      <div className="description-suggestions modal-suggestions" ref={modalSuggestionsRef}>
+                        {modalSuggestions.map((suggestion, idx) => (
+                          <button
+                            key={`${suggestion.categoryId}-${suggestion.description}`}
+                            className={`suggestion-item ${idx === selectedModalSuggestionIndex ? 'selected' : ''}`}
+                            onClick={() => handleModalSuggestionSelect(suggestion, true)}
+                            onMouseEnter={() => setSelectedModalSuggestionIndex(idx)}
+                          >
+                            <span className="suggestion-text">{suggestion.description}</span>
+                            <span className="suggestion-count">×{suggestion.count}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                   <div className="task-prompt-actions">
                     <button className="btn btn-ghost" onClick={() => setSwitchTaskPrompt(null)}>
                       Cancel
@@ -361,19 +609,19 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                 </select>
                 <input 
                   type="text"
-                  className="switch-note-input"
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
+                  className="switch-description-input"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
                   placeholder="Task name (optional)"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && selectedCategory) {
-                      handleSwitchTask(selectedCategory, note || undefined);
+                      handleSwitchTask(selectedCategory, description || undefined);
                     }
                   }}
                 />
                 <button 
                   className="btn btn-success btn-sm"
-                  onClick={() => selectedCategory && handleSwitchTask(selectedCategory, note || undefined)}
+                  onClick={() => selectedCategory && handleSwitchTask(selectedCategory, description || undefined)}
                   disabled={!selectedCategory}
                 >
                   Start
@@ -387,11 +635,11 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                     <button
                       key={idx}
                       className="switch-task-btn"
-                      onClick={() => handleSwitchTask(task.categoryId, task.note)}
-                      title={`${task.categoryName}: ${task.note}`}
+                      onClick={() => handleSwitchTask(task.categoryId, task.description)}
+                      title={`${task.categoryName}: ${task.description}`}
                     >
                       <span className="category-dot" style={{ backgroundColor: colors.dotColor }} />
-                      <span className="switch-task-note">{task.note}</span>
+                      <span className="switch-task-description">{task.description}</span>
                     </button>
                   );
                 })}
@@ -432,7 +680,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                 </span>
               );
             })()}
-            {pausedEntry.note && <span className="timer-note">{pausedEntry.note}</span>}
+            {pausedEntry.description && <span className="timer-description">{pausedEntry.description}</span>}
           </div>
           <div className="timer-actions">
             <button className="btn btn-success" onClick={handleResume}>
@@ -467,18 +715,37 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                     );
                   })()}
                 </div>
-                <input
-                  type="text"
-                  className="task-prompt-input"
-                  value={promptedTaskName}
-                  onChange={(e) => setPromptedTaskName(e.target.value)}
-                  placeholder="What are you working on? (optional)"
-                  autoFocus
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handlePromptedStart();
-                    if (e.key === 'Escape') setTaskNamePrompt(null);
-                  }}
-                />
+                <div className="description-input-wrapper">
+                  <input
+                    ref={modalInputRef}
+                    type="text"
+                    className="task-prompt-input"
+                    value={promptedTaskName}
+                    onChange={(e) => setPromptedTaskName(e.target.value)}
+                    placeholder="What are you working on? (optional)"
+                    autoFocus
+                    autoComplete="off"
+                    onFocus={() => {
+                      if (modalSuggestions.length > 0) setShowModalSuggestions(true);
+                    }}
+                    onKeyDown={(e) => handleModalKeyDown(e, false, handlePromptedStart, () => setTaskNamePrompt(null))}
+                  />
+                  {showModalSuggestions && modalSuggestions.length > 0 && (
+                    <div className="description-suggestions modal-suggestions" ref={modalSuggestionsRef}>
+                      {modalSuggestions.map((suggestion, idx) => (
+                        <button
+                          key={`${suggestion.categoryId}-${suggestion.description}`}
+                          className={`suggestion-item ${idx === selectedModalSuggestionIndex ? 'selected' : ''}`}
+                          onClick={() => handleModalSuggestionSelect(suggestion, false)}
+                          onMouseEnter={() => setSelectedModalSuggestionIndex(idx)}
+                        >
+                          <span className="suggestion-text">{suggestion.description}</span>
+                          <span className="suggestion-count">×{suggestion.count}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <div className="task-prompt-actions">
                   <button className="btn btn-ghost" onClick={() => setTaskNamePrompt(null)}>
                     Cancel
@@ -506,10 +773,10 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                           key={idx}
                           className="quick-start-btn quick-start-task"
                           onClick={() => handleQuickStartTask(task)}
-                          title={`${task.categoryName}: ${task.note}`}
+                          title={`${task.categoryName}: ${task.description}`}
                         >
                           <span className="category-dot" style={{ backgroundColor: colors.dotColor }} />
-                          <span className="task-note-text">{task.note}</span>
+                          <span className="task-description-text">{task.description}</span>
                           <span className="task-category-hint">{task.categoryName}</span>
                         </button>
                       );
@@ -565,19 +832,45 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                 </select>
               </div>
 
-              <div className="form-group form-group-note">
-                <label>Note <span className="optional">(optional)</span></label>
-                <input 
-                  type="text"
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && selectedCategory) {
-                      handleStart();
-                    }
-                  }}
-                  placeholder="What are you working on?"
-                />
+              <div className="form-group form-group-description">
+                <label>Description <span className="optional">(optional)</span></label>
+                <div className="description-input-wrapper">
+                  <input 
+                    ref={descriptionInputRef}
+                    type="text"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    onFocus={() => {
+                      if (suggestions.length > 0) setShowSuggestions(true);
+                    }}
+                    onKeyDown={handleDescriptionKeyDown}
+                    placeholder="What are you working on?"
+                    autoComplete="off"
+                  />
+                  {showSuggestions && suggestions.length > 0 && (
+                    <div className="description-suggestions" ref={suggestionsRef}>
+                      {suggestions.map((suggestion, idx) => {
+                        const cat = categories.find(c => c.id === suggestion.categoryId);
+                        const colors = getCategoryColors(cat?.color || null);
+                        return (
+                          <button
+                            key={`${suggestion.categoryId}-${suggestion.description}`}
+                            className={`suggestion-item ${idx === selectedSuggestionIndex ? 'selected' : ''}`}
+                            onClick={() => handleSuggestionSelect(suggestion)}
+                            onMouseEnter={() => setSelectedSuggestionIndex(idx)}
+                          >
+                            <span className="suggestion-text">{suggestion.description}</span>
+                            <span className="suggestion-meta">
+                              <span className="category-dot" style={{ backgroundColor: colors.dotColor }} />
+                              <span className="suggestion-category">{cat?.name || 'Unknown'}</span>
+                              <span className="suggestion-count">×{suggestion.count}</span>
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="form-group form-group-action">
