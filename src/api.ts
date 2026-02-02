@@ -322,6 +322,18 @@ export const api = {
     return res.json();
   },
 
+  async updateDescription(oldDescription: string, newDescription?: string, newCategoryId?: number): Promise<{ success: boolean; updatedCount: number; oldDescription: string; newDescription: string; newCategoryId?: number }> {
+    const res = await apiFetch(`${API_BASE}/analytics/descriptions`, {
+      method: 'PUT',
+      body: JSON.stringify({ oldDescription, newDescription, newCategoryId })
+    });
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || 'Failed to update description');
+    }
+    return res.json();
+  },
+
   // Export
   async exportCSV(): Promise<string> {
     const res = await apiFetch(`${API_BASE}/export/csv`);
