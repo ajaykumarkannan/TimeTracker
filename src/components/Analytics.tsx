@@ -13,8 +13,22 @@ type AggregatedTotal = {
 
 type PeriodType = 'week' | 'month' | 'quarter' | 'year' | 'all';
 
+const STORAGE_KEY = 'chronoflow-analytics-period';
+
+function getStoredPeriod(): Period {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored && ['week', 'month', 'quarter', 'year', 'all', 'last7', 'last30', 'last90'].includes(stored)) {
+      return stored as Period;
+    }
+  } catch {
+    // localStorage not available
+  }
+  return 'week';
+}
+
 export function Analytics() {
-  const [period, setPeriod] = useState<Period>('week');
+  const [period, setPeriod] = useState<Period>(getStoredPeriod);
   const [periodOffset, setPeriodOffset] = useState(0); // 0 = current, -1 = previous, etc.
   const [showPreviousMenu, setShowPreviousMenu] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
@@ -235,12 +249,14 @@ export function Analytics() {
     setPeriod(newPeriod);
     setPeriodOffset(0);
     setShowPreviousMenu(false);
+    try { localStorage.setItem(STORAGE_KEY, newPeriod); } catch { /* ignore */ }
   };
 
   const handlePreviousPeriod = (lastDays: 'last7' | 'last30' | 'last90') => {
     setPeriod(lastDays);
     setPeriodOffset(0);
     setShowPreviousMenu(false);
+    try { localStorage.setItem(STORAGE_KEY, lastDays); } catch { /* ignore */ }
   };
 
   const canNavigatePrevious = period !== 'all' && period !== 'last7' && period !== 'last30' && period !== 'last90';
