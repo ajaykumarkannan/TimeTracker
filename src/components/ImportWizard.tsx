@@ -12,10 +12,6 @@ interface Props {
 type Step = 'mapping' | 'preview' | 'importing';
 
 const REQUIRED_FIELDS = ['category', 'startTime'] as const;
-const OPTIONAL_FIELDS = ['description', 'endTime', 'color'] as const;
-
-// Field display order for the mapping grid (row 1: category, start, offset; row 2: description, end, color)
-const MAPPING_FIELD_ORDER = ['category', 'startTime', 'description', 'endTime', 'color'] as const;
 
 const FIELD_LABELS: Record<string, string> = {
   category: 'Category',

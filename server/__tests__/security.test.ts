@@ -27,7 +27,7 @@ describe('Security Middleware', () => {
       
       mockReq = {
         ip: '127.0.0.1',
-        socket: { remoteAddress: '127.0.0.1' } as any
+        socket: { remoteAddress: '127.0.0.1' } as unknown as Request['socket']
       };
       mockRes = {
         setHeader: setHeaderMock,
