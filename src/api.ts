@@ -220,6 +220,17 @@ export const api = {
     if (!res.ok) throw new Error('Failed to delete entry');
   },
 
+  async deleteEntriesByDate(date: string): Promise<{ deleted: number }> {
+    const res = await apiFetch(`${API_BASE}/time-entries/by-date/${date}`, {
+      method: 'DELETE'
+    });
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ error: 'Failed to delete entries' }));
+      throw new Error(error.error || 'Failed to delete entries');
+    }
+    return res.json();
+  },
+
   async createManualEntry(category_id: number, start_time: string, end_time: string, note?: string): Promise<TimeEntry> {
     const res = await apiFetch(`${API_BASE}/time-entries`, {
       method: 'POST',

@@ -395,4 +395,46 @@ router.delete('/:id', (req: AuthRequest, res: Response) => {
   }
 });
 
+// Delete all entries for a specific date
+router.delete('/by-date/:date', (req: AuthRequest, res: Response) => {
+  try {
+    const { date } = req.params;
+    const db = getDb();
+
+    // Validate date format (YYYY-MM-DD)
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD' });
+    }
+
+    const startOfDay = `${date}T00:00:00.000Z`;
+    const endOfDay = `${date}T23:59:59.999Z`;
+
+    // Count entries to be deleted (excluding active entries)
+    const countResult = db.exec(
+      `SELECT COUNT(*) as count FROM time_entries 
+       WHERE user_id = ? AND start_time >= ? AND start_time <= ? AND end_time IS NOT NULL`,
+      [req.userId as number, startOfDay, endOfDay]
+    );
+    const count = countResult.length > 0 ? countResult[0].values[0][0] as number : 0;
+
+    if (count === 0) {
+      return res.status(404).json({ error: 'No completed entries found for this date' });
+    }
+
+    // Delete entries (only completed ones, not active)
+    db.run(
+      `DELETE FROM time_entries 
+       WHERE user_id = ? AND start_time >= ? AND start_time <= ? AND end_time IS NOT NULL`,
+      [req.userId as number, startOfDay, endOfDay]
+    );
+    saveDatabase();
+
+    logger.info('Time entries deleted for date', { date, count, userId: req.userId as number });
+    res.json({ deleted: count });
+  } catch (error) {
+    logger.error('Error deleting time entries by date', { error, userId: req.userId as number });
+    res.status(500).json({ error: 'Failed to delete time entries' });
+  }
+});
+
 export default router;
