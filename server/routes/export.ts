@@ -101,10 +101,172 @@ router.get('/csv', (req: AuthRequest, res: Response) => {
   }
 });
 
-// Import time entries from CSV
+// Preview CSV import (parse and return data for review)
+router.post('/csv/preview', (req: AuthRequest, res: Response) => {
+  try {
+    const { csv, columnMapping } = req.body;
+    
+    if (!csv || typeof csv !== 'string') {
+      return res.status(400).json({ error: 'CSV data is required' });
+    }
+
+    const lines = csv.split('\n').filter(line => line.trim());
+    
+    if (lines.length < 1) {
+      return res.status(400).json({ error: 'CSV must have at least a header row' });
+    }
+
+    // Parse header
+    const header = parseCSVLine(lines[0]);
+    
+    // If no mapping provided, return header for column selection
+    if (!columnMapping) {
+      // Try to auto-detect columns
+      const autoMapping: { [key: string]: number } = {};
+      const lowerHeader = header.map(h => h.toLowerCase());
+      
+      const categoryIndex = lowerHeader.findIndex(h => h.includes('category') || h.includes('task') || h.includes('project'));
+      const noteIndex = lowerHeader.findIndex(h => h.includes('note') || h.includes('description') || h.includes('comment'));
+      const startIndex = lowerHeader.findIndex(h => h.includes('start'));
+      const endIndex = lowerHeader.findIndex(h => h.includes('end') || h.includes('stop'));
+      const colorIndex = lowerHeader.findIndex(h => h.includes('color'));
+      const durationIndex = lowerHeader.findIndex(h => h.includes('duration') || h.includes('minutes') || h.includes('hours'));
+      
+      if (categoryIndex >= 0) autoMapping.category = categoryIndex;
+      if (noteIndex >= 0) autoMapping.note = noteIndex;
+      if (startIndex >= 0) autoMapping.startTime = startIndex;
+      if (endIndex >= 0) autoMapping.endTime = endIndex;
+      if (colorIndex >= 0) autoMapping.color = colorIndex;
+      if (durationIndex >= 0) autoMapping.duration = durationIndex;
+      
+      return res.json({
+        headers: header,
+        rowCount: lines.length - 1,
+        suggestedMapping: autoMapping,
+        preview: lines.slice(1, 6).map(line => parseCSVLine(line))
+      });
+    }
+
+    // Parse with provided mapping
+    const db = getDb();
+    
+    // Get existing categories
+    const categoriesResult = db.exec(
+      `SELECT id, name, color FROM categories WHERE user_id = ?`,
+      [req.userId as number]
+    );
+    
+    const existingCategories = new Map<string, { id: number; color: string | null }>();
+    if (categoriesResult.length > 0) {
+      categoriesResult[0].values.forEach(row => {
+        existingCategories.set((row[1] as string).toLowerCase(), { 
+          id: row[0] as number, 
+          color: row[2] as string | null 
+        });
+      });
+    }
+
+    const entries: Array<{
+      rowIndex: number;
+      category: string;
+      color: string | null;
+      note: string | null;
+      startTime: string;
+      endTime: string | null;
+      duration: number | null;
+      isNewCategory: boolean;
+      error: string | null;
+    }> = [];
+
+    const newCategories = new Set<string>();
+
+    for (let i = 1; i < lines.length; i++) {
+      const row = parseCSVLine(lines[i]);
+      
+      const category = columnMapping.category !== undefined ? row[columnMapping.category]?.trim() : '';
+      const color = columnMapping.color !== undefined ? row[columnMapping.color]?.trim() || null : null;
+      const note = columnMapping.note !== undefined ? row[columnMapping.note]?.trim() || null : null;
+      const startTimeStr = columnMapping.startTime !== undefined ? row[columnMapping.startTime]?.trim() : '';
+      const endTimeStr = columnMapping.endTime !== undefined ? row[columnMapping.endTime]?.trim() || null : null;
+      const durationStr = columnMapping.duration !== undefined ? row[columnMapping.duration]?.trim() || null : null;
+
+      let error: string | null = null;
+      let startTime = '';
+      let endTime: string | null = null;
+      let duration: number | null = null;
+
+      // Validate category
+      if (!category) {
+        error = 'Category is required';
+      }
+
+      // Parse start time
+      if (!error && startTimeStr) {
+        const startDate = new Date(startTimeStr);
+        if (isNaN(startDate.getTime())) {
+          error = 'Invalid start time';
+        } else {
+          startTime = startDate.toISOString();
+        }
+      } else if (!error) {
+        error = 'Start time is required';
+      }
+
+      // Parse end time or calculate from duration
+      if (!error && endTimeStr) {
+        const endDate = new Date(endTimeStr);
+        if (isNaN(endDate.getTime())) {
+          error = 'Invalid end time';
+        } else {
+          endTime = endDate.toISOString();
+          duration = Math.round((endDate.getTime() - new Date(startTime).getTime()) / 60000);
+        }
+      } else if (!error && durationStr) {
+        const durationNum = parseFloat(durationStr);
+        if (!isNaN(durationNum)) {
+          // Assume minutes if small number, hours if has decimal or > 24
+          const minutes = durationNum > 24 || durationStr.includes('.') ? Math.round(durationNum * 60) : Math.round(durationNum);
+          duration = minutes;
+          const endDate = new Date(new Date(startTime).getTime() + minutes * 60000);
+          endTime = endDate.toISOString();
+        }
+      }
+
+      const isNewCategory = category ? !existingCategories.has(category.toLowerCase()) : false;
+      if (isNewCategory && category) {
+        newCategories.add(category);
+      }
+
+      entries.push({
+        rowIndex: i,
+        category,
+        color,
+        note,
+        startTime,
+        endTime,
+        duration,
+        isNewCategory,
+        error
+      });
+    }
+
+    res.json({
+      entries,
+      newCategories: Array.from(newCategories),
+      existingCategories: Array.from(existingCategories.keys()),
+      validCount: entries.filter(e => !e.error).length,
+      errorCount: entries.filter(e => e.error).length
+    });
+  } catch (error) {
+    logger.error('Error previewing CSV', { error, userId: req.userId });
+    res.status(500).json({ error: 'Failed to preview CSV' });
+  }
+});
+
+// Import time entries from CSV (with optional entries override)
 router.post('/csv', (req: AuthRequest, res: Response) => {
   try {
-    const { csv } = req.body;
+    const { csv, columnMapping, entries: overrideEntries } = req.body;
     
     if (!csv || typeof csv !== 'string') {
       return res.status(400).json({ error: 'CSV data is required' });
@@ -120,8 +282,14 @@ router.post('/csv', (req: AuthRequest, res: Response) => {
     // Parse header to validate format
     const header = parseCSVLine(lines[0]);
     
-    if (header.length < 4) {
-      return res.status(400).json({ error: 'Invalid CSV format. Expected columns: Category, Color, Note, Start Time, End Time, Duration (minutes)' });
+    // Determine column mapping
+    let mapping = columnMapping;
+    if (!mapping) {
+      // Legacy format - assume fixed columns
+      if (header.length < 4) {
+        return res.status(400).json({ error: 'Invalid CSV format. Expected columns: Category, Color, Note, Start Time, End Time, Duration (minutes)' });
+      }
+      mapping = { category: 0, color: 1, note: 2, startTime: 3, endTime: 4, duration: 5 };
     }
 
     // Get existing categories for this user
@@ -144,20 +312,31 @@ router.post('/csv', (req: AuthRequest, res: Response) => {
     let skipped = 0;
     const errors: string[] = [];
 
-    // Process data rows
-    for (let i = 1; i < lines.length; i++) {
-      const row = parseCSVLine(lines[i]);
-      
-      if (row.length < 4) {
-        errors.push(`Row ${i + 1}: Not enough columns`);
+    // Use override entries if provided (from preview/edit), otherwise parse CSV
+    const entriesToImport = overrideEntries || lines.slice(1).map((line, index) => {
+      const row = parseCSVLine(line);
+      return {
+        rowIndex: index + 1,
+        category: mapping.category !== undefined ? row[mapping.category]?.trim() : '',
+        color: mapping.color !== undefined ? row[mapping.color]?.trim() || null : null,
+        note: mapping.note !== undefined ? row[mapping.note]?.trim() || null : null,
+        startTime: mapping.startTime !== undefined ? row[mapping.startTime]?.trim() : '',
+        endTime: mapping.endTime !== undefined ? row[mapping.endTime]?.trim() || null : null,
+        skip: false
+      };
+    });
+
+    // Process entries
+    for (const entry of entriesToImport) {
+      if (entry.skip) {
         skipped++;
         continue;
       }
 
-      const [categoryName, color, note, startTime, endTime] = row;
+      const { category, color, note, startTime, endTime } = entry;
       
-      if (!categoryName || !startTime) {
-        errors.push(`Row ${i + 1}: Category and Start Time are required`);
+      if (!category || !startTime) {
+        errors.push(`Row ${entry.rowIndex}: Category and Start Time are required`);
         skipped++;
         continue;
       }
@@ -165,7 +344,7 @@ router.post('/csv', (req: AuthRequest, res: Response) => {
       // Validate dates
       const startDate = new Date(startTime);
       if (isNaN(startDate.getTime())) {
-        errors.push(`Row ${i + 1}: Invalid start time format`);
+        errors.push(`Row ${entry.rowIndex}: Invalid start time format`);
         skipped++;
         continue;
       }
@@ -174,7 +353,7 @@ router.post('/csv', (req: AuthRequest, res: Response) => {
       if (endTime) {
         endDate = new Date(endTime);
         if (isNaN(endDate.getTime())) {
-          errors.push(`Row ${i + 1}: Invalid end time format`);
+          errors.push(`Row ${entry.rowIndex}: Invalid end time format`);
           skipped++;
           continue;
         }
@@ -182,7 +361,7 @@ router.post('/csv', (req: AuthRequest, res: Response) => {
 
       // Find or create category
       let categoryId: number;
-      const existingCategory = categoryMap.get(categoryName.toLowerCase());
+      const existingCategory = categoryMap.get(category.toLowerCase());
       
       if (existingCategory) {
         categoryId = existingCategory.id;
@@ -190,11 +369,11 @@ router.post('/csv', (req: AuthRequest, res: Response) => {
         // Create new category
         db.run(
           `INSERT INTO categories (user_id, name, color) VALUES (?, ?, ?)`,
-          [req.userId as number, categoryName, color || null]
+          [req.userId as number, category, color || null]
         );
         const idResult = db.exec(`SELECT last_insert_rowid() as id`);
         categoryId = idResult[0].values[0][0] as number;
-        categoryMap.set(categoryName.toLowerCase(), { id: categoryId, color: color || null });
+        categoryMap.set(category.toLowerCase(), { id: categoryId, color: color || null });
       }
 
       // Calculate duration
@@ -206,7 +385,7 @@ router.post('/csv', (req: AuthRequest, res: Response) => {
       // Insert time entry
       db.run(
         `INSERT INTO time_entries (user_id, category_id, note, start_time, end_time, duration_minutes) VALUES (?, ?, ?, ?, ?, ?)`,
-        [req.userId as number, categoryId, note || null, startTime, endTime || null, duration]
+        [req.userId as number, categoryId, note || null, startDate.toISOString(), endDate?.toISOString() || null, duration]
       );
       imported++;
     }
@@ -217,7 +396,7 @@ router.post('/csv', (req: AuthRequest, res: Response) => {
       userId: req.userId, 
       imported, 
       skipped,
-      totalRows: lines.length - 1 
+      totalRows: entriesToImport.length 
     });
 
     res.json({ 

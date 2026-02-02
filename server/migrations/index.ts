@@ -103,6 +103,23 @@ const migrations: Migration[] = [
       db.run(`CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user ON password_reset_tokens(user_id)`);
     }
   },
+  {
+    version: 3,
+    name: 'add_user_settings',
+    up: (db) => {
+      db.run(`
+        CREATE TABLE IF NOT EXISTS user_settings (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL UNIQUE,
+          timezone TEXT DEFAULT 'UTC',
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+      `);
+      db.run(`CREATE INDEX IF NOT EXISTS idx_user_settings_user ON user_settings(user_id)`);
+    }
+  },
 ];
 
 export function runMigrations(db: SqlJsDatabase): void {
