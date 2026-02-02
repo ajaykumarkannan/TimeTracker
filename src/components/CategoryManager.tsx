@@ -1,7 +1,34 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Category } from '../types';
 import { api } from '../api';
 import './CategoryManager.css';
+
+// Primary color palette - visually distinct colors
+const COLOR_PALETTE = [
+  '#6366f1', // Indigo (primary)
+  '#10b981', // Emerald
+  '#f59e0b', // Amber
+  '#ef4444', // Red
+  '#8b5cf6', // Violet
+  '#06b6d4', // Cyan
+  '#ec4899', // Pink
+  '#84cc16', // Lime
+  '#f97316', // Orange
+  '#14b8a6', // Teal
+  '#a855f7', // Purple
+  '#eab308', // Yellow
+];
+
+function getNextAvailableColor(usedColors: (string | null)[]): string {
+  const normalizedUsed = new Set(usedColors.map(c => c?.toLowerCase()));
+  for (const color of COLOR_PALETTE) {
+    if (!normalizedUsed.has(color.toLowerCase())) {
+      return color;
+    }
+  }
+  // All palette colors used, return a random one
+  return COLOR_PALETTE[Math.floor(Math.random() * COLOR_PALETTE.length)];
+}
 
 interface Props {
   categories: Category[];
@@ -9,12 +36,24 @@ interface Props {
 }
 
 export function CategoryManager({ categories, onCategoryChange }: Props) {
+  const nextColor = useMemo(() => {
+    const usedColors = categories.map(c => c.color);
+    return getNextAvailableColor(usedColors);
+  }, [categories]);
+
   const [name, setName] = useState('');
-  const [color, setColor] = useState('#6366f1');
+  const [color, setColor] = useState(nextColor);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [deletingCategory, setDeletingCategory] = useState<Category | null>(null);
   const [replacementId, setReplacementId] = useState<number | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  // Update default color when categories change (and not editing)
+  useMemo(() => {
+    if (!editingId) {
+      setColor(nextColor);
+    }
+  }, [nextColor, editingId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,7 +67,7 @@ export function CategoryManager({ categories, onCategoryChange }: Props) {
         await api.createCategory(name, color);
       }
       setName('');
-      setColor('#6366f1');
+      setColor(nextColor);
       onCategoryChange();
     } catch (error) {
       console.error('Failed to save category:', error);
@@ -90,7 +129,7 @@ export function CategoryManager({ categories, onCategoryChange }: Props) {
 
   const handleCancel = () => {
     setName('');
-    setColor('#6366f1');
+    setColor(nextColor);
     setEditingId(null);
   };
 
