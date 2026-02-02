@@ -7,12 +7,13 @@ import { TimeEntryList } from './components/TimeEntryList';
 import { CategoryManager } from './components/CategoryManager';
 import { Analytics } from './components/Analytics';
 import { Settings } from './components/Settings';
+import { Help } from './components/Help';
 import { ThemeToggle } from './components/ThemeToggle';
 import { api } from './api';
 import { Category, TimeEntry } from './types';
 import './App.css';
 
-type Tab = 'tracker' | 'categories' | 'analytics' | 'settings';
+type Tab = 'tracker' | 'categories' | 'analytics' | 'settings' | 'help';
 
 function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLoggedIn: boolean; onLogout: () => void; onConvertSuccess: () => void }) {
   const { user } = useAuth();
@@ -66,7 +67,8 @@ function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLoggedIn: bo
     { id: 'tracker', label: 'Track', icon: '⏱️' },
     { id: 'categories', label: 'Categories', icon: '🏷️' },
     { id: 'analytics', label: 'Analytics', icon: '📊' },
-    { id: 'settings', label: 'Settings', icon: '⚙️' }
+    { id: 'settings', label: 'Settings', icon: '⚙️' },
+    { id: 'help', label: 'Help', icon: '❓' }
   ];
 
   return (
@@ -146,6 +148,7 @@ function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLoggedIn: bo
         {activeTab === 'settings' && (
           <Settings onLogout={onLogout} onConvertSuccess={onConvertSuccess} />
         )}
+        {activeTab === 'help' && <Help />}
       </main>
     </div>
   );
