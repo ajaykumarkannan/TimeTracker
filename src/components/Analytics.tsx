@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { api } from '../api';
-import { AnalyticsData, Period, DailyTotal } from '../types';
+import { AnalyticsData, Period, DailyTotal, TimeEntry } from '../types';
 import './Analytics.css';
 
 type AggregatedTotal = {
@@ -11,38 +11,163 @@ type AggregatedTotal = {
   byCategory: Record<string, number>;
 };
 
+type PeriodType = 'week' | 'month' | 'quarter' | 'year' | 'all';
+
 export function Analytics() {
   const [period, setPeriod] = useState<Period>('week');
+  const [periodOffset, setPeriodOffset] = useState(0); // 0 = current, -1 = previous, etc.
+  const [showPreviousMenu, setShowPreviousMenu] = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
+  const [activeEntry, setActiveEntry] = useState<TimeEntry | null>(null);
+  const [elapsed, setElapsed] = useState(0);
+  const previousMenuRef = useRef<HTMLDivElement>(null);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
 
-  const getDateRange = (p: Period): { start: Date; end: Date } => {
-    const end = new Date();
-    end.setHours(23, 59, 59, 999);
-    const start = new Date();
-    start.setHours(0, 0, 0, 0);
+  // Close menus when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (previousMenuRef.current && !previousMenuRef.current.contains(e.target as Node)) {
+        setShowPreviousMenu(false);
+      }
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
+        setShowExportMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Fetch active entry
+  useEffect(() => {
+    const loadActiveEntry = async () => {
+      try {
+        const entry = await api.getActiveEntry();
+        setActiveEntry(entry);
+      } catch (error) {
+        console.error('Failed to load active entry:', error);
+      }
+    };
+    loadActiveEntry();
+    // Poll for active entry changes every 30 seconds
+    const interval = setInterval(loadActiveEntry, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Update elapsed time for active entry
+  useEffect(() => {
+    if (!activeEntry) {
+      setElapsed(0);
+      return;
+    }
+    const updateElapsed = () => {
+      const start = new Date(activeEntry.start_time).getTime();
+      const now = Date.now();
+      setElapsed(Math.floor((now - start) / 1000));
+    };
+    updateElapsed();
+    const interval = setInterval(updateElapsed, 1000);
+    return () => clearInterval(interval);
+  }, [activeEntry]);
+
+  // Get Monday of the week containing the given date
+  const getWeekStart = (date: Date): Date => {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    d.setDate(diff);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  };
+
+  // Get Sunday of the week containing the given date
+  const getWeekEnd = (date: Date): Date => {
+    const weekStart = getWeekStart(date);
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekEnd.getDate() + 6);
+    weekEnd.setHours(23, 59, 59, 999);
+    return weekEnd;
+  };
+
+  const getDateRange = (p: Period, offset: number = 0): { start: Date; end: Date } => {
+    const now = new Date();
     
+    // Handle "last X days" periods (no offset support)
+    if (p === 'last7' || p === 'last30' || p === 'last90') {
+      const end = new Date(now);
+      end.setHours(23, 59, 59, 999);
+      const start = new Date(now);
+      start.setHours(0, 0, 0, 0);
+      
+      switch (p) {
+        case 'last7':
+          start.setDate(end.getDate() - 6);
+          break;
+        case 'last30':
+          start.setDate(end.getDate() - 29);
+          break;
+        case 'last90':
+          start.setDate(end.getDate() - 89);
+          break;
+      }
+      return { start, end };
+    }
+
+    let start: Date;
+    let end: Date;
+
     switch (p) {
-      case 'week':
-        start.setDate(end.getDate() - 6);
+      case 'week': {
+        // Current week: Monday to Sunday
+        const weekStart = getWeekStart(now);
+        weekStart.setDate(weekStart.getDate() + (offset * 7));
+        start = weekStart;
+        end = getWeekEnd(weekStart);
         break;
-      case 'month':
-        start.setDate(end.getDate() - 29);
+      }
+      case 'month': {
+        // Current calendar month
+        const targetMonth = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+        start = new Date(targetMonth.getFullYear(), targetMonth.getMonth(), 1);
+        start.setHours(0, 0, 0, 0);
+        end = new Date(targetMonth.getFullYear(), targetMonth.getMonth() + 1, 0);
+        end.setHours(23, 59, 59, 999);
         break;
-      case 'quarter':
-        start.setMonth(end.getMonth() - 3);
+      }
+      case 'quarter': {
+        // Current calendar quarter
+        const currentQuarter = Math.floor(now.getMonth() / 3);
+        const targetQuarter = currentQuarter + offset;
+        const targetYear = now.getFullYear() + Math.floor(targetQuarter / 4);
+        const adjustedQuarter = ((targetQuarter % 4) + 4) % 4;
+        const quarterStartMonth = adjustedQuarter * 3;
+        start = new Date(targetYear, quarterStartMonth, 1);
+        start.setHours(0, 0, 0, 0);
+        end = new Date(targetYear, quarterStartMonth + 3, 0);
+        end.setHours(23, 59, 59, 999);
         break;
-      case 'year':
-        // Go back to the first day of the month, 11 months ago
-        // This gives us 12 months total (11 previous + current)
-        start.setMonth(end.getMonth() - 11);
-        start.setDate(1);
+      }
+      case 'year': {
+        // Current calendar year
+        const targetYear = now.getFullYear() + offset;
+        start = new Date(targetYear, 0, 1);
+        start.setHours(0, 0, 0, 0);
+        end = new Date(targetYear, 11, 31);
+        end.setHours(23, 59, 59, 999);
         break;
+      }
       case 'all':
-        // Only go back 5 years max for performance - most users won't have data older than this
+      default: {
+        // All time - no offset support
+        end = new Date(now);
+        end.setHours(23, 59, 59, 999);
+        start = new Date(now);
         start.setFullYear(end.getFullYear() - 5);
+        start.setHours(0, 0, 0, 0);
         break;
+      }
     }
     
     return { start, end };
@@ -52,24 +177,17 @@ export function Analytics() {
   const getAggregation = (p: Period): 'day' | 'week' | 'month' => {
     switch (p) {
       case 'week':
+      case 'last7':
         return 'day';
       case 'month':
       case 'quarter':
+      case 'last30':
+      case 'last90':
         return 'week';
       case 'year':
       case 'all':
         return 'month';
     }
-  };
-
-  // Get week start date (Monday)
-  const getWeekStart = (date: Date): Date => {
-    const d = new Date(date);
-    const day = d.getDay();
-    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-    d.setDate(diff);
-    d.setHours(0, 0, 0, 0);
-    return d;
   };
 
   // Helper functions - defined before useMemo hooks that use them
@@ -80,30 +198,63 @@ export function Analytics() {
     return date.toLocaleDateString(undefined, { weekday: 'short' });
   };
 
-  const handleExport = async () => {
+  const handleExport = async (format: 'json' | 'csv') => {
     setExporting(true);
+    setShowExportMenu(false);
     try {
-      const exportData = await api.exportData();
-      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `chronoflow-export-${new Date().toISOString().split('T')[0]}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      if (format === 'csv') {
+        const csvData = await api.exportCSV();
+        const blob = new Blob([csvData], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `chronoflow-export-${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } else {
+        const exportData = await api.exportData();
+        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `chronoflow-export-${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
     } catch (error) {
       console.error('Export failed:', error);
     }
     setExporting(false);
   };
 
+  const handlePeriodChange = (newPeriod: PeriodType) => {
+    setPeriod(newPeriod);
+    setPeriodOffset(0);
+    setShowPreviousMenu(false);
+  };
+
+  const handlePreviousPeriod = (lastDays: 'last7' | 'last30' | 'last90') => {
+    setPeriod(lastDays);
+    setPeriodOffset(0);
+    setShowPreviousMenu(false);
+  };
+
+  const canNavigatePrevious = period !== 'all' && period !== 'last7' && period !== 'last30' && period !== 'last90';
+  const canNavigateNext = canNavigatePrevious && periodOffset < 0;
+
+  const navigatePeriod = (direction: -1 | 1) => {
+    setPeriodOffset(prev => prev + direction);
+  };
+
   useEffect(() => {
     const loadAnalytics = async () => {
       setLoading(true);
       try {
-        const { start, end } = getDateRange(period);
+        const { start, end } = getDateRange(period, periodOffset);
         const analytics = await api.getAnalytics(start.toISOString(), end.toISOString());
         setData(analytics);
       } catch (error) {
@@ -113,7 +264,7 @@ export function Analytics() {
     };
 
     loadAnalytics();
-  }, [period]);
+  }, [period, periodOffset]);
 
   // Fill in missing days with 0 minutes (skip for 'all' period - too slow)
   const filledDaily = useMemo(() => {
@@ -124,7 +275,7 @@ export function Analytics() {
       return data.daily;
     }
     
-    const { start, end } = getDateRange(period);
+    const { start, end } = getDateRange(period, periodOffset);
     const dailyMap = new Map(data.daily.map(d => [d.date, d]));
     const filled: DailyTotal[] = [];
     
@@ -137,7 +288,7 @@ export function Analytics() {
     }
     
     return filled;
-  }, [data, period]);
+  }, [data, period, periodOffset]);
 
   // Aggregate daily data into weeks or months based on period
   const aggregatedData = useMemo((): AggregatedTotal[] => {
@@ -264,6 +415,13 @@ export function Analytics() {
     return `${h}h ${m}m`;
   };
 
+  const formatElapsed = (seconds: number) => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
+
   const formatFullDate = (dateStr: string) => {
     const date = new Date(dateStr + 'T12:00:00');
     return date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
@@ -297,15 +455,32 @@ export function Analytics() {
   };
 
   const getChartHint = () => {
+    const { start, end } = getDateRange(period, periodOffset);
+    const formatRange = (s: Date, e: Date) => {
+      const opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
+      if (s.getFullYear() !== e.getFullYear()) {
+        return `${s.toLocaleDateString(undefined, { ...opts, year: 'numeric' })} - ${e.toLocaleDateString(undefined, { ...opts, year: 'numeric' })}`;
+      }
+      return `${s.toLocaleDateString(undefined, opts)} - ${e.toLocaleDateString(undefined, opts)}`;
+    };
+
     switch (period) {
       case 'week':
-        return 'Last 7 days';
+        return formatRange(start, end);
       case 'month':
-        return 'Last 30 days (by week)';
-      case 'quarter':
-        return 'Last 3 months (by week)';
+        return start.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+      case 'quarter': {
+        const q = Math.floor(start.getMonth() / 3) + 1;
+        return `Q${q} ${start.getFullYear()}`;
+      }
       case 'year':
-        return 'Last 12 months (by month)';
+        return start.getFullYear().toString();
+      case 'last7':
+        return 'Last 7 days';
+      case 'last30':
+        return 'Last 30 days';
+      case 'last90':
+        return 'Last 90 days';
       case 'all':
         return 'All time (by month)';
     }
@@ -335,22 +510,91 @@ export function Analytics() {
     <div className="analytics">
       {/* Period selector */}
       <div className="analytics-header">
-        <div className="period-selector">
-          <button className={period === 'week' ? 'active' : ''} onClick={() => setPeriod('week')}>Week</button>
-          <button className={period === 'month' ? 'active' : ''} onClick={() => setPeriod('month')}>Month</button>
-          <button className={period === 'quarter' ? 'active' : ''} onClick={() => setPeriod('quarter')}>Quarter</button>
-          <button className={period === 'year' ? 'active' : ''} onClick={() => setPeriod('year')}>Year</button>
-          <button className={period === 'all' ? 'active' : ''} onClick={() => setPeriod('all')}>All</button>
+        <div className="period-selector-wrapper">
+          <div className="period-selector">
+            <button className={period === 'week' ? 'active' : ''} onClick={() => handlePeriodChange('week')}>Week</button>
+            <button className={period === 'month' ? 'active' : ''} onClick={() => handlePeriodChange('month')}>Month</button>
+            <button className={period === 'quarter' ? 'active' : ''} onClick={() => handlePeriodChange('quarter')}>Quarter</button>
+            <button className={period === 'year' ? 'active' : ''} onClick={() => handlePeriodChange('year')}>Year</button>
+            <button className={period === 'all' ? 'active' : ''} onClick={() => handlePeriodChange('all')}>All</button>
+            <div className="period-dropdown" ref={previousMenuRef}>
+              <button 
+                className={`dropdown-trigger ${period === 'last7' || period === 'last30' || period === 'last90' ? 'active' : ''}`}
+                onClick={() => setShowPreviousMenu(!showPreviousMenu)}
+              >
+                Previous
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="6,9 12,15 18,9" />
+                </svg>
+              </button>
+              {showPreviousMenu && (
+                <div className="dropdown-menu">
+                  <button className={period === 'last7' ? 'active' : ''} onClick={() => handlePreviousPeriod('last7')}>Last 7 days</button>
+                  <button className={period === 'last30' ? 'active' : ''} onClick={() => handlePreviousPeriod('last30')}>Last 30 days</button>
+                  <button className={period === 'last90' ? 'active' : ''} onClick={() => handlePreviousPeriod('last90')}>Last 90 days</button>
+                </div>
+              )}
+            </div>
+          </div>
+          {canNavigatePrevious && (
+            <div className="period-nav">
+              <button className="nav-btn" onClick={() => navigatePeriod(-1)} title="Previous">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="15,18 9,12 15,6" />
+                </svg>
+              </button>
+              <button className="nav-btn" onClick={() => navigatePeriod(1)} disabled={!canNavigateNext} title="Next">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="9,18 15,12 9,6" />
+                </svg>
+              </button>
+            </div>
+          )}
         </div>
-        <button className="export-btn" onClick={handleExport} disabled={exporting}>
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-            <polyline points="7,10 12,15 17,10" />
-            <line x1="12" y1="15" x2="12" y2="3" />
-          </svg>
-          {exporting ? 'Exporting...' : 'Export'}
-        </button>
+        <div className="export-dropdown" ref={exportMenuRef}>
+          <button className="export-btn" onClick={() => setShowExportMenu(!showExportMenu)} disabled={exporting}>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7,10 12,15 17,10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            {exporting ? 'Exporting...' : 'Export'}
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="6,9 12,15 18,9" />
+            </svg>
+          </button>
+          {showExportMenu && (
+            <div className="dropdown-menu">
+              <button onClick={() => handleExport('json')}>Export as JSON</button>
+              <button onClick={() => handleExport('csv')}>Export as CSV</button>
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Current ongoing task */}
+      {activeEntry && (
+        <div className="active-task-card">
+          <div className="active-task-indicator">
+            <span className="pulse-dot" />
+            <span className="active-label">Currently tracking</span>
+          </div>
+          <div className="active-task-info">
+            <span 
+              className="category-badge" 
+              style={{ 
+                backgroundColor: `${activeEntry.category_color}20`,
+                color: activeEntry.category_color || 'var(--primary)'
+              }}
+            >
+              <span className="category-dot" style={{ backgroundColor: activeEntry.category_color || 'var(--primary)' }} />
+              {activeEntry.category_name}
+            </span>
+            {activeEntry.note && <span className="active-task-note">{activeEntry.note}</span>}
+          </div>
+          <div className="active-task-timer">{formatElapsed(elapsed)}</div>
+        </div>
+      )}
 
       {/* Summary cards */}
       <div className="summary-grid">

@@ -7,7 +7,9 @@ import { AnalyticsData } from '../../types';
 vi.mock('../../api', () => ({
   api: {
     getAnalytics: vi.fn(),
-    exportData: vi.fn()
+    exportData: vi.fn(),
+    exportCSV: vi.fn(),
+    getActiveEntry: vi.fn()
   }
 }));
 
@@ -44,6 +46,7 @@ describe('Analytics', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (api.getAnalytics as ReturnType<typeof vi.fn>).mockResolvedValue(mockAnalyticsData);
+    (api.getActiveEntry as ReturnType<typeof vi.fn>).mockResolvedValue(null);
   });
 
   it('renders loading state initially', () => {
@@ -69,7 +72,8 @@ describe('Analytics', () => {
       expect(screen.getByText('Daily Breakdown')).toBeInTheDocument();
     });
     
-    expect(screen.getByText('Last 7 days')).toBeInTheDocument();
+    // Week view shows date range like "Jan 27 - Feb 2"
+    expect(screen.getByText(/\w+ \d+ - \w+ \d+/)).toBeInTheDocument();
   });
 
   it('shows weekly breakdown for month view', async () => {
@@ -86,7 +90,8 @@ describe('Analytics', () => {
       expect(screen.getByText('Weekly Breakdown')).toBeInTheDocument();
     });
     
-    expect(screen.getByText(/Last 30 days \(by week\)/i)).toBeInTheDocument();
+    // Month view shows month name like "February 2026"
+    expect(screen.getByText(/\w+ \d{4}/)).toBeInTheDocument();
   });
 
   it('shows weekly breakdown for quarter view', async () => {
@@ -102,7 +107,8 @@ describe('Analytics', () => {
       expect(screen.getByText('Weekly Breakdown')).toBeInTheDocument();
     });
     
-    expect(screen.getByText(/Last 3 months \(by week\)/i)).toBeInTheDocument();
+    // Quarter view shows "Q1 2026" format
+    expect(screen.getByText(/Q\d \d{4}/)).toBeInTheDocument();
   });
 
   it('shows monthly breakdown for year view', async () => {
@@ -118,7 +124,8 @@ describe('Analytics', () => {
       expect(screen.getByText('Monthly Breakdown')).toBeInTheDocument();
     });
     
-    expect(screen.getByText(/Last 12 months \(by month\)/i)).toBeInTheDocument();
+    // Year view shows just the year like "2026"
+    expect(screen.getByText(/^\d{4}$/)).toBeInTheDocument();
   });
 
   it('shows monthly breakdown for all time view', async () => {
