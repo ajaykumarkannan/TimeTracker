@@ -210,7 +210,10 @@ export function Analytics() {
       }
     }
     
-    let result = Array.from(buckets.values());
+    // Sort buckets by start date to ensure chronological order
+    let result = Array.from(buckets.values()).sort((a, b) => 
+      a.startDate.localeCompare(b.startDate)
+    );
     
     // For "all time" view, only show months with activity
     if (period === 'all') {

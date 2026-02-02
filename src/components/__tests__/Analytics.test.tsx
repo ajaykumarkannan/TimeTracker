@@ -169,3 +169,84 @@ describe('Analytics', () => {
     });
   });
 });
+
+
+// Test helper functions for week aggregation logic
+describe('Week Aggregation Logic', () => {
+  // Helper to get week start (Monday) - mirrors the component logic
+  const getWeekStart = (date: Date): Date => {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    d.setDate(diff);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  };
+
+  it('calculates correct week start for various days', () => {
+    // Monday Jan 5, 2026 - should return Jan 5
+    const monday = new Date('2026-01-05T12:00:00');
+    expect(getWeekStart(monday).toISOString().split('T')[0]).toBe('2026-01-05');
+
+    // Wednesday Jan 7, 2026 - should return Jan 5 (Monday)
+    const wednesday = new Date('2026-01-07T12:00:00');
+    expect(getWeekStart(wednesday).toISOString().split('T')[0]).toBe('2026-01-05');
+
+    // Sunday Jan 11, 2026 - should return Jan 5 (previous Monday)
+    const sunday = new Date('2026-01-11T12:00:00');
+    expect(getWeekStart(sunday).toISOString().split('T')[0]).toBe('2026-01-05');
+
+    // Saturday Jan 10, 2026 - should return Jan 5 (Monday)
+    const saturday = new Date('2026-01-10T12:00:00');
+    expect(getWeekStart(saturday).toISOString().split('T')[0]).toBe('2026-01-05');
+  });
+
+  it('handles month boundary correctly', () => {
+    // Saturday Jan 3, 2026 - week starts Dec 29, 2025
+    const jan3 = new Date('2026-01-03T12:00:00');
+    expect(getWeekStart(jan3).toISOString().split('T')[0]).toBe('2025-12-29');
+
+    // Monday Feb 2, 2026 - week starts Feb 2
+    const feb2 = new Date('2026-02-02T12:00:00');
+    expect(getWeekStart(feb2).toISOString().split('T')[0]).toBe('2026-02-02');
+  });
+
+  it('aggregates daily data into weeks correctly', () => {
+    // Simulate the aggregation logic
+    const dailyData = [
+      { date: '2026-01-27', minutes: 60 },  // Week of Jan 26
+      { date: '2026-01-28', minutes: 90 },  // Week of Jan 26
+      { date: '2026-02-02', minutes: 120 }, // Week of Feb 2
+      { date: '2026-02-03', minutes: 30 },  // Week of Feb 2
+    ];
+
+    const buckets = new Map<string, { minutes: number; label: string }>();
+
+    for (const day of dailyData) {
+      const date = new Date(day.date + 'T12:00:00');
+      const weekStart = getWeekStart(date);
+      const bucketKey = weekStart.toISOString().split('T')[0];
+
+      if (!buckets.has(bucketKey)) {
+        buckets.set(bucketKey, { minutes: 0, label: bucketKey });
+      }
+      buckets.get(bucketKey)!.minutes += day.minutes;
+    }
+
+    // Sort by start date
+    const result = Array.from(buckets.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+
+    expect(result).toHaveLength(2);
+    expect(result[0][0]).toBe('2026-01-26'); // First week
+    expect(result[0][1].minutes).toBe(150);  // 60 + 90
+    expect(result[1][0]).toBe('2026-02-02'); // Second week
+    expect(result[1][1].minutes).toBe(150);  // 120 + 30
+  });
+
+  it('sorts weeks chronologically', () => {
+    const weekKeys = ['2026-02-02', '2026-01-19', '2026-01-26', '2026-01-12'];
+    const sorted = weekKeys.sort((a, b) => a.localeCompare(b));
+    
+    expect(sorted).toEqual(['2026-01-12', '2026-01-19', '2026-01-26', '2026-02-02']);
+  });
+});

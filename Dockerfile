@@ -5,10 +5,10 @@ WORKDIR /app
 
 # Install dependencies first (cached unless package.json changes)
 COPY package*.json ./
-RUN npm ci
+RUN npm ci --include=dev
 
-# Copy config files
-COPY tsconfig*.json vite.config.ts ./
+# Copy config files (separate layer for better caching)
+COPY tsconfig*.json vite.config.ts eslint.config.js ./
 
 # Copy source files
 COPY server ./server
@@ -28,16 +28,14 @@ RUN addgroup -g 1001 -S chronoflow && \
 
 WORKDIR /app
 
-# Copy built files and package info
+# Copy package files first
+COPY package*.json ./
+
+# Install production dependencies only (separate from build deps)
+RUN npm ci --omit=dev && npm cache clean --force
+
+# Copy built files from builder
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/package*.json ./
-
-# Create a package.json for the server that uses CommonJS (no "type": "module")
-RUN node -e "const p=require('./package.json'); delete p.type; require('fs').writeFileSync('./dist/server/package.json', JSON.stringify({name:p.name,version:p.version,private:true}))"
-
-# Install production dependencies only
-RUN npm ci --omit=dev && \
-    npm cache clean --force
 
 # Create data directory with correct permissions
 RUN mkdir -p /app/data /app/logs && \
