@@ -7,6 +7,7 @@ import './TimeEntryList.css';
 interface Props {
   categories: Category[];
   onEntryChange: () => void;
+  refreshKey?: number;
 }
 
 type EditField = 'category' | 'description' | 'startTime' | 'endTime' | null;
@@ -22,7 +23,7 @@ interface ShortEntry {
   durationSeconds: number;
 }
 
-export function TimeEntryList({ categories, onEntryChange }: Props) {
+export function TimeEntryList({ categories, onEntryChange, refreshKey }: Props) {
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<number | null>(null);
@@ -86,6 +87,13 @@ export function TimeEntryList({ categories, onEntryChange }: Props) {
   useEffect(() => {
     loadEntries();
   }, [loadEntries]);
+
+  // Reload entries when parent signals a change via refreshKey
+  useEffect(() => {
+    if (refreshKey !== undefined && refreshKey > 0) {
+      loadEntries();
+    }
+  }, [refreshKey, loadEntries]);
 
   // Reload entries when onEntryChange is triggered externally
   const handleEntryChangeInternal = useCallback(async () => {
