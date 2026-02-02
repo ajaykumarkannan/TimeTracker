@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Category, TimeEntry } from '../types';
 import { api } from '../api';
 import { useTheme } from '../contexts/ThemeContext';
@@ -70,6 +70,196 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   const [switchTaskPrompt, setSwitchTaskPrompt] = useState<{ categoryId: number; categoryName: string; categoryColor: string | null } | null>(null);
   const [switchTaskName, setSwitchTaskName] = useState('');
   const [showPopOut, setShowPopOut] = useState(false);
+  
+  // Description suggestions state
+  const [suggestions, setSuggestions] = useState<{ description: string; categoryId: number; count: number; totalMinutes: number }[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
+  const descriptionInputRef = useRef<HTMLInputElement>(null);
+  const suggestionsRef = useRef<HTMLDivElement>(null);
+  
+  // Modal suggestions state (for task prompt and switch prompt)
+  const [modalSuggestions, setModalSuggestions] = useState<{ description: string; categoryId: number; count: number; totalMinutes: number }[]>([]);
+  const [showModalSuggestions, setShowModalSuggestions] = useState(false);
+  const [selectedModalSuggestionIndex, setSelectedModalSuggestionIndex] = useState(-1);
+  const modalInputRef = useRef<HTMLInputElement>(null);
+  const modalSuggestionsRef = useRef<HTMLDivElement>(null);
+
+  // Debounced fetch for suggestions
+  const fetchSuggestions = useCallback(async (categoryId: number | null, query: string) => {
+    try {
+      const results = await api.getDescriptionSuggestions(categoryId || undefined, query || undefined);
+      setSuggestions(results);
+      setShowSuggestions(results.length > 0);
+      setSelectedSuggestionIndex(-1);
+    } catch (error) {
+      console.error('Failed to fetch suggestions:', error);
+      setSuggestions([]);
+    }
+  }, []);
+  
+  // Fetch modal suggestions
+  const fetchModalSuggestions = useCallback(async (categoryId: number, query: string) => {
+    try {
+      const results = await api.getDescriptionSuggestions(categoryId, query || undefined);
+      setModalSuggestions(results);
+      setShowModalSuggestions(results.length > 0);
+      setSelectedModalSuggestionIndex(-1);
+    } catch (error) {
+      console.error('Failed to fetch modal suggestions:', error);
+      setModalSuggestions([]);
+    }
+  }, []);
+
+  // Fetch suggestions when category changes or description input changes
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (selectedCategory || description) {
+        fetchSuggestions(selectedCategory, description);
+      } else {
+        setSuggestions([]);
+        setShowSuggestions(false);
+      }
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [selectedCategory, description, fetchSuggestions]);
+  
+  // Fetch modal suggestions when task prompt is open
+  useEffect(() => {
+    if (!taskNamePrompt) {
+      setModalSuggestions([]);
+      setShowModalSuggestions(false);
+      return;
+    }
+    const timer = setTimeout(() => {
+      fetchModalSuggestions(taskNamePrompt.categoryId, promptedTaskName);
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [taskNamePrompt, promptedTaskName, fetchModalSuggestions]);
+  
+  // Fetch modal suggestions when switch prompt is open
+  useEffect(() => {
+    if (!switchTaskPrompt) return;
+    const timer = setTimeout(() => {
+      fetchModalSuggestions(switchTaskPrompt.categoryId, switchTaskName);
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [switchTaskPrompt, switchTaskName, fetchModalSuggestions]);
+
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        suggestionsRef.current && 
+        !suggestionsRef.current.contains(e.target as Node) &&
+        descriptionInputRef.current &&
+        !descriptionInputRef.current.contains(e.target as Node)
+      ) {
+        setShowSuggestions(false);
+      }
+      if (
+        modalSuggestionsRef.current && 
+        !modalSuggestionsRef.current.contains(e.target as Node) &&
+        modalInputRef.current &&
+        !modalInputRef.current.contains(e.target as Node)
+      ) {
+        setShowModalSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleSuggestionSelect = (suggestion: { description: string; categoryId: number }) => {
+    setDescription(suggestion.description);
+    if (!selectedCategory) {
+      setSelectedCategory(suggestion.categoryId);
+    }
+    setShowSuggestions(false);
+    descriptionInputRef.current?.focus();
+  };
+  
+  const handleModalSuggestionSelect = (suggestion: { description: string }, isSwitch: boolean) => {
+    if (isSwitch) {
+      setSwitchTaskName(suggestion.description);
+    } else {
+      setPromptedTaskName(suggestion.description);
+    }
+    setShowModalSuggestions(false);
+    modalInputRef.current?.focus();
+  };
+
+  const handleDescriptionKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!showSuggestions || suggestions.length === 0) {
+      if (e.key === 'Enter' && selectedCategory) {
+        handleStart();
+      }
+      return;
+    }
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setSelectedSuggestionIndex(prev => 
+          prev < suggestions.length - 1 ? prev + 1 : prev
+        );
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setSelectedSuggestionIndex(prev => prev > 0 ? prev - 1 : -1);
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (selectedSuggestionIndex >= 0) {
+          handleSuggestionSelect(suggestions[selectedSuggestionIndex]);
+        } else if (selectedCategory) {
+          handleStart();
+        }
+        break;
+      case 'Escape':
+        setShowSuggestions(false);
+        setSelectedSuggestionIndex(-1);
+        break;
+    }
+  };
+  
+  const handleModalKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, isSwitch: boolean, onSubmit: () => void, onCancel: () => void) => {
+    if (!showModalSuggestions || modalSuggestions.length === 0) {
+      if (e.key === 'Enter') onSubmit();
+      if (e.key === 'Escape') onCancel();
+      return;
+    }
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setSelectedModalSuggestionIndex(prev => 
+          prev < modalSuggestions.length - 1 ? prev + 1 : prev
+        );
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setSelectedModalSuggestionIndex(prev => prev > 0 ? prev - 1 : -1);
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (selectedModalSuggestionIndex >= 0) {
+          handleModalSuggestionSelect(modalSuggestions[selectedModalSuggestionIndex], isSwitch);
+        } else {
+          onSubmit();
+        }
+        break;
+      case 'Escape':
+        if (showModalSuggestions) {
+          e.preventDefault();
+          setShowModalSuggestions(false);
+          setSelectedModalSuggestionIndex(-1);
+        } else {
+          onCancel();
+        }
+        break;
+    }
+  };
 
   // Get recent tasks from entries (unique description + category combinations)
   const recentTasks = useMemo((): RecentTask[] => {
@@ -567,17 +757,43 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
 
               <div className="form-group form-group-description">
                 <label>Description <span className="optional">(optional)</span></label>
-                <input 
-                  type="text"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && selectedCategory) {
-                      handleStart();
-                    }
-                  }}
-                  placeholder="What are you working on?"
-                />
+                <div className="description-input-wrapper">
+                  <input 
+                    ref={descriptionInputRef}
+                    type="text"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    onFocus={() => {
+                      if (suggestions.length > 0) setShowSuggestions(true);
+                    }}
+                    onKeyDown={handleDescriptionKeyDown}
+                    placeholder="What are you working on?"
+                    autoComplete="off"
+                  />
+                  {showSuggestions && suggestions.length > 0 && (
+                    <div className="description-suggestions" ref={suggestionsRef}>
+                      {suggestions.map((suggestion, idx) => {
+                        const cat = categories.find(c => c.id === suggestion.categoryId);
+                        const colors = getCategoryColors(cat?.color || null);
+                        return (
+                          <button
+                            key={`${suggestion.categoryId}-${suggestion.description}`}
+                            className={`suggestion-item ${idx === selectedSuggestionIndex ? 'selected' : ''}`}
+                            onClick={() => handleSuggestionSelect(suggestion)}
+                            onMouseEnter={() => setSelectedSuggestionIndex(idx)}
+                          >
+                            <span className="suggestion-text">{suggestion.description}</span>
+                            <span className="suggestion-meta">
+                              <span className="category-dot" style={{ backgroundColor: colors.dotColor }} />
+                              <span className="suggestion-category">{cat?.name || 'Unknown'}</span>
+                              <span className="suggestion-count">×{suggestion.count}</span>
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="form-group form-group-action">

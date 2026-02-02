@@ -395,6 +395,52 @@ router.delete('/:id', (req: AuthRequest, res: Response) => {
   }
 });
 
+// Get description suggestions based on history
+router.get('/suggestions', (req: AuthRequest, res: Response) => {
+  try {
+    const db = getDb();
+    const categoryId = req.query.categoryId ? parseInt(req.query.categoryId as string) : null;
+    const query = (req.query.q as string || '').toLowerCase().trim();
+    const limit = Math.min(parseInt(req.query.limit as string) || 8, 20);
+
+    let sql = `
+      SELECT description, category_id, COUNT(*) as count, SUM(duration_minutes) as total_minutes
+      FROM time_entries
+      WHERE user_id = ? AND description IS NOT NULL AND description != ''
+    `;
+    const params: (number | string)[] = [req.userId as number];
+
+    if (categoryId) {
+      sql += ` AND category_id = ?`;
+      params.push(categoryId);
+    }
+
+    if (query) {
+      sql += ` AND LOWER(description) LIKE ?`;
+      params.push(`%${query}%`);
+    }
+
+    sql += ` GROUP BY description, category_id ORDER BY count DESC, total_minutes DESC LIMIT ?`;
+    params.push(limit);
+
+    const result = db.exec(sql, params);
+
+    const suggestions = result.length > 0
+      ? result[0].values.map(row => ({
+          description: row[0] as string,
+          categoryId: row[1] as number,
+          count: row[2] as number,
+          totalMinutes: row[3] as number
+        }))
+      : [];
+
+    res.json(suggestions);
+  } catch (error) {
+    logger.error('Error fetching description suggestions', { error, userId: req.userId as number });
+    res.status(500).json({ error: 'Failed to fetch suggestions' });
+  }
+});
+
 // Delete all entries for a specific date
 router.delete('/by-date/:date', (req: AuthRequest, res: Response) => {
   try {

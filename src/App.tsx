@@ -56,13 +56,13 @@ function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLoggedIn: bo
 
   const loadData = async () => {
     try {
-      const [cats, ents, active] = await Promise.all([
+      const [cats, recentEnts, active] = await Promise.all([
         api.getCategories(),
-        api.getTimeEntries(),
+        api.getRecentEntries(20), // Only load recent entries for quick-start suggestions
         api.getActiveEntry()
       ]);
       setCategories(cats);
-      setEntries(ents);
+      setEntries(recentEnts);
       setActiveEntry(active);
     } catch (error) {
       console.error('Failed to load data:', error);
@@ -75,11 +75,11 @@ function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLoggedIn: bo
   };
 
   const handleEntryChange = async () => {
-    const [ents, active] = await Promise.all([
-      api.getTimeEntries(),
+    const [recentEnts, active] = await Promise.all([
+      api.getRecentEntries(20),
       api.getActiveEntry()
     ]);
-    setEntries(ents);
+    setEntries(recentEnts);
     setActiveEntry(active);
   };
 
@@ -206,7 +206,6 @@ function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLoggedIn: bo
               onCategoryChange={handleCategoryChange}
             />
             <TimeEntryList
-              entries={entries}
               categories={categories}
               onEntryChange={handleEntryChange}
             />

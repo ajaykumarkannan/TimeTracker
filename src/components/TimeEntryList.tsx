@@ -1,10 +1,9 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { TimeEntry, Category } from '../types';
 import { api } from '../api';
 import './TimeEntryList.css';
 
 interface Props {
-  entries: TimeEntry[];
   categories: Category[];
   onEntryChange: () => void;
 }
@@ -22,7 +21,9 @@ interface ShortEntry {
   durationSeconds: number;
 }
 
-export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
+export function TimeEntryList({ categories, onEntryChange }: Props) {
+  const [entries, setEntries] = useState<TimeEntry[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<number | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editField, setEditField] = useState<EditField>(null);
@@ -34,10 +35,21 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
   // Filter state
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<number | 'all'>('all');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
   const [showFilters, setShowFilters] = useState(false);
-  const [activePreset, setActivePreset] = useState<'today' | 'week' | 'month' | 'all' | null>(null);
+  const [activePreset, setActivePreset] = useState<'today' | 'week' | 'month' | 'all' | null>('week');
+  
+  // Initialize date filters to "This Week" on mount
+  const [dateFrom, setDateFrom] = useState(() => {
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+    const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    const fromDate = new Date(today.getFullYear(), today.getMonth(), today.getDate() - diff);
+    return `${fromDate.getFullYear()}-${String(fromDate.getMonth() + 1).padStart(2, '0')}-${String(fromDate.getDate()).padStart(2, '0')}`;
+  });
+  const [dateTo, setDateTo] = useState(() => {
+    const today = new Date();
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  });
   
   // Manual entry form state
   const [showManualEntry, setShowManualEntry] = useState(false);
@@ -54,6 +66,31 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
   const [showCleanupBanner, setShowCleanupBanner] = useState(true);
   const [dismissedMerges, setDismissedMerges] = useState<Set<string>>(new Set());
   const [dismissedShortEntries, setDismissedShortEntries] = useState<Set<number>>(new Set());
+
+  // Load entries based on date filter
+  const loadEntries = useCallback(async () => {
+    setLoading(true);
+    try {
+      const startDate = dateFrom ? `${dateFrom}T00:00:00.000Z` : undefined;
+      const endDate = dateTo ? `${dateTo}T23:59:59.999Z` : undefined;
+      const data = await api.getTimeEntries(startDate, endDate);
+      setEntries(data);
+    } catch (error) {
+      console.error('Failed to load entries:', error);
+    }
+    setLoading(false);
+  }, [dateFrom, dateTo]);
+
+  // Load entries when date filter changes
+  useEffect(() => {
+    loadEntries();
+  }, [loadEntries]);
+
+  // Reload entries when onEntryChange is triggered externally
+  const handleEntryChangeInternal = useCallback(async () => {
+    await loadEntries();
+    handleEntryChangeInternal();
+  }, [loadEntries, onEntryChange]);
 
   // Detect back-to-back entries that can be merged (same category + note, consecutive)
   const mergeCandidates = useMemo((): MergeCandidate[] => {
@@ -314,7 +351,7 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
     try {
       await api.createManualEntry(manualCategory as number, start.toISOString(), end.toISOString(), manualDescription || undefined);
       closeManualEntry();
-      onEntryChange();
+      handleEntryChangeInternal();
     } catch (error) {
       setManualError('Failed to create entry. Please try again.');
       console.error('Failed to create manual entry:', error);
@@ -341,7 +378,7 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
       });
       setEditingId(null);
       setEditField(null);
-      onEntryChange();
+      handleEntryChangeInternal();
     } catch (error) {
       console.error('Failed to update entry:', error);
     }
@@ -365,7 +402,7 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
     if (!confirm('Delete this time entry?')) return;
     try {
       await api.deleteEntry(id);
-      onEntryChange();
+      handleEntryChangeInternal();
     } catch (error) {
       console.error('Failed to delete entry:', error);
     }
@@ -392,7 +429,7 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
         await api.deleteEntry(sorted[i].id);
       }
       
-      onEntryChange();
+      handleEntryChangeInternal();
     } catch (error) {
       console.error('Failed to merge entries:', error);
     }
@@ -406,7 +443,7 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
   const handleDeleteShortEntry = async (entry: TimeEntry) => {
     try {
       await api.deleteEntry(entry.id);
-      onEntryChange();
+      handleEntryChangeInternal();
     } catch (error) {
       console.error('Failed to delete entry:', error);
     }
@@ -433,7 +470,7 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
     
     try {
       await api.deleteEntriesByDate(dateStr);
-      onEntryChange();
+      handleEntryChangeInternal();
     } catch (error) {
       console.error('Failed to delete entries:', error);
       alert('Failed to delete entries. Please try again.');
@@ -453,7 +490,7 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
         console.error('Failed to delete entry:', error);
       }
     }
-    onEntryChange();
+    handleEntryChangeInternal();
   };
 
   const formatTime = (dateStr: string) => {
@@ -708,7 +745,12 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
         </div>
       )}
 
-      {entries.length === 0 ? (
+      {loading ? (
+        <div className="empty-state">
+          <div className="loading-spinner" />
+          <p>Loading entries...</p>
+        </div>
+      ) : entries.length === 0 ? (
         <div className="empty-state">
           <div className="empty-icon">📊</div>
           <p>No entries yet</p>

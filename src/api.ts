@@ -175,9 +175,29 @@ export const api = {
   },
 
   // Time entries
-  async getTimeEntries(): Promise<TimeEntry[]> {
-    const res = await apiFetch(`${API_BASE}/time-entries`);
+  async getTimeEntries(startDate?: string, endDate?: string): Promise<TimeEntry[]> {
+    const params = new URLSearchParams();
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+    const queryString = params.toString();
+    const url = queryString ? `${API_BASE}/time-entries?${queryString}` : `${API_BASE}/time-entries`;
+    const res = await apiFetch(url);
     if (!res.ok) throw new Error('Failed to fetch time entries');
+    return res.json();
+  },
+
+  async getRecentEntries(limit: number = 20): Promise<TimeEntry[]> {
+    const res = await apiFetch(`${API_BASE}/time-entries?limit=${limit}`);
+    if (!res.ok) throw new Error('Failed to fetch recent entries');
+    return res.json();
+  },
+
+  async getDescriptionSuggestions(categoryId?: number, query?: string): Promise<{ description: string; categoryId: number; count: number; totalMinutes: number }[]> {
+    const params = new URLSearchParams();
+    if (categoryId) params.set('categoryId', categoryId.toString());
+    if (query) params.set('q', query);
+    const res = await apiFetch(`${API_BASE}/time-entries/suggestions?${params}`);
+    if (!res.ok) throw new Error('Failed to fetch suggestions');
     return res.json();
   },
 

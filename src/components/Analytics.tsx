@@ -47,6 +47,7 @@ export function Analytics() {
   // All descriptions state (paginated)
   const [descriptions, setDescriptions] = useState<DescriptionsPaginated | null>(null);
   const [descriptionsPage, setDescriptionsPage] = useState(1);
+  const [descriptionsPageSize, setDescriptionsPageSize] = useState(10);
   const [descriptionsLoading, setDescriptionsLoading] = useState(false);
 
   // Close menus when clicking outside
@@ -286,7 +287,7 @@ export function Analytics() {
       setDescriptionsLoading(true);
       try {
         const { start, end } = getDateRange(period, periodOffset);
-        const result = await api.getDescriptions(start.toISOString(), end.toISOString(), descriptionsPage, 20);
+        const result = await api.getDescriptions(start.toISOString(), end.toISOString(), descriptionsPage, descriptionsPageSize);
         setDescriptions(result);
       } catch (error) {
         console.error('Failed to load descriptions:', error);
@@ -295,7 +296,7 @@ export function Analytics() {
     };
 
     loadDescriptions();
-  }, [data, descriptionsPage, period, periodOffset]);
+  }, [data, descriptionsPage, descriptionsPageSize, period, periodOffset]);
 
   // Load category drilldown when a category is selected
   useEffect(() => {
@@ -840,34 +841,41 @@ export function Analytics() {
               <div className="top-tasks">
                 {descriptions.descriptions.map((item, i) => (
                   <div key={i} className="task-row">
-                    <span className="task-rank">#{(descriptionsPage - 1) * 20 + i + 1}</span>
+                    <span className="task-rank">#{(descriptionsPage - 1) * descriptionsPageSize + i + 1}</span>
                     <span className="task-name">{item.description}</span>
                     <span className="task-count">{item.count}×</span>
                     <span className="task-time">{formatDuration(item.total_minutes)}</span>
                   </div>
                 ))}
               </div>
-              {descriptions.pagination.totalPages > 1 && (
-                <div className="pagination">
-                  <button 
-                    className="pagination-btn" 
-                    disabled={descriptionsPage === 1}
-                    onClick={() => setDescriptionsPage(p => p - 1)}
-                  >
-                    Previous
-                  </button>
-                  <span className="pagination-info">
-                    Page {descriptions.pagination.page} of {descriptions.pagination.totalPages}
-                  </span>
-                  <button 
-                    className="pagination-btn" 
-                    disabled={descriptionsPage >= descriptions.pagination.totalPages}
-                    onClick={() => setDescriptionsPage(p => p + 1)}
-                  >
-                    Next
-                  </button>
-                </div>
-              )}
+              <div className="pagination">
+                <button 
+                  className="pagination-btn" 
+                  disabled={descriptionsPage === 1}
+                  onClick={() => setDescriptionsPage(p => p - 1)}
+                >
+                  Previous
+                </button>
+                <span className="pagination-info">
+                  Page {descriptions.pagination.page} of {descriptions.pagination.totalPages}
+                </span>
+                <button 
+                  className="pagination-btn" 
+                  disabled={descriptionsPage >= descriptions.pagination.totalPages}
+                  onClick={() => setDescriptionsPage(p => p + 1)}
+                >
+                  Next
+                </button>
+                <select 
+                  className="page-size-select"
+                  value={descriptionsPageSize}
+                  onChange={(e) => { setDescriptionsPageSize(Number(e.target.value)); setDescriptionsPage(1); }}
+                >
+                  <option value={10}>10 per page</option>
+                  <option value={20}>20 per page</option>
+                  <option value={50}>50 per page</option>
+                </select>
+              </div>
             </>
           )}
         </div>
