@@ -1,4 +1,4 @@
-import { Category, TimeEntry, AnalyticsData, AuthResponse, User } from './types';
+import { Category, TimeEntry, AnalyticsData, AuthResponse, User, ColumnMapping, ImportEntry, CSVPreviewResponse, UserSettings } from './types';
 
 const API_BASE = '/api';
 
@@ -260,14 +260,45 @@ export const api = {
     return res.text();
   },
 
-  async importCSV(csv: string): Promise<{ imported: number; skipped: number; errors: string[] }> {
+  async importCSV(csv: string, columnMapping?: ColumnMapping, entries?: ImportEntry[]): Promise<{ imported: number; skipped: number; errors: string[] }> {
     const res = await apiFetch(`${API_BASE}/export/csv`, {
       method: 'POST',
-      body: JSON.stringify({ csv })
+      body: JSON.stringify({ csv, columnMapping, entries })
     });
     if (!res.ok) {
       const error = await res.json();
       throw new Error(error.error || 'Failed to import CSV');
+    }
+    return res.json();
+  },
+
+  async previewCSV(csv: string, columnMapping?: ColumnMapping): Promise<CSVPreviewResponse> {
+    const res = await apiFetch(`${API_BASE}/export/csv/preview`, {
+      method: 'POST',
+      body: JSON.stringify({ csv, columnMapping })
+    });
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || 'Failed to preview CSV');
+    }
+    return res.json();
+  },
+
+  // Settings
+  async getSettings(): Promise<UserSettings> {
+    const res = await apiFetch(`${API_BASE}/settings`);
+    if (!res.ok) throw new Error('Failed to fetch settings');
+    return res.json();
+  },
+
+  async updateSettings(settings: Partial<UserSettings>): Promise<UserSettings> {
+    const res = await apiFetch(`${API_BASE}/settings`, {
+      method: 'PUT',
+      body: JSON.stringify(settings)
+    });
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || 'Failed to update settings');
     }
     return res.json();
   },

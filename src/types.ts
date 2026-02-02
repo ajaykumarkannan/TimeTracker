@@ -74,3 +74,41 @@ export interface ExportData {
   categories: Category[];
   timeEntries: TimeEntry[];
 }
+
+export interface ColumnMapping {
+  category?: number;
+  color?: number;
+  note?: number;
+  startTime?: number;
+  endTime?: number;
+  duration?: number;
+}
+
+export interface ImportEntry {
+  rowIndex: number;
+  category: string;
+  color: string | null;
+  note: string | null;
+  startTime: string;
+  endTime: string | null;
+  duration: number | null;
+  isNewCategory?: boolean;
+  error: string | null;
+  skip?: boolean;
+}
+
+export interface CSVPreviewResponse {
+  headers?: string[];
+  rowCount?: number;
+  suggestedMapping?: ColumnMapping;
+  preview?: string[][];
+  entries?: ImportEntry[];
+  newCategories?: string[];
+  existingCategories?: string[];
+  validCount?: number;
+  errorCount?: number;
+}
+
+export interface UserSettings {
+  timezone: string;
+}
