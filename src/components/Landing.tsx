@@ -29,14 +29,23 @@ export function Landing({ onLogin, onGuest }: Props) {
             Simple, beautiful time tracking that helps you understand where your hours go.
             Stay focused, measure progress, and take control of your workday.
           </p>
-          
-          <div className="hero-actions">
-            <button className="btn btn-primary btn-lg" onClick={onLogin}>
-              Get Started Free
-            </button>
-            <button className="btn btn-outline btn-lg" onClick={onGuest}>
-              Continue as Guest
-            </button>
+        </div>
+
+        <div className="modes-section">
+          <h2>Choose Your Mode</h2>
+          <div className="modes-grid">
+            <div className="mode-card">
+              <div className="mode-icon">☁️</div>
+              <h3>With Account</h3>
+              <p>Create an account to sync your data across devices and never lose your tracking history.</p>
+              <button className="btn btn-primary" onClick={onLogin}>Sign Up / Login</button>
+            </div>
+            <div className="mode-card">
+              <div className="mode-icon">👤</div>
+              <h3>Guest Mode</h3>
+              <p>Start tracking immediately. Your data is saved on the server and you can create an account later.</p>
+              <button className="btn btn-outline" onClick={onGuest}>Continue as Guest</button>
+            </div>
           </div>
         </div>
 
@@ -60,24 +69,6 @@ export function Landing({ onLogin, onGuest }: Props) {
             <div className="feature-icon">🌙</div>
             <h3>Dark Mode</h3>
             <p>Easy on the eyes with automatic light and dark theme support.</p>
-          </div>
-        </div>
-
-        <div className="modes-section">
-          <h2>Choose Your Mode</h2>
-          <div className="modes-grid">
-            <div className="mode-card">
-              <div className="mode-icon">☁️</div>
-              <h3>With Account</h3>
-              <p>Create an account to sync your data across devices and never lose your tracking history.</p>
-              <button className="btn btn-primary" onClick={onLogin}>Sign Up / Login</button>
-            </div>
-            <div className="mode-card">
-              <div className="mode-icon">👤</div>
-              <h3>Guest Mode</h3>
-              <p>Start tracking immediately. Your data is saved on the server and you can create an account later.</p>
-              <button className="btn btn-outline" onClick={onGuest}>Continue as Guest</button>
-            </div>
           </div>
         </div>
       </main>
