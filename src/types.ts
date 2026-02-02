@@ -25,7 +25,7 @@ export interface TimeEntry {
   category_id: number;
   category_name: string;
   category_color: string | null;
-  note: string | null;
+  description: string | null;
   start_time: string;
   end_time: string | null;
   duration_minutes: number | null;
@@ -46,7 +46,7 @@ export interface DailyTotal {
 }
 
 export interface TopNote {
-  note: string;
+  description: string;
   count: number;
   total_minutes: number;
 }
@@ -78,7 +78,7 @@ export interface ExportData {
 export interface ColumnMapping {
   category?: number;
   color?: number;
-  note?: number;
+  description?: number;
   startTime?: number;
   endTime?: number;
 }
@@ -87,7 +87,7 @@ export interface ImportEntry {
   rowIndex: number;
   category: string;
   color: string | null;
-  note: string | null;
+  description: string | null;
   startTime: string;
   endTime: string | null;
   duration: number | null; // Calculated for display only, not stored

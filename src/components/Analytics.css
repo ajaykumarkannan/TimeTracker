@@ -260,7 +260,7 @@
   flex-shrink: 0;
 }
 
-.active-task-note {
+.active-task-description {
   font-size: 0.875rem;
   color: var(--text-primary);
   overflow: hidden;

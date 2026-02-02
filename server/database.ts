@@ -135,7 +135,7 @@ export interface TimeEntry {
   id: number;
   user_id: number;
   category_id: number;
-  note: string | null;
+  description: string | null;
   start_time: string;
   end_time: string | null;
   duration_minutes: number | null; // Cached value, computed from start_time and end_time

@@ -474,7 +474,7 @@
   flex-shrink: 0;
 }
 
-.entry-note {
+.entry-description {
   font-size: 0.8125rem;
   color: var(--text-secondary);
   overflow: hidden;
@@ -734,7 +734,7 @@
   white-space: nowrap;
 }
 
-.cleanup-note {
+.cleanup-description {
   color: var(--text-secondary);
 }
 

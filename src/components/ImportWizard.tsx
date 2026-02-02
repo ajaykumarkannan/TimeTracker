@@ -12,14 +12,16 @@ interface Props {
 type Step = 'mapping' | 'preview' | 'importing';
 
 const REQUIRED_FIELDS = ['category', 'startTime'] as const;
-const OPTIONAL_FIELDS = ['note', 'endTime', 'color'] as const;
-const ALL_FIELDS = [...REQUIRED_FIELDS, ...OPTIONAL_FIELDS] as const;
+const OPTIONAL_FIELDS = ['description', 'endTime', 'color'] as const;
+
+// Field display order for the mapping grid (row 1: category, start, offset; row 2: description, end, color)
+const MAPPING_FIELD_ORDER = ['category', 'startTime', 'description', 'endTime', 'color'] as const;
 
 const FIELD_LABELS: Record<string, string> = {
   category: 'Category',
   startTime: 'Start Time',
   endTime: 'End Time',
-  note: 'Note',
+  description: 'Description',
   color: 'Color (optional)'
 };
 
@@ -221,23 +223,31 @@ export function ImportWizard({ csv, onClose, onSuccess }: Props) {
             </p>
 
             <div className="mapping-grid">
-              {ALL_FIELDS.map(field => (
-                <div key={field} className="mapping-row">
-                  <label className={REQUIRED_FIELDS.includes(field as typeof REQUIRED_FIELDS[number]) ? 'required' : ''}>
-                    {FIELD_LABELS[field]}
-                  </label>
-                  <select
-                    value={mapping[field as keyof ColumnMapping] ?? ''}
-                    onChange={e => handleMappingChange(field, e.target.value ? parseInt(e.target.value) : undefined)}
-                  >
-                    <option value="">— Not mapped —</option>
-                    {headers.map((header, i) => (
-                      <option key={i} value={i}>{header}</option>
-                    ))}
-                  </select>
-                </div>
-              ))}
-              
+              {/* Row 1: Category, Start Time, Time Offset */}
+              <div className="mapping-row">
+                <label className="required">{FIELD_LABELS['category']}</label>
+                <select
+                  value={mapping['category'] ?? ''}
+                  onChange={e => handleMappingChange('category', e.target.value ? parseInt(e.target.value) : undefined)}
+                >
+                  <option value="">— Not mapped —</option>
+                  {headers.map((header, i) => (
+                    <option key={i} value={i}>{header}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="mapping-row">
+                <label className="required">{FIELD_LABELS['startTime']}</label>
+                <select
+                  value={mapping['startTime'] ?? ''}
+                  onChange={e => handleMappingChange('startTime', e.target.value ? parseInt(e.target.value) : undefined)}
+                >
+                  <option value="">— Not mapped —</option>
+                  {headers.map((header, i) => (
+                    <option key={i} value={i}>{header}</option>
+                  ))}
+                </select>
+              </div>
               <div className="mapping-row">
                 <label>Time Offset</label>
                 <select
@@ -246,6 +256,44 @@ export function ImportWizard({ csv, onClose, onSuccess }: Props) {
                 >
                   {TIMEZONE_OFFSETS.map(tz => (
                     <option key={tz.value} value={tz.value}>{tz.label}</option>
+                  ))}
+                </select>
+              </div>
+              
+              {/* Row 2: Description, End Time, Color */}
+              <div className="mapping-row">
+                <label>{FIELD_LABELS['description']}</label>
+                <select
+                  value={mapping['description'] ?? ''}
+                  onChange={e => handleMappingChange('description', e.target.value ? parseInt(e.target.value) : undefined)}
+                >
+                  <option value="">— Not mapped —</option>
+                  {headers.map((header, i) => (
+                    <option key={i} value={i}>{header}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="mapping-row">
+                <label>{FIELD_LABELS['endTime']}</label>
+                <select
+                  value={mapping['endTime'] ?? ''}
+                  onChange={e => handleMappingChange('endTime', e.target.value ? parseInt(e.target.value) : undefined)}
+                >
+                  <option value="">— Not mapped —</option>
+                  {headers.map((header, i) => (
+                    <option key={i} value={i}>{header}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="mapping-row">
+                <label>{FIELD_LABELS['color']}</label>
+                <select
+                  value={mapping['color'] ?? ''}
+                  onChange={e => handleMappingChange('color', e.target.value ? parseInt(e.target.value) : undefined)}
+                >
+                  <option value="">— Not mapped —</option>
+                  {headers.map((header, i) => (
+                    <option key={i} value={i}>{header}</option>
                   ))}
                 </select>
               </div>
@@ -320,7 +368,7 @@ export function ImportWizard({ csv, onClose, onSuccess }: Props) {
                   <tr>
                     <th className="col-skip">Skip</th>
                     <th className="col-category">Category</th>
-                    <th className="col-note">Note</th>
+                    <th className="col-description">Description</th>
                     <th className="col-start">Start</th>
                     <th className="col-end">End</th>
                     <th className="col-duration">Duration</th>
@@ -346,11 +394,11 @@ export function ImportWizard({ csv, onClose, onSuccess }: Props) {
                         />
                         {entry.isNewCategory && <span className="new-badge">new</span>}
                       </td>
-                      <td className="col-note">
+                      <td className="col-description">
                         <input
                           type="text"
-                          value={entry.note || ''}
-                          onChange={e => handleEntryChange(i, 'note', e.target.value || null)}
+                          value={entry.description || ''}
+                          onChange={e => handleEntryChange(i, 'description', e.target.value || null)}
                           disabled={entry.skip}
                           placeholder="—"
                         />

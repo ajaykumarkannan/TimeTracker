@@ -84,19 +84,19 @@ router.get('/', (req: AuthRequest, res: Response) => {
         }))
       : [];
 
-    // Get top notes
-    const notesResult = db.exec(`
-      SELECT note, COUNT(*) as count, COALESCE(SUM(duration_minutes), 0) as total_minutes
+    // Get top descriptions
+    const descriptionsResult = db.exec(`
+      SELECT description, COUNT(*) as count, COALESCE(SUM(duration_minutes), 0) as total_minutes
       FROM time_entries
-      WHERE user_id = ? AND start_time >= ? AND start_time < ? AND note IS NOT NULL AND note != ''
-      GROUP BY note
+      WHERE user_id = ? AND start_time >= ? AND start_time < ? AND description IS NOT NULL AND description != ''
+      GROUP BY description
       ORDER BY count DESC
       LIMIT 10
     `, [userId, start, end]);
 
-    const topNotes = notesResult.length > 0
-      ? notesResult[0].values.map(row => ({
-          note: row[0] as string,
+    const topNotes = descriptionsResult.length > 0
+      ? descriptionsResult[0].values.map(row => ({
+          description: row[0] as string,
           count: row[1] as number,
           total_minutes: row[2] as number
         }))

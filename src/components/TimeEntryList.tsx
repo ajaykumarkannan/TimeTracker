@@ -9,12 +9,12 @@ interface Props {
   onEntryChange: () => void;
 }
 
-type EditField = 'category' | 'note' | 'startTime' | 'endTime' | null;
+type EditField = 'category' | 'description' | 'startTime' | 'endTime' | null;
 
 interface MergeCandidate {
   entries: TimeEntry[];
   categoryName: string;
-  note: string | null;
+  description: string | null;
 }
 
 interface ShortEntry {
@@ -27,7 +27,7 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editField, setEditField] = useState<EditField>(null);
   const [editCategory, setEditCategory] = useState<number>(0);
-  const [editNote, setEditNote] = useState<string>('');
+  const [editDescription, setEditDescription] = useState<string>('');
   const [editStartTime, setEditStartTime] = useState<string>('');
   const [editEndTime, setEditEndTime] = useState<string>('');
   
@@ -41,7 +41,7 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
   // Manual entry form state
   const [showManualEntry, setShowManualEntry] = useState(false);
   const [manualCategory, setManualCategory] = useState<number | ''>('');
-  const [manualNote, setManualNote] = useState('');
+  const [manualDescription, setManualDescription] = useState('');
   const [manualStartDate, setManualStartDate] = useState('');
   const [manualStartTime, setManualStartTime] = useState('');
   const [manualEndDate, setManualEndDate] = useState('');
@@ -73,8 +73,8 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
         const next = sorted[j];
         const prev = group[group.length - 1];
         
-        // Check if same category and note
-        if (next.category_id !== current.category_id || next.note !== current.note) break;
+        // Check if same category and description
+        if (next.category_id !== current.category_id || next.description !== current.description) break;
         
         // Check if back-to-back (within 1 minute gap)
         const prevEnd = new Date(prev.end_time!).getTime();
@@ -93,7 +93,7 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
           candidates.push({
             entries: group,
             categoryName: current.category_name,
-            note: current.note
+            description: current.description
           });
         }
       }
@@ -158,12 +158,12 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
   // Filter entries based on search, category, and date range
   const filteredEntries = useMemo(() => {
     return entries.filter(entry => {
-      // Search filter (note and category name)
+      // Search filter (description and category name)
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
-        const matchesNote = entry.note?.toLowerCase().includes(query);
+        const matchesDescription = entry.description?.toLowerCase().includes(query);
         const matchesCategory = entry.category_name.toLowerCase().includes(query);
-        if (!matchesNote && !matchesCategory) return false;
+        if (!matchesDescription && !matchesCategory) return false;
       }
       
       // Category filter
@@ -209,7 +209,7 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
     setEditingId(entry.id);
     setEditField(field);
     setEditCategory(entry.category_id);
-    setEditNote(entry.note || '');
+    setEditDescription(entry.description || '');
     setEditStartTime(formatDateTimeLocal(entry.start_time));
     setEditEndTime(entry.end_time ? formatDateTimeLocal(entry.end_time) : '');
   };
@@ -247,7 +247,7 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
     setManualEndDate(formatDateOnly(now.toISOString()));
     setManualEndTime(formatTimeOnly(now.toISOString()));
     setManualCategory('');
-    setManualNote('');
+    setManualDescription('');
     setManualError('');
     setShowManualEntry(true);
   };
@@ -275,7 +275,7 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
     setIsSubmitting(true);
     setManualError('');
     try {
-      await api.createManualEntry(manualCategory as number, start.toISOString(), end.toISOString(), manualNote || undefined);
+      await api.createManualEntry(manualCategory as number, start.toISOString(), end.toISOString(), manualDescription || undefined);
       closeManualEntry();
       onEntryChange();
     } catch (error) {
@@ -298,7 +298,7 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
     try {
       await api.updateEntry(entryId, {
         category_id: editCategory,
-        note: editNote || null,
+        description: editDescription || null,
         start_time: newStart,
         end_time: newEnd
       });
@@ -345,7 +345,7 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
       // Update the first entry to span the entire range
       await api.updateEntry(first.id, {
         category_id: first.category_id,
-        note: first.note,
+        description: first.description,
         start_time: first.start_time,
         end_time: last.end_time
       });
@@ -503,8 +503,8 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
                 </select>
               </div>
               <div className="form-group">
-                <label>Note <span className="optional">(optional)</span></label>
-                <input type="text" value={manualNote} onChange={(e) => setManualNote(e.target.value)} placeholder="What were you working on?" />
+                <label>Description <span className="optional">(optional)</span></label>
+                <input type="text" value={manualDescription} onChange={(e) => setManualDescription(e.target.value)} placeholder="What were you working on?" />
               </div>
               <div className="form-row-datetime">
                 <div className="form-group">
@@ -545,7 +545,7 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
               <input
                 type="text"
                 className="filter-input search-input"
-                placeholder="Search notes & categories..."
+                placeholder="Search descriptions & categories..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -614,7 +614,7 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
                   <span className="cleanup-item-icon">🔗</span>
                   <span className="cleanup-item-text">
                     Merge {candidate.entries.length} consecutive "{candidate.categoryName}" entries
-                    {candidate.note && <span className="cleanup-note"> ({candidate.note})</span>}
+                    {candidate.description && <span className="cleanup-description"> ({candidate.description})</span>}
                     <span className="cleanup-duration"> — {formatDuration(totalMinutes)} total</span>
                   </span>
                 </div>
@@ -632,7 +632,7 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
                 <span className="cleanup-item-icon">⏱️</span>
                 <span className="cleanup-item-text">
                   Short entry: "{entry.category_name}"
-                  {entry.note && <span className="cleanup-note"> ({entry.note})</span>}
+                  {entry.description && <span className="cleanup-description"> ({entry.description})</span>}
                   <span className="cleanup-duration"> — {durationSeconds}s</span>
                 </span>
               </div>
@@ -717,24 +717,24 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
                               {entry.category_name}
                             </span>
                           )}
-                          {isEditing && editField === 'note' ? (
+                          {isEditing && editField === 'description' ? (
                             <input
                               type="text"
                               className="inline-edit-input"
-                              value={editNote}
-                              onChange={(e) => setEditNote(e.target.value)}
+                              value={editDescription}
+                              onChange={(e) => setEditDescription(e.target.value)}
                               onBlur={() => handleSave(entry.id)}
                               onKeyDown={(e) => handleKeyDown(e, entry.id)}
-                              placeholder="Add a note..."
+                              placeholder="Add a description..."
                               autoFocus
                               onClick={(e) => e.stopPropagation()}
                             />
                           ) : (
                             <span 
-                              className="entry-note editable"
-                              onDoubleClick={(e) => { e.stopPropagation(); startEdit(entry, 'note'); }}
+                              className="entry-description editable"
+                              onDoubleClick={(e) => { e.stopPropagation(); startEdit(entry, 'description'); }}
                             >
-                              {entry.note || '—'}
+                              {entry.description || '—'}
                             </span>
                           )}
                         </div>

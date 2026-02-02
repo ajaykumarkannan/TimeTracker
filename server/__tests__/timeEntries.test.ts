@@ -44,7 +44,7 @@ beforeAll(async () => {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
       category_id INTEGER NOT NULL,
-      note TEXT,
+      description TEXT,
       start_time DATETIME NOT NULL,
       end_time DATETIME,
       duration_minutes INTEGER,
@@ -70,7 +70,7 @@ beforeEach(() => {
 describe('Time Entries Database', () => {
   it('creates a time entry', () => {
     const now = new Date().toISOString();
-    db.run('INSERT INTO time_entries (user_id, category_id, note, start_time) VALUES (?, ?, ?, ?)',
+    db.run('INSERT INTO time_entries (user_id, category_id, description, start_time) VALUES (?, ?, ?, ?)',
       [testUserId, categoryId, 'Working on feature', now]);
     
     const lastId = db.exec('SELECT last_insert_rowid() as id')[0].values[0][0];
@@ -84,7 +84,7 @@ describe('Time Entries Database', () => {
     expect(entry).toMatchObject({
       user_id: testUserId,
       category_id: categoryId,
-      note: 'Working on feature'
+      description: 'Working on feature'
     });
   });
 

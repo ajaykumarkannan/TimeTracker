@@ -187,10 +187,10 @@ export const api = {
     return res.json();
   },
 
-  async startEntry(category_id: number, note?: string): Promise<TimeEntry> {
+  async startEntry(category_id: number, description?: string): Promise<TimeEntry> {
     const res = await apiFetch(`${API_BASE}/time-entries/start`, {
       method: 'POST',
-      body: JSON.stringify({ category_id, note })
+      body: JSON.stringify({ category_id, description })
     });
     if (!res.ok) throw new Error('Failed to start entry');
     return res.json();
@@ -231,10 +231,10 @@ export const api = {
     return res.json();
   },
 
-  async createManualEntry(category_id: number, start_time: string, end_time: string, note?: string): Promise<TimeEntry> {
+  async createManualEntry(category_id: number, start_time: string, end_time: string, description?: string): Promise<TimeEntry> {
     const res = await apiFetch(`${API_BASE}/time-entries`, {
       method: 'POST',
-      body: JSON.stringify({ category_id, start_time, end_time, note })
+      body: JSON.stringify({ category_id, start_time, end_time, description })
     });
     if (!res.ok) throw new Error('Failed to create entry');
     return res.json();

@@ -41,7 +41,7 @@ interface Props {
 }
 
 interface RecentTask {
-  note: string;
+  description: string;
   categoryId: number;
   categoryName: string;
   categoryColor: string | null;
@@ -58,7 +58,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   }, [categories]);
 
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
-  const [note, setNote] = useState('');
+  const [description, setDescription] = useState('');
   const [elapsed, setElapsed] = useState(0);
   const [showNewCategory, setShowNewCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -71,20 +71,20 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   const [switchTaskName, setSwitchTaskName] = useState('');
   const [showPopOut, setShowPopOut] = useState(false);
 
-  // Get recent tasks from entries (unique note + category combinations)
+  // Get recent tasks from entries (unique description + category combinations)
   const recentTasks = useMemo((): RecentTask[] => {
     const taskMap = new Map<string, RecentTask>();
     
     entries
-      .filter(e => e.note && e.note.trim())
+      .filter(e => e.description && e.description.trim())
       .forEach(entry => {
-        const key = `${entry.category_id}:${entry.note}`;
+        const key = `${entry.category_id}:${entry.description}`;
         const existing = taskMap.get(key);
         if (existing) {
           existing.count++;
         } else {
           taskMap.set(key, {
-            note: entry.note!,
+            description: entry.description!,
             categoryId: entry.category_id,
             categoryName: entry.category_name,
             categoryColor: entry.category_color,
@@ -118,8 +118,8 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   const handleStart = async () => {
     if (!selectedCategory) return;
     try {
-      await api.startEntry(selectedCategory, note || undefined);
-      setNote('');
+      await api.startEntry(selectedCategory, description || undefined);
+      setDescription('');
       onEntryChange();
     } catch (error) {
       console.error('Failed to start entry:', error);
@@ -128,7 +128,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
 
   const handleQuickStartTask = async (task: RecentTask) => {
     try {
-      await api.startEntry(task.categoryId, task.note);
+      await api.startEntry(task.categoryId, task.description);
       onEntryChange();
     } catch (error) {
       console.error('Failed to start entry:', error);
@@ -181,7 +181,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   const handleResume = async () => {
     if (!pausedEntry) return;
     try {
-      await api.startEntry(pausedEntry.category_id, pausedEntry.note || undefined);
+      await api.startEntry(pausedEntry.category_id, pausedEntry.description || undefined);
       setPausedEntry(null);
       onEntryChange();
     } catch (error) {
@@ -189,10 +189,10 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
     }
   };
 
-  const handleSwitchTask = async (categoryId: number, taskNote?: string) => {
+  const handleSwitchTask = async (categoryId: number, taskDescription?: string) => {
     try {
       // The /start endpoint automatically stops any active entry, so just start the new one
-      await api.startEntry(categoryId, taskNote);
+      await api.startEntry(categoryId, taskDescription);
       setShowNewTaskForm(false);
       setSwitchTaskPrompt(null);
       setSwitchTaskName('');
@@ -273,7 +273,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                     </span>
                   );
                 })()}
-                {activeEntry.note && <span className="timer-note">{activeEntry.note}</span>}
+                {activeEntry.description && <span className="timer-description">{activeEntry.description}</span>}
               </div>
             </div>
             <div className="timer-actions">
@@ -361,19 +361,19 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                 </select>
                 <input 
                   type="text"
-                  className="switch-note-input"
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
+                  className="switch-description-input"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
                   placeholder="Task name (optional)"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && selectedCategory) {
-                      handleSwitchTask(selectedCategory, note || undefined);
+                      handleSwitchTask(selectedCategory, description || undefined);
                     }
                   }}
                 />
                 <button 
                   className="btn btn-success btn-sm"
-                  onClick={() => selectedCategory && handleSwitchTask(selectedCategory, note || undefined)}
+                  onClick={() => selectedCategory && handleSwitchTask(selectedCategory, description || undefined)}
                   disabled={!selectedCategory}
                 >
                   Start
@@ -387,11 +387,11 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                     <button
                       key={idx}
                       className="switch-task-btn"
-                      onClick={() => handleSwitchTask(task.categoryId, task.note)}
-                      title={`${task.categoryName}: ${task.note}`}
+                      onClick={() => handleSwitchTask(task.categoryId, task.description)}
+                      title={`${task.categoryName}: ${task.description}`}
                     >
                       <span className="category-dot" style={{ backgroundColor: colors.dotColor }} />
-                      <span className="switch-task-note">{task.note}</span>
+                      <span className="switch-task-description">{task.description}</span>
                     </button>
                   );
                 })}
@@ -432,7 +432,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                 </span>
               );
             })()}
-            {pausedEntry.note && <span className="timer-note">{pausedEntry.note}</span>}
+            {pausedEntry.description && <span className="timer-description">{pausedEntry.description}</span>}
           </div>
           <div className="timer-actions">
             <button className="btn btn-success" onClick={handleResume}>
@@ -506,10 +506,10 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                           key={idx}
                           className="quick-start-btn quick-start-task"
                           onClick={() => handleQuickStartTask(task)}
-                          title={`${task.categoryName}: ${task.note}`}
+                          title={`${task.categoryName}: ${task.description}`}
                         >
                           <span className="category-dot" style={{ backgroundColor: colors.dotColor }} />
-                          <span className="task-note-text">{task.note}</span>
+                          <span className="task-description-text">{task.description}</span>
                           <span className="task-category-hint">{task.categoryName}</span>
                         </button>
                       );
@@ -565,12 +565,12 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                 </select>
               </div>
 
-              <div className="form-group form-group-note">
-                <label>Note <span className="optional">(optional)</span></label>
+              <div className="form-group form-group-description">
+                <label>Description <span className="optional">(optional)</span></label>
                 <input 
                   type="text"
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && selectedCategory) {
                       handleStart();

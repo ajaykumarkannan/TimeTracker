@@ -18,7 +18,7 @@ router.get('/', (req: AuthRequest, res: Response) => {
     
     let query = `
       SELECT te.id, te.user_id, te.category_id, c.name as category_name, c.color as category_color,
-             te.note, te.start_time, te.end_time, te.duration_minutes, te.created_at
+             te.description, te.start_time, te.end_time, te.duration_minutes, te.created_at
       FROM time_entries te
       JOIN categories c ON te.category_id = c.id
       WHERE te.user_id = ?
@@ -47,7 +47,7 @@ router.get('/', (req: AuthRequest, res: Response) => {
           category_id: row[2] as number,
           category_name: row[3] as string,
           category_color: row[4] as string | null,
-          note: row[5] as string | null,
+          description: row[5] as string | null,
           start_time: row[6] as string,
           end_time: row[7] as string | null,
           duration_minutes: row[8] as number | null,
@@ -68,7 +68,7 @@ router.get('/active', (req: AuthRequest, res: Response) => {
     const db = getDb();
     const result = db.exec(`
       SELECT te.id, te.user_id, te.category_id, c.name as category_name, c.color as category_color,
-             te.note, te.start_time, te.end_time, te.duration_minutes, te.created_at
+             te.description, te.start_time, te.end_time, te.duration_minutes, te.created_at
       FROM time_entries te
       JOIN categories c ON te.category_id = c.id
       WHERE te.user_id = ? AND te.end_time IS NULL
@@ -86,7 +86,7 @@ router.get('/active', (req: AuthRequest, res: Response) => {
       category_id: row[2] as number,
       category_name: row[3] as string,
       category_color: row[4] as string | null,
-      note: row[5] as string | null,
+      description: row[5] as string | null,
       start_time: row[6] as string,
       end_time: row[7] as string | null,
       duration_minutes: row[8] as number | null,
@@ -101,7 +101,7 @@ router.get('/active', (req: AuthRequest, res: Response) => {
 // Start new entry
 router.post('/start', (req: AuthRequest, res: Response) => {
   try {
-    const { category_id, note } = req.body;
+    const { category_id, description } = req.body;
     
     if (!category_id) {
       return res.status(400).json({ error: 'Category is required' });
@@ -138,14 +138,14 @@ router.post('/start', (req: AuthRequest, res: Response) => {
 
     const startTime = new Date().toISOString();
     db.run(
-      `INSERT INTO time_entries (user_id, category_id, note, start_time) VALUES (?, ?, ?, ?)`,
-      [req.userId as number, category_id, note || null, startTime]
+      `INSERT INTO time_entries (user_id, category_id, description, start_time) VALUES (?, ?, ?, ?)`,
+      [req.userId as number, category_id, description || null, startTime]
     );
     saveDatabase();
 
     const result = db.exec(`
       SELECT te.id, te.user_id, te.category_id, c.name as category_name, c.color as category_color,
-             te.note, te.start_time, te.end_time, te.duration_minutes, te.created_at
+             te.description, te.start_time, te.end_time, te.duration_minutes, te.created_at
       FROM time_entries te
       JOIN categories c ON te.category_id = c.id
       WHERE te.user_id = ? AND te.end_time IS NULL
@@ -160,7 +160,7 @@ router.post('/start', (req: AuthRequest, res: Response) => {
       category_id: row[2] as number,
       category_name: row[3] as string,
       category_color: row[4] as string | null,
-      note: row[5] as string | null,
+      description: row[5] as string | null,
       start_time: row[6] as string,
       end_time: row[7] as string | null,
       duration_minutes: row[8] as number | null,
@@ -199,7 +199,7 @@ router.post('/:id/stop', (req: AuthRequest, res: Response) => {
 
     const result = db.exec(`
       SELECT te.id, te.user_id, te.category_id, c.name as category_name, c.color as category_color,
-             te.note, te.start_time, te.end_time, te.duration_minutes, te.created_at
+             te.description, te.start_time, te.end_time, te.duration_minutes, te.created_at
       FROM time_entries te
       JOIN categories c ON te.category_id = c.id
       WHERE te.id = ?
@@ -214,7 +214,7 @@ router.post('/:id/stop', (req: AuthRequest, res: Response) => {
       category_id: row[2] as number,
       category_name: row[3] as string,
       category_color: row[4] as string | null,
-      note: row[5] as string | null,
+      description: row[5] as string | null,
       start_time: row[6] as string,
       end_time: row[7] as string | null,
       duration_minutes: row[8] as number | null,
@@ -230,7 +230,7 @@ router.post('/:id/stop', (req: AuthRequest, res: Response) => {
 router.put('/:id', (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { category_id, note, start_time, end_time } = req.body;
+    const { category_id, description, start_time, end_time } = req.body;
     const db = getDb();
 
     const existing = db.exec(
@@ -266,18 +266,18 @@ router.put('/:id', (req: AuthRequest, res: Response) => {
     db.run(
       `UPDATE time_entries 
        SET category_id = COALESCE(?, category_id), 
-           note = ?, 
+           description = ?, 
            start_time = COALESCE(?, start_time),
            end_time = ?,
            duration_minutes = ?
        WHERE id = ?`,
-      [category_id || null, note, start_time || null, newEnd, duration, id]
+      [category_id || null, description, start_time || null, newEnd, duration, id]
     );
     saveDatabase();
 
     const result = db.exec(`
       SELECT te.id, te.user_id, te.category_id, c.name as category_name, c.color as category_color,
-             te.note, te.start_time, te.end_time, te.duration_minutes, te.created_at
+             te.description, te.start_time, te.end_time, te.duration_minutes, te.created_at
       FROM time_entries te
       JOIN categories c ON te.category_id = c.id
       WHERE te.id = ?
@@ -292,7 +292,7 @@ router.put('/:id', (req: AuthRequest, res: Response) => {
       category_id: row[2] as number,
       category_name: row[3] as string,
       category_color: row[4] as string | null,
-      note: row[5] as string | null,
+      description: row[5] as string | null,
       start_time: row[6] as string,
       end_time: row[7] as string | null,
       duration_minutes: row[8] as number | null,
@@ -307,7 +307,7 @@ router.put('/:id', (req: AuthRequest, res: Response) => {
 // Create manual entry (for past tasks)
 router.post('/', (req: AuthRequest, res: Response) => {
   try {
-    const { category_id, note, start_time, end_time } = req.body;
+    const { category_id, description, start_time, end_time } = req.body;
     
     if (!category_id || !start_time || !end_time) {
       return res.status(400).json({ error: 'Category, start time, and end time are required' });
@@ -332,8 +332,8 @@ router.post('/', (req: AuthRequest, res: Response) => {
     }
 
     db.run(
-      `INSERT INTO time_entries (user_id, category_id, note, start_time, end_time, duration_minutes) VALUES (?, ?, ?, ?, ?, ?)`,
-      [req.userId as number, category_id, note || null, start_time, end_time, duration]
+      `INSERT INTO time_entries (user_id, category_id, description, start_time, end_time, duration_minutes) VALUES (?, ?, ?, ?, ?, ?)`,
+      [req.userId as number, category_id, description || null, start_time, end_time, duration]
     );
     saveDatabase();
 
@@ -342,7 +342,7 @@ router.post('/', (req: AuthRequest, res: Response) => {
 
     const entryResult = db.exec(`
       SELECT te.id, te.user_id, te.category_id, c.name as category_name, c.color as category_color,
-             te.note, te.start_time, te.end_time, te.duration_minutes, te.created_at
+             te.description, te.start_time, te.end_time, te.duration_minutes, te.created_at
       FROM time_entries te
       JOIN categories c ON te.category_id = c.id
       WHERE te.id = ?
@@ -357,7 +357,7 @@ router.post('/', (req: AuthRequest, res: Response) => {
       category_id: row[2] as number,
       category_name: row[3] as string,
       category_color: row[4] as string | null,
-      note: row[5] as string | null,
+      description: row[5] as string | null,
       start_time: row[6] as string,
       end_time: row[7] as string | null,
       duration_minutes: row[8] as number | null,

@@ -70,7 +70,7 @@
   flex-shrink: 0;
 }
 
-.timer-note {
+.timer-description {
   font-size: 0.875rem;
   color: var(--text-secondary);
 }
@@ -195,7 +195,7 @@
   background: var(--bg-tertiary);
 }
 
-.switch-task-note {
+.switch-task-description {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -226,7 +226,7 @@
 }
 
 .switch-category-select,
-.switch-note-input {
+.switch-description-input {
   padding: 0.5rem 0.75rem;
   border: 1.5px solid var(--border);
   border-radius: var(--radius-md);
@@ -239,12 +239,12 @@
   min-width: 130px;
 }
 
-.switch-note-input {
+.switch-description-input {
   flex: 1;
   min-width: 150px;
 }
 
-.switch-note-input:focus,
+.switch-description-input:focus,
 .switch-category-select:focus {
   outline: none;
   border-color: var(--primary);
@@ -339,7 +339,7 @@
   transform: translateY(-1px);
 }
 
-.task-note-text {
+.task-description-text {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -601,7 +601,7 @@
   }
   
   .switch-category-select,
-  .switch-note-input {
+  .switch-description-input {
     width: 100%;
   }
 }

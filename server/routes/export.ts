@@ -14,7 +14,7 @@ router.get('/csv', (req: AuthRequest, res: Response) => {
     
     const entriesResult = db.exec(`
       SELECT c.name as category_name, c.color as category_color,
-             te.note, te.start_time, te.end_time
+             te.description, te.start_time, te.end_time
       FROM time_entries te
       JOIN categories c ON te.category_id = c.id
       WHERE te.user_id = ?
@@ -24,16 +24,16 @@ router.get('/csv', (req: AuthRequest, res: Response) => {
     const rows = entriesResult.length > 0 ? entriesResult[0].values : [];
     
     // CSV header
-    const csvHeader = 'Category,Color,Note,Start Time,End Time';
+    const csvHeader = 'Category,Color,Description,Start Time,End Time';
     
     // CSV rows - escape fields properly
     const csvRows = rows.map(row => {
       const category = escapeCSV(row[0] as string);
       const color = escapeCSV(row[1] as string | null);
-      const note = escapeCSV(row[2] as string | null);
+      const description = escapeCSV(row[2] as string | null);
       const startTime = row[3] as string;
       const endTime = row[4] as string | null || '';
-      return `${category},${color},${note},${startTime},${endTime}`;
+      return `${category},${color},${description},${startTime},${endTime}`;
     });
 
     const csv = [csvHeader, ...csvRows].join('\n');
@@ -73,13 +73,13 @@ router.post('/csv/preview', (req: AuthRequest, res: Response) => {
       const lowerHeader = header.map(h => h.toLowerCase());
       
       const categoryIndex = lowerHeader.findIndex(h => h.includes('category') || h.includes('task') || h.includes('project'));
-      const noteIndex = lowerHeader.findIndex(h => h.includes('note') || h.includes('description') || h.includes('comment'));
+      const descriptionIndex = lowerHeader.findIndex(h => h.includes('description') || h.includes('note') || h.includes('comment'));
       const startIndex = lowerHeader.findIndex(h => h.includes('start'));
       const endIndex = lowerHeader.findIndex(h => h.includes('end') || h.includes('stop'));
       const colorIndex = lowerHeader.findIndex(h => h.includes('color'));
       
       if (categoryIndex >= 0) autoMapping.category = categoryIndex;
-      if (noteIndex >= 0) autoMapping.note = noteIndex;
+      if (descriptionIndex >= 0) autoMapping.description = descriptionIndex;
       if (startIndex >= 0) autoMapping.startTime = startIndex;
       if (endIndex >= 0) autoMapping.endTime = endIndex;
       if (colorIndex >= 0) autoMapping.color = colorIndex;
@@ -115,7 +115,7 @@ router.post('/csv/preview', (req: AuthRequest, res: Response) => {
       rowIndex: number;
       category: string;
       color: string | null;
-      note: string | null;
+      description: string | null;
       startTime: string;
       endTime: string | null;
       duration: number | null;
@@ -130,7 +130,7 @@ router.post('/csv/preview', (req: AuthRequest, res: Response) => {
       
       const category = columnMapping.category !== undefined ? row[columnMapping.category]?.trim() : '';
       const color = columnMapping.color !== undefined ? row[columnMapping.color]?.trim() || null : null;
-      const note = columnMapping.note !== undefined ? row[columnMapping.note]?.trim() || null : null;
+      const description = columnMapping.description !== undefined ? row[columnMapping.description]?.trim() || null : null;
       const startTimeStr = columnMapping.startTime !== undefined ? row[columnMapping.startTime]?.trim() : '';
       const endTimeStr = columnMapping.endTime !== undefined ? row[columnMapping.endTime]?.trim() || null : null;
 
@@ -181,7 +181,7 @@ router.post('/csv/preview', (req: AuthRequest, res: Response) => {
         rowIndex: i,
         category,
         color,
-        note,
+        description,
         startTime,
         endTime,
         duration,
@@ -227,9 +227,9 @@ router.post('/csv', (req: AuthRequest, res: Response) => {
     if (!mapping) {
       // Legacy format - assume fixed columns
       if (header.length < 4) {
-        return res.status(400).json({ error: 'Invalid CSV format. Expected columns: Category, Color, Note, Start Time, End Time' });
+        return res.status(400).json({ error: 'Invalid CSV format. Expected columns: Category, Color, Description, Start Time, End Time' });
       }
-      mapping = { category: 0, color: 1, note: 2, startTime: 3, endTime: 4 };
+      mapping = { category: 0, color: 1, description: 2, startTime: 3, endTime: 4 };
     }
 
     // Get existing categories for this user
@@ -259,7 +259,7 @@ router.post('/csv', (req: AuthRequest, res: Response) => {
         rowIndex: index + 1,
         category: mapping.category !== undefined ? row[mapping.category]?.trim() : '',
         color: mapping.color !== undefined ? row[mapping.color]?.trim() || null : null,
-        note: mapping.note !== undefined ? row[mapping.note]?.trim() || null : null,
+        description: mapping.description !== undefined ? row[mapping.description]?.trim() || null : null,
         startTime: mapping.startTime !== undefined ? row[mapping.startTime]?.trim() : '',
         endTime: mapping.endTime !== undefined ? row[mapping.endTime]?.trim() || null : null,
         skip: false
@@ -273,7 +273,7 @@ router.post('/csv', (req: AuthRequest, res: Response) => {
         continue;
       }
 
-      const { category, color, note, startTime, endTime } = entry;
+      const { category, color, description, startTime, endTime } = entry;
       
       if (!category || !startTime) {
         errors.push(`Row ${entry.rowIndex}: Category and Start Time are required`);
@@ -325,8 +325,8 @@ router.post('/csv', (req: AuthRequest, res: Response) => {
 
       // Insert time entry
       db.run(
-        `INSERT INTO time_entries (user_id, category_id, note, start_time, end_time, duration_minutes) VALUES (?, ?, ?, ?, ?, ?)`,
-        [req.userId as number, categoryId, note || null, startDate.toISOString(), endDate?.toISOString() || null, duration]
+        `INSERT INTO time_entries (user_id, category_id, description, start_time, end_time, duration_minutes) VALUES (?, ?, ?, ?, ?, ?)`,
+        [req.userId as number, categoryId, description || null, startDate.toISOString(), endDate?.toISOString() || null, duration]
       );
       imported++;
     }

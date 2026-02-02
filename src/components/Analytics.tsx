@@ -577,7 +577,7 @@ export function Analytics() {
               <span className="category-dot" style={{ backgroundColor: activeEntry.category_color || 'var(--primary)' }} />
               {activeEntry.category_name}
             </span>
-            {activeEntry.note && <span className="active-task-note">{activeEntry.note}</span>}
+            {activeEntry.description && <span className="active-task-description">{activeEntry.description}</span>}
           </div>
           <div className="active-task-timer">{formatElapsed(elapsed)}</div>
         </div>
@@ -706,15 +706,15 @@ export function Analytics() {
       {data.topNotes.length > 0 && (
         <div className="card">
           <div className="card-header">
-            <h2 className="card-title">Top Tasks</h2>
+            <h2 className="card-title">Top Descriptions</h2>
           </div>
           <div className="top-tasks">
-            {data.topNotes.map((note, i) => (
+            {data.topNotes.map((item, i) => (
               <div key={i} className="task-row">
                 <span className="task-rank">#{i + 1}</span>
-                <span className="task-name">{note.note}</span>
-                <span className="task-count">{note.count}×</span>
-                <span className="task-time">{formatDuration(note.total_minutes)}</span>
+                <span className="task-name">{item.description}</span>
+                <span className="task-count">{item.count}×</span>
+                <span className="task-time">{formatDuration(item.total_minutes)}</span>
               </div>
             ))}
           </div>
