@@ -3,6 +3,7 @@ import { Category, TimeEntry } from '../types';
 import { api } from '../api';
 import { useTheme } from '../contexts/ThemeContext';
 import { getAdaptiveCategoryColors } from '../hooks/useAdaptiveColors';
+import { PopOutTimer } from './PopOutTimer';
 import './TimeTracker.css';
 
 // Primary color palette - visually distinct colors
@@ -68,6 +69,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   const [showNewTaskForm, setShowNewTaskForm] = useState(false);
   const [switchTaskPrompt, setSwitchTaskPrompt] = useState<{ categoryId: number; categoryName: string; categoryColor: string | null } | null>(null);
   const [switchTaskName, setSwitchTaskName] = useState('');
+  const [showPopOut, setShowPopOut] = useState(false);
 
   // Get recent tasks from entries (unique note + category combinations)
   const recentTasks = useMemo((): RecentTask[] => {
@@ -278,6 +280,14 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
               </div>
             </div>
             <div className="timer-actions">
+              <button 
+                className="btn btn-ghost btn-icon" 
+                onClick={() => setShowPopOut(true)} 
+                title="Pop out timer"
+                aria-label="Pop out timer to separate window"
+              >
+                <span className="popout-icon">⧉</span>
+              </button>
               <button className="btn btn-warning" onClick={handlePause} title="Pause">
                 <span className="pause-icon">❚❚</span>
                 Pause
@@ -627,6 +637,23 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
             )}
           </div>
         </div>
+      )}
+
+      {/* Pop-out timer window */}
+      {showPopOut && activeEntry && (
+        <PopOutTimer
+          activeEntry={activeEntry}
+          onStop={() => {
+            handleStop();
+            setShowPopOut(false);
+          }}
+          onPause={() => {
+            handlePause();
+            setShowPopOut(false);
+          }}
+          onClose={() => setShowPopOut(false)}
+          isDarkMode={isDarkMode}
+        />
       )}
     </div>
   );
