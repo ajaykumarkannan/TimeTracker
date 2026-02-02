@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { TimeTracker } from '../TimeTracker';
+import { ThemeProvider } from '../../contexts/ThemeContext';
 
 // Mock the api module
 vi.mock('../../api', () => ({
@@ -12,6 +13,11 @@ vi.mock('../../api', () => ({
 }));
 
 import { api } from '../../api';
+
+// Helper to render with ThemeProvider
+const renderWithTheme = (ui: React.ReactElement) => {
+  return render(<ThemeProvider>{ui}</ThemeProvider>);
+};
 
 describe('TimeTracker', () => {
   const mockCategories = [
@@ -41,7 +47,7 @@ describe('TimeTracker', () => {
   });
 
   it('renders start form when no active entry', () => {
-    render(
+    renderWithTheme(
       <TimeTracker 
         categories={mockCategories} 
         activeEntry={null}
@@ -55,7 +61,7 @@ describe('TimeTracker', () => {
   });
 
   it('starts timer when category selected and start clicked', async () => {
-    render(
+    renderWithTheme(
       <TimeTracker 
         categories={mockCategories} 
         activeEntry={null}
@@ -90,7 +96,7 @@ describe('TimeTracker', () => {
       created_at: '2024-01-01'
     };
 
-    render(
+    renderWithTheme(
       <TimeTracker 
         categories={mockCategories} 
         activeEntry={activeEntry}
@@ -119,7 +125,7 @@ describe('TimeTracker', () => {
       created_at: '2024-01-01'
     };
 
-    render(
+    renderWithTheme(
       <TimeTracker 
         categories={mockCategories} 
         activeEntry={activeEntry}
@@ -139,7 +145,7 @@ describe('TimeTracker', () => {
   });
 
   it('disables start button when no category selected', () => {
-    render(
+    renderWithTheme(
       <TimeTracker 
         categories={mockCategories} 
         activeEntry={null}
