@@ -176,13 +176,14 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
 
   useEffect(() => {
     // Show modal suggestions when modal opens and has suggestions
-    if (modalSuggestions.length > 0 && (taskNamePrompt || switchTaskPrompt)) {
+    // This runs after modalSuggestions recalculates
+    if ((taskNamePrompt || switchTaskPrompt) && modalSuggestions.length > 0) {
       setShowModalSuggestions(true);
     } else if (!taskNamePrompt && !switchTaskPrompt) {
       setShowModalSuggestions(false);
     }
     setSelectedModalSuggestionIndex(-1);
-  }, [modalSuggestions, taskNamePrompt, switchTaskPrompt]);
+  }, [modalSuggestions.length, taskNamePrompt, switchTaskPrompt]);
 
   // Close suggestions when clicking outside
   useEffect(() => {

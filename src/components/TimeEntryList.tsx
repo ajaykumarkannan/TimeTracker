@@ -89,7 +89,7 @@ export function TimeEntryList({ categories, onEntryChange }: Props) {
   // Reload entries when onEntryChange is triggered externally
   const handleEntryChangeInternal = useCallback(async () => {
     await loadEntries();
-    handleEntryChangeInternal();
+    onEntryChange();
   }, [loadEntries, onEntryChange]);
 
   // Detect back-to-back entries that can be merged (same category + note, consecutive)

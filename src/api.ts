@@ -59,6 +59,11 @@ async function apiFetch(url: string, options: RequestInit = {}): Promise<Respons
 
   let res = await fetch(url, { ...options, headers });
 
+  // Handle rate limiting - don't treat as auth failure
+  if (res.status === 429) {
+    return res; // Let the caller handle rate limit errors
+  }
+
   // If unauthorized and we have a refresh token, try to refresh
   if (res.status === 401 && refreshToken) {
     const refreshRes = await fetch(`${API_BASE}/auth/refresh`, {
