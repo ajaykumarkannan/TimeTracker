@@ -207,14 +207,26 @@ export const api = {
     return res.json();
   },
 
-  async mergeDescriptions(sourceDescriptions: string[], targetDescription: string): Promise<{ merged: number; entriesUpdated: number; targetDescription: string }> {
+  async mergeDescriptions(sourceDescriptions: string[], targetDescription: string, targetCategoryName?: string): Promise<{ merged: number; entriesUpdated: number; targetDescription: string }> {
     const res = await apiFetch(`${API_BASE}/time-entries/merge-descriptions`, {
       method: 'POST',
-      body: JSON.stringify({ sourceDescriptions, targetDescription })
+      body: JSON.stringify({ sourceDescriptions, targetDescription, targetCategoryName })
     });
     if (!res.ok) {
       const error = await res.json();
       throw new Error(error.error || 'Failed to merge descriptions');
+    }
+    return res.json();
+  },
+
+  async updateDescriptionBulk(oldDescription: string, oldCategoryName: string, newDescription?: string, newCategoryName?: string): Promise<{ entriesUpdated: number }> {
+    const res = await apiFetch(`${API_BASE}/time-entries/update-description-bulk`, {
+      method: 'POST',
+      body: JSON.stringify({ oldDescription, oldCategoryName, newDescription, newCategoryName })
+    });
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || 'Failed to update descriptions');
     }
     return res.json();
   },

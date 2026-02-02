@@ -49,6 +49,8 @@ export interface TopNote {
   description: string;
   count: number;
   total_minutes: number;
+  category_name: string;
+  category_color: string | null;
 }
 
 export interface CategoryDescription {

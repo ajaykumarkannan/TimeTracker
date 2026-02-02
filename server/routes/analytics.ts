@@ -54,13 +54,15 @@ router.get('/descriptions', (req: AuthRequest, res: Response) => {
         break;
     }
 
-    // Get paginated descriptions
+    // Get paginated descriptions with category info
     const descriptionsResult = db.exec(`
-      SELECT description, COUNT(*) as count, COALESCE(SUM(duration_minutes), 0) as total_minutes, MAX(start_time) as last_used
-      FROM time_entries
-      WHERE user_id = ? AND start_time >= ? AND start_time < ? 
-        AND description IS NOT NULL AND description != ''
-      GROUP BY description
+      SELECT te.description, COUNT(*) as count, COALESCE(SUM(te.duration_minutes), 0) as total_minutes, MAX(te.start_time) as last_used,
+             c.name as category_name, c.color as category_color
+      FROM time_entries te
+      JOIN categories c ON te.category_id = c.id
+      WHERE te.user_id = ? AND te.start_time >= ? AND te.start_time < ? 
+        AND te.description IS NOT NULL AND te.description != ''
+      GROUP BY te.description, c.name, c.color
       ORDER BY ${orderBy}
       LIMIT ? OFFSET ?
     `, [userId, start, end, pageSize, offset]);
@@ -70,7 +72,9 @@ router.get('/descriptions', (req: AuthRequest, res: Response) => {
           description: row[0] as string,
           count: row[1] as number,
           total_minutes: row[2] as number,
-          last_used: row[3] as string
+          last_used: row[3] as string,
+          category_name: row[4] as string,
+          category_color: row[5] as string | null
         }))
       : [];
 
