@@ -379,6 +379,30 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
     setDismissedShortEntries(prev => new Set([...prev, entryId]));
   };
 
+  const handleDeleteDay = async (dateKey: string) => {
+    const date = new Date(dateKey);
+    const dateStr = date.toISOString().split('T')[0];
+    const dayEntries = grouped[dateKey] || [];
+    const completedCount = dayEntries.filter(e => e.end_time).length;
+    
+    if (completedCount === 0) {
+      alert('No completed entries to delete for this day.');
+      return;
+    }
+    
+    if (!confirm(`Delete all ${completedCount} completed ${completedCount === 1 ? 'entry' : 'entries'} for ${formatDate(dayEntries[0].start_time)}?`)) {
+      return;
+    }
+    
+    try {
+      await api.deleteEntriesByDate(dateStr);
+      onEntryChange();
+    } catch (error) {
+      console.error('Failed to delete entries:', error);
+      alert('Failed to delete entries. Please try again.');
+    }
+  };
+
   const handleApplyAll = async () => {
     // Merge all candidates first
     for (const candidate of mergeCandidates) {
@@ -638,7 +662,18 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
         <div className="entries-by-date">
           {Object.entries(grouped).map(([dateKey, dateEntries]) => (
             <div key={dateKey} className="date-group">
-              <div className="date-header">{formatDate(dateEntries[0].start_time)}</div>
+              <div className="date-header">
+                <span>{formatDate(dateEntries[0].start_time)}</span>
+                <button
+                  className="btn-icon delete-day-btn"
+                  onClick={() => handleDeleteDay(dateKey)}
+                  title="Delete all entries for this day"
+                >
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M2 4h12M5.333 4V2.667a1.333 1.333 0 011.334-1.334h2.666a1.333 1.333 0 011.334 1.334V4M12.667 4v9.333a1.333 1.333 0 01-1.334 1.334H4.667a1.333 1.333 0 01-1.334-1.334V4h9.334z" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </button>
+              </div>
               <div className="entries">
                 {dateEntries.map(entry => {
                   const isEditing = editingId === entry.id;
