@@ -9,7 +9,7 @@ interface SettingsProps {
 }
 
 export function Settings({ onLogout, onConvertSuccess }: SettingsProps) {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const isGuest = !user;
 
   // Convert guest form
@@ -70,7 +70,10 @@ export function Settings({ onLogout, onConvertSuccess }: SettingsProps) {
         setUpdateLoading(false);
         return;
       }
-      await api.updateAccount(updates);
+      const updatedUser = await api.updateAccount(updates);
+      updateUser(updatedUser);
+      setNewName(updatedUser.name || '');
+      setNewEmail(updatedUser.email || '');
       setUpdateSuccess('Account updated successfully');
       setCurrentPassword('');
       setNewPassword('');

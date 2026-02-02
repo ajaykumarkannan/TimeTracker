@@ -85,6 +85,24 @@ const migrations: Migration[] = [
   //     db.run(`CREATE TABLE IF NOT EXISTS tags (...)`);
   //   }
   // },
+  {
+    version: 2,
+    name: 'add_password_reset_tokens',
+    up: (db) => {
+      db.run(`
+        CREATE TABLE IF NOT EXISTS password_reset_tokens (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL,
+          token TEXT NOT NULL UNIQUE,
+          expires_at DATETIME NOT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+      `);
+      db.run(`CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_token ON password_reset_tokens(token)`);
+      db.run(`CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user ON password_reset_tokens(user_id)`);
+    }
+  },
 ];
 
 export function runMigrations(db: SqlJsDatabase): void {

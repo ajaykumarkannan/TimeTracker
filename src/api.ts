@@ -312,5 +312,30 @@ export const api = {
     });
     if (!res.ok) throw new Error('Failed to delete account');
     clearTokens();
+  },
+
+  async forgotPassword(email: string): Promise<{ message: string; resetToken?: string }> {
+    const res = await fetch(`${API_BASE}/auth/forgot-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || 'Failed to request password reset');
+    }
+    return res.json();
+  },
+
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    const res = await fetch(`${API_BASE}/auth/reset-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, newPassword })
+    });
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || 'Failed to reset password');
+    }
   }
 };

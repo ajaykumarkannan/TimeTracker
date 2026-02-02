@@ -633,8 +633,9 @@ export function Analytics() {
           ref={chartRef}
           className={`daily-chart ${!hasData ? 'empty' : ''} view-${getAggregation(period)} ${needsVerticalLabels ? 'vertical-labels' : ''} ${needsScrolling ? 'scrollable' : ''}`}
         >
-          {aggregatedData.map((bucket, idx) => {
-            const isCurrentPeriod = idx === aggregatedData.length - 1;
+          {aggregatedData.map((bucket) => {
+            const today = new Date().toISOString().split('T')[0];
+            const isToday = bucket.startDate <= today && bucket.endDate >= today;
             const hasMinutes = bucket.minutes > 0;
             const categoryEntries = Object.entries(bucket.byCategory).filter(([_, mins]) => mins > 0);
             // Calculate flex ratio: bar takes up proportional space, spacer takes the rest
@@ -642,7 +643,7 @@ export function Analytics() {
             const spacerRatio = 1 - barRatio;
             
             return (
-              <div key={bucket.startDate} className={`chart-bar-container ${isCurrentPeriod ? 'today' : ''} ${!hasMinutes ? 'empty' : ''}`} title={`${formatDateRange(bucket.startDate, bucket.endDate)}: ${formatDuration(bucket.minutes)}`}>
+              <div key={bucket.startDate} className={`chart-bar-container ${isToday ? 'today' : ''} ${!hasMinutes ? 'empty' : ''}`} title={`${formatDateRange(bucket.startDate, bucket.endDate)}: ${formatDuration(bucket.minutes)}`}>
                 <div className="chart-bar-wrapper">
                   {/* Spacer pushes the bar stack to the bottom */}
                   <div style={{ flex: spacerRatio }} />
