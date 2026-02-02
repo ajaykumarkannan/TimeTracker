@@ -401,10 +401,10 @@ router.get('/suggestions', (req: AuthRequest, res: Response) => {
     const db = getDb();
     const categoryId = req.query.categoryId ? parseInt(req.query.categoryId as string) : null;
     const query = (req.query.q as string || '').toLowerCase().trim();
-    const limit = Math.min(parseInt(req.query.limit as string) || 8, 20);
+    const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
 
     let sql = `
-      SELECT description, category_id, COUNT(*) as count, SUM(duration_minutes) as total_minutes
+      SELECT description, category_id, COUNT(*) as count, SUM(duration_minutes) as total_minutes, MAX(start_time) as last_used
       FROM time_entries
       WHERE user_id = ? AND description IS NOT NULL AND description != ''
     `;
@@ -430,7 +430,8 @@ router.get('/suggestions', (req: AuthRequest, res: Response) => {
           description: row[0] as string,
           categoryId: row[1] as number,
           count: row[2] as number,
-          totalMinutes: row[3] as number
+          totalMinutes: row[3] as number,
+          lastUsed: row[4] as string
         }))
       : [];
 

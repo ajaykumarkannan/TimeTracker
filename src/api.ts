@@ -192,10 +192,11 @@ export const api = {
     return res.json();
   },
 
-  async getDescriptionSuggestions(categoryId?: number, query?: string): Promise<{ description: string; categoryId: number; count: number; totalMinutes: number }[]> {
+  async getDescriptionSuggestions(categoryId?: number, query?: string): Promise<{ description: string; categoryId: number; count: number; totalMinutes: number; lastUsed: string }[]> {
     const params = new URLSearchParams();
     if (categoryId) params.set('categoryId', categoryId.toString());
     if (query) params.set('q', query);
+    params.set('limit', '50'); // Fetch more for client-side caching
     const res = await apiFetch(`${API_BASE}/time-entries/suggestions?${params}`);
     if (!res.ok) throw new Error('Failed to fetch suggestions');
     return res.json();
@@ -279,12 +280,13 @@ export const api = {
     return res.json();
   },
 
-  async getDescriptions(start: string, end: string, page: number = 1, pageSize: number = 20): Promise<DescriptionsPaginated> {
+  async getDescriptions(start: string, end: string, page: number = 1, pageSize: number = 20, sortBy: 'time' | 'alpha' | 'count' | 'recent' = 'time'): Promise<DescriptionsPaginated> {
     const params = new URLSearchParams({
       start,
       end,
       page: page.toString(),
-      pageSize: pageSize.toString()
+      pageSize: pageSize.toString(),
+      sortBy
     });
     const res = await apiFetch(`${API_BASE}/analytics/descriptions?${params}`);
     if (!res.ok) throw new Error('Failed to fetch descriptions');

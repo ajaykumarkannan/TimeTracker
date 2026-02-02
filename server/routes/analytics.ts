@@ -15,6 +15,7 @@ router.get('/descriptions', (req: AuthRequest, res: Response) => {
     const page = parseInt(req.query.page as string) || 1;
     const pageSize = Math.min(parseInt(req.query.pageSize as string) || 20, 100);
     const offset = (page - 1) * pageSize;
+    const sortBy = (req.query.sortBy as string) || 'time'; // time, alpha, count, recent
 
     if (!start || !end) {
       return res.status(400).json({ error: 'Start and end dates are required' });
@@ -35,14 +36,32 @@ router.get('/descriptions', (req: AuthRequest, res: Response) => {
       ? countResult[0].values[0][0] as number
       : 0;
 
+    // Determine ORDER BY clause based on sortBy
+    let orderBy: string;
+    switch (sortBy) {
+      case 'alpha':
+        orderBy = 'description ASC';
+        break;
+      case 'count':
+        orderBy = 'count DESC, total_minutes DESC';
+        break;
+      case 'recent':
+        orderBy = 'last_used DESC, total_minutes DESC';
+        break;
+      case 'time':
+      default:
+        orderBy = 'total_minutes DESC, count DESC';
+        break;
+    }
+
     // Get paginated descriptions
     const descriptionsResult = db.exec(`
-      SELECT description, COUNT(*) as count, COALESCE(SUM(duration_minutes), 0) as total_minutes
+      SELECT description, COUNT(*) as count, COALESCE(SUM(duration_minutes), 0) as total_minutes, MAX(start_time) as last_used
       FROM time_entries
       WHERE user_id = ? AND start_time >= ? AND start_time < ? 
         AND description IS NOT NULL AND description != ''
       GROUP BY description
-      ORDER BY total_minutes DESC, count DESC
+      ORDER BY ${orderBy}
       LIMIT ? OFFSET ?
     `, [userId, start, end, pageSize, offset]);
 
@@ -50,7 +69,8 @@ router.get('/descriptions', (req: AuthRequest, res: Response) => {
       ? descriptionsResult[0].values.map(row => ({
           description: row[0] as string,
           count: row[1] as number,
-          total_minutes: row[2] as number
+          total_minutes: row[2] as number,
+          last_used: row[3] as string
         }))
       : [];
 

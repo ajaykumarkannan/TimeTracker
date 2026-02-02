@@ -1,10 +1,37 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Category, TimeEntry } from '../types';
 import { api } from '../api';
 import { useTheme } from '../contexts/ThemeContext';
 import { getAdaptiveCategoryColors } from '../hooks/useAdaptiveColors';
 import { PopOutTimer } from './PopOutTimer';
 import './TimeTracker.css';
+
+// Simple fuzzy match - checks if all characters in query appear in order in target
+function fuzzyMatch(query: string, target: string): { match: boolean; score: number } {
+  const q = query.toLowerCase();
+  const t = target.toLowerCase();
+  
+  if (!q) return { match: true, score: 1 };
+  if (t.includes(q)) return { match: true, score: 2 }; // Exact substring match scores highest
+  
+  let qIdx = 0;
+  let consecutiveMatches = 0;
+  let maxConsecutive = 0;
+  
+  for (let tIdx = 0; tIdx < t.length && qIdx < q.length; tIdx++) {
+    if (t[tIdx] === q[qIdx]) {
+      qIdx++;
+      consecutiveMatches++;
+      maxConsecutive = Math.max(maxConsecutive, consecutiveMatches);
+    } else {
+      consecutiveMatches = 0;
+    }
+  }
+  
+  const match = qIdx === q.length;
+  const score = match ? maxConsecutive / q.length : 0;
+  return { match, score };
+}
 
 // Primary color palette - visually distinct colors
 const COLOR_PALETTE = [
@@ -71,80 +98,85 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   const [switchTaskName, setSwitchTaskName] = useState('');
   const [showPopOut, setShowPopOut] = useState(false);
   
-  // Description suggestions state
-  const [suggestions, setSuggestions] = useState<{ description: string; categoryId: number; count: number; totalMinutes: number }[]>([]);
+  // Cached suggestions - fetched once, filtered locally
+  const [cachedSuggestions, setCachedSuggestions] = useState<{ description: string; categoryId: number; count: number; totalMinutes: number; lastUsed: string }[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
   const descriptionInputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
   
-  // Modal suggestions state (for task prompt and switch prompt)
-  const [modalSuggestions, setModalSuggestions] = useState<{ description: string; categoryId: number; count: number; totalMinutes: number }[]>([]);
+  // Modal suggestions state
   const [showModalSuggestions, setShowModalSuggestions] = useState(false);
   const [selectedModalSuggestionIndex, setSelectedModalSuggestionIndex] = useState(-1);
   const modalInputRef = useRef<HTMLInputElement>(null);
   const modalSuggestionsRef = useRef<HTMLDivElement>(null);
 
-  // Debounced fetch for suggestions
-  const fetchSuggestions = useCallback(async (categoryId: number | null, query: string) => {
-    try {
-      const results = await api.getDescriptionSuggestions(categoryId || undefined, query || undefined);
-      setSuggestions(results);
-      setShowSuggestions(results.length > 0);
-      setSelectedSuggestionIndex(-1);
-    } catch (error) {
-      console.error('Failed to fetch suggestions:', error);
-      setSuggestions([]);
-    }
-  }, []);
-  
-  // Fetch modal suggestions
-  const fetchModalSuggestions = useCallback(async (categoryId: number, query: string) => {
-    try {
-      const results = await api.getDescriptionSuggestions(categoryId, query || undefined);
-      setModalSuggestions(results);
-      setShowModalSuggestions(results.length > 0);
-      setSelectedModalSuggestionIndex(-1);
-    } catch (error) {
-      console.error('Failed to fetch modal suggestions:', error);
-      setModalSuggestions([]);
-    }
-  }, []);
-
-  // Fetch suggestions when category changes or description input changes
+  // Fetch all suggestions once and cache them
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (selectedCategory || description) {
-        fetchSuggestions(selectedCategory, description);
-      } else {
-        setSuggestions([]);
-        setShowSuggestions(false);
+    const fetchAllSuggestions = async () => {
+      try {
+        const results = await api.getDescriptionSuggestions(undefined, undefined);
+        setCachedSuggestions(results);
+      } catch (error) {
+        console.error('Failed to fetch suggestions:', error);
       }
-    }, 150);
-    return () => clearTimeout(timer);
-  }, [selectedCategory, description, fetchSuggestions]);
-  
-  // Fetch modal suggestions when task prompt is open
-  useEffect(() => {
-    if (!taskNamePrompt) {
-      setModalSuggestions([]);
-      setShowModalSuggestions(false);
-      return;
+    };
+    fetchAllSuggestions();
+  }, [entries.length]); // Refetch when entries change
+
+  // Filter suggestions locally with fuzzy matching
+  const suggestions = useMemo(() => {
+    let filtered = cachedSuggestions;
+    
+    // Filter by category if selected
+    if (selectedCategory) {
+      filtered = filtered.filter(s => s.categoryId === selectedCategory);
     }
-    const timer = setTimeout(() => {
-      fetchModalSuggestions(taskNamePrompt.categoryId, promptedTaskName);
-    }, 150);
-    return () => clearTimeout(timer);
-  }, [taskNamePrompt, promptedTaskName, fetchModalSuggestions]);
-  
-  // Fetch modal suggestions when switch prompt is open
+    
+    // Fuzzy filter by description
+    if (description) {
+      filtered = filtered
+        .map(s => ({ ...s, ...fuzzyMatch(description, s.description) }))
+        .filter(s => s.match)
+        .sort((a, b) => b.score - a.score || b.count - a.count);
+    }
+    
+    return filtered.slice(0, 8);
+  }, [cachedSuggestions, selectedCategory, description]);
+
+  // Filter modal suggestions (for task/switch prompts)
+  const modalSuggestions = useMemo(() => {
+    const categoryId = taskNamePrompt?.categoryId || switchTaskPrompt?.categoryId;
+    const query = taskNamePrompt ? promptedTaskName : switchTaskName;
+    
+    if (!categoryId) return [];
+    
+    let filtered = cachedSuggestions.filter(s => s.categoryId === categoryId);
+    
+    if (query) {
+      filtered = filtered
+        .map(s => ({ ...s, ...fuzzyMatch(query, s.description) }))
+        .filter(s => s.match)
+        .sort((a, b) => b.score - a.score || b.count - a.count);
+    }
+    
+    return filtered.slice(0, 8);
+  }, [cachedSuggestions, taskNamePrompt, switchTaskPrompt, promptedTaskName, switchTaskName]);
+
+  // Show/hide suggestions based on filtered results
   useEffect(() => {
-    if (!switchTaskPrompt) return;
-    const timer = setTimeout(() => {
-      fetchModalSuggestions(switchTaskPrompt.categoryId, switchTaskName);
-    }, 150);
-    return () => clearTimeout(timer);
-  }, [switchTaskPrompt, switchTaskName, fetchModalSuggestions]);
+    if (suggestions.length > 0 && (selectedCategory || description)) {
+      setShowSuggestions(true);
+    }
+    setSelectedSuggestionIndex(-1);
+  }, [suggestions, selectedCategory, description]);
+
+  useEffect(() => {
+    if (modalSuggestions.length > 0 && (taskNamePrompt || switchTaskPrompt)) {
+      setShowModalSuggestions(true);
+    }
+    setSelectedModalSuggestionIndex(-1);
+  }, [modalSuggestions, taskNamePrompt, switchTaskPrompt]);
 
   // Close suggestions when clicking outside
   useEffect(() => {
@@ -502,18 +534,37 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                       );
                     })()}
                   </div>
-                  <input
-                    type="text"
-                    className="task-prompt-input"
-                    value={switchTaskName}
-                    onChange={(e) => setSwitchTaskName(e.target.value)}
-                    placeholder="What are you working on? (optional)"
-                    autoFocus
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handlePromptedSwitch();
-                      if (e.key === 'Escape') setSwitchTaskPrompt(null);
-                    }}
-                  />
+                  <div className="description-input-wrapper">
+                    <input
+                      ref={modalInputRef}
+                      type="text"
+                      className="task-prompt-input"
+                      value={switchTaskName}
+                      onChange={(e) => setSwitchTaskName(e.target.value)}
+                      placeholder="What are you working on? (optional)"
+                      autoFocus
+                      autoComplete="off"
+                      onFocus={() => {
+                        if (modalSuggestions.length > 0) setShowModalSuggestions(true);
+                      }}
+                      onKeyDown={(e) => handleModalKeyDown(e, true, handlePromptedSwitch, () => setSwitchTaskPrompt(null))}
+                    />
+                    {showModalSuggestions && modalSuggestions.length > 0 && (
+                      <div className="description-suggestions modal-suggestions" ref={modalSuggestionsRef}>
+                        {modalSuggestions.map((suggestion, idx) => (
+                          <button
+                            key={`${suggestion.categoryId}-${suggestion.description}`}
+                            className={`suggestion-item ${idx === selectedModalSuggestionIndex ? 'selected' : ''}`}
+                            onClick={() => handleModalSuggestionSelect(suggestion, true)}
+                            onMouseEnter={() => setSelectedModalSuggestionIndex(idx)}
+                          >
+                            <span className="suggestion-text">{suggestion.description}</span>
+                            <span className="suggestion-count">×{suggestion.count}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                   <div className="task-prompt-actions">
                     <button className="btn btn-ghost" onClick={() => setSwitchTaskPrompt(null)}>
                       Cancel
@@ -657,18 +708,37 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                     );
                   })()}
                 </div>
-                <input
-                  type="text"
-                  className="task-prompt-input"
-                  value={promptedTaskName}
-                  onChange={(e) => setPromptedTaskName(e.target.value)}
-                  placeholder="What are you working on? (optional)"
-                  autoFocus
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handlePromptedStart();
-                    if (e.key === 'Escape') setTaskNamePrompt(null);
-                  }}
-                />
+                <div className="description-input-wrapper">
+                  <input
+                    ref={modalInputRef}
+                    type="text"
+                    className="task-prompt-input"
+                    value={promptedTaskName}
+                    onChange={(e) => setPromptedTaskName(e.target.value)}
+                    placeholder="What are you working on? (optional)"
+                    autoFocus
+                    autoComplete="off"
+                    onFocus={() => {
+                      if (modalSuggestions.length > 0) setShowModalSuggestions(true);
+                    }}
+                    onKeyDown={(e) => handleModalKeyDown(e, false, handlePromptedStart, () => setTaskNamePrompt(null))}
+                  />
+                  {showModalSuggestions && modalSuggestions.length > 0 && (
+                    <div className="description-suggestions modal-suggestions" ref={modalSuggestionsRef}>
+                      {modalSuggestions.map((suggestion, idx) => (
+                        <button
+                          key={`${suggestion.categoryId}-${suggestion.description}`}
+                          className={`suggestion-item ${idx === selectedModalSuggestionIndex ? 'selected' : ''}`}
+                          onClick={() => handleModalSuggestionSelect(suggestion, false)}
+                          onMouseEnter={() => setSelectedModalSuggestionIndex(idx)}
+                        >
+                          <span className="suggestion-text">{suggestion.description}</span>
+                          <span className="suggestion-count">×{suggestion.count}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <div className="task-prompt-actions">
                   <button className="btn btn-ghost" onClick={() => setTaskNamePrompt(null)}>
                     Cancel

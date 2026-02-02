@@ -9,6 +9,7 @@ vi.mock('../../api', () => ({
     startEntry: vi.fn().mockResolvedValue({ id: 1 }),
     stopEntry: vi.fn().mockResolvedValue({ id: 1 }),
     createCategory: vi.fn().mockResolvedValue({ id: 3, name: 'New', color: '#000' }),
+    getDescriptionSuggestions: vi.fn().mockResolvedValue([]),
   }
 }));
 

@@ -592,6 +592,23 @@
   opacity: 0.6;
 }
 
+/* Modal suggestions positioning */
+.task-prompt-modal .description-input-wrapper {
+  position: relative;
+}
+
+.modal-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 0.25rem;
+}
+
+.modal-suggestions .suggestion-item {
+  padding: 0.5rem 0.75rem;
+}
+
 .suggestions-dropdown {
   position: absolute;
   top: 100%;

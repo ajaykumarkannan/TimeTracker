@@ -49,6 +49,7 @@ export function Analytics() {
   const [descriptionsPage, setDescriptionsPage] = useState(1);
   const [descriptionsPageSize, setDescriptionsPageSize] = useState(10);
   const [descriptionsLoading, setDescriptionsLoading] = useState(false);
+  const [descriptionsSortBy, setDescriptionsSortBy] = useState<'time' | 'alpha' | 'count' | 'recent'>('time');
 
   // Close menus when clicking outside
   useEffect(() => {
@@ -287,7 +288,7 @@ export function Analytics() {
       setDescriptionsLoading(true);
       try {
         const { start, end } = getDateRange(period, periodOffset);
-        const result = await api.getDescriptions(start.toISOString(), end.toISOString(), descriptionsPage, descriptionsPageSize);
+        const result = await api.getDescriptions(start.toISOString(), end.toISOString(), descriptionsPage, descriptionsPageSize, descriptionsSortBy);
         setDescriptions(result);
       } catch (error) {
         console.error('Failed to load descriptions:', error);
@@ -296,7 +297,7 @@ export function Analytics() {
     };
 
     loadDescriptions();
-  }, [data, descriptionsPage, descriptionsPageSize, period, periodOffset]);
+  }, [data, descriptionsPage, descriptionsPageSize, descriptionsSortBy, period, periodOffset]);
 
   // Load category drilldown when a category is selected
   useEffect(() => {
@@ -832,7 +833,19 @@ export function Analytics() {
         <div className="card">
           <div className="card-header">
             <h2 className="card-title">All Descriptions</h2>
-            <span className="descriptions-count">{descriptions.pagination.totalCount} total</span>
+            <div className="descriptions-header-controls">
+              <select 
+                className="sort-select"
+                value={descriptionsSortBy}
+                onChange={(e) => { setDescriptionsSortBy(e.target.value as 'time' | 'alpha' | 'count' | 'recent'); setDescriptionsPage(1); }}
+              >
+                <option value="time">Sort by Time</option>
+                <option value="alpha">Sort A-Z</option>
+                <option value="count">Sort by Instances</option>
+                <option value="recent">Sort by Recent</option>
+              </select>
+              <span className="descriptions-count">{descriptions.pagination.totalCount} total</span>
+            </div>
           </div>
           {descriptionsLoading ? (
             <div className="drilldown-loading">Loading...</div>
