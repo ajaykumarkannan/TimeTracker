@@ -5,6 +5,32 @@ import { useTheme } from '../contexts/ThemeContext';
 import { getAdaptiveCategoryColors } from '../hooks/useAdaptiveColors';
 import './TimeTracker.css';
 
+// Primary color palette - visually distinct colors
+const COLOR_PALETTE = [
+  '#6366f1', // Indigo (primary)
+  '#10b981', // Emerald
+  '#f59e0b', // Amber
+  '#ef4444', // Red
+  '#8b5cf6', // Violet
+  '#06b6d4', // Cyan
+  '#ec4899', // Pink
+  '#84cc16', // Lime
+  '#f97316', // Orange
+  '#14b8a6', // Teal
+  '#a855f7', // Purple
+  '#eab308', // Yellow
+];
+
+function getNextAvailableColor(usedColors: (string | null)[]): string {
+  const normalizedUsed = new Set(usedColors.map(c => c?.toLowerCase()));
+  for (const color of COLOR_PALETTE) {
+    if (!normalizedUsed.has(color.toLowerCase())) {
+      return color;
+    }
+  }
+  return COLOR_PALETTE[Math.floor(Math.random() * COLOR_PALETTE.length)];
+}
+
 interface Props {
   categories: Category[];
   activeEntry: TimeEntry | null;
@@ -24,12 +50,18 @@ interface RecentTask {
 export function TimeTracker({ categories, activeEntry, entries, onEntryChange, onCategoryChange }: Props) {
   const { resolvedTheme } = useTheme();
   const isDarkMode = resolvedTheme === 'dark';
+
+  const nextColor = useMemo(() => {
+    const usedColors = categories.map(c => c.color);
+    return getNextAvailableColor(usedColors);
+  }, [categories]);
+
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const [note, setNote] = useState('');
   const [elapsed, setElapsed] = useState(0);
   const [showNewCategory, setShowNewCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
-  const [newCategoryColor, setNewCategoryColor] = useState('#6366f1');
+  const [newCategoryColor, setNewCategoryColor] = useState(nextColor);
   const [pausedEntry, setPausedEntry] = useState<TimeEntry | null>(null);
   const [taskNamePrompt, setTaskNamePrompt] = useState<{ categoryId: number; categoryName: string; categoryColor: string | null } | null>(null);
   const [promptedTaskName, setPromptedTaskName] = useState('');
@@ -191,7 +223,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
       const category = await api.createCategory(newCategoryName, newCategoryColor);
       setSelectedCategory(category.id);
       setNewCategoryName('');
-      setNewCategoryColor('#6366f1');
+      setNewCategoryColor(nextColor);
       setShowNewCategory(false);
       onCategoryChange();
     } catch (error) {

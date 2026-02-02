@@ -26,9 +26,9 @@ export const config = {
   // CORS - comma-separated origins or * for all
   corsOrigin: process.env.CORS_ORIGIN || '*',
   
-  // Rate limiting
+  // Rate limiting - higher limit in development for testing
   rateLimitWindowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000', 10), // 1 minute
-  rateLimitMax: parseInt(process.env.RATE_LIMIT_MAX || '100', 10), // requests per window
+  rateLimitMax: parseInt(process.env.RATE_LIMIT_MAX || (process.env.NODE_ENV === 'production' ? '100' : '500'), 10), // requests per window
   
   // Trust proxy (for Cloudflare tunnel, nginx, etc.)
   trustProxy: process.env.TRUST_PROXY === 'true' || process.env.NODE_ENV === 'production',
