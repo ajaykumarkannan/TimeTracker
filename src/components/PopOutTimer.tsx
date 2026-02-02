@@ -1,5 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { TimeEntry } from '../types';
 import { getAdaptiveCategoryColors } from '../hooks/useAdaptiveColors';
 
@@ -13,9 +12,18 @@ interface Props {
 
 export function PopOutTimer({ activeEntry, onStop, onPause, onClose, isDarkMode }: Props) {
   const [elapsed, setElapsed] = useState(0);
-  const [popupWindow, setPopupWindow] = useState<Window | null>(null);
-  const [container, setContainer] = useState<HTMLDivElement | null>(null);
+  const popupRef = useRef<Window | null>(null);
   const intervalRef = useRef<number | null>(null);
+  const closedByUserRef = useRef(false);
+
+  const colors = getAdaptiveCategoryColors(activeEntry.category_color, isDarkMode);
+
+  const formatTime = useCallback((seconds: number) => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  }, []);
 
   // Calculate elapsed time
   useEffect(() => {
@@ -30,7 +38,53 @@ export function PopOutTimer({ activeEntry, onStop, onPause, onClose, isDarkMode 
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [activeEntry]);
+  }, [activeEntry.start_time]);
+
+  // Render content to popup
+  const renderPopupContent = useCallback(() => {
+    const popup = popupRef.current;
+    if (!popup || popup.closed) return;
+
+    const timeStr = formatTime(elapsed);
+    popup.document.title = `${timeStr} - ChronoFlow`;
+
+    const root = popup.document.getElementById('popout-root');
+    if (!root) return;
+
+    root.innerHTML = `
+      <div class="popout-timer">
+        <div class="popout-time">${timeStr}</div>
+        <div class="popout-info">
+          <span class="popout-category" style="background-color: ${colors.bgColor}; color: ${colors.textColor};">
+            <span class="popout-dot" style="background-color: ${colors.dotColor};"></span>
+            ${activeEntry.category_name}
+          </span>
+          ${activeEntry.note ? `<span class="popout-note" title="${activeEntry.note}">${activeEntry.note}</span>` : ''}
+        </div>
+        <div class="popout-actions">
+          <button class="popout-btn popout-btn-pause" id="pause-btn" title="Pause">❚❚</button>
+          <button class="popout-btn popout-btn-stop" id="stop-btn" title="Stop">■</button>
+        </div>
+      </div>
+    `;
+
+    // Attach event listeners
+    const pauseBtn = popup.document.getElementById('pause-btn');
+    const stopBtn = popup.document.getElementById('stop-btn');
+    
+    if (pauseBtn) {
+      pauseBtn.onclick = () => {
+        closedByUserRef.current = true;
+        onPause();
+      };
+    }
+    if (stopBtn) {
+      stopBtn.onclick = () => {
+        closedByUserRef.current = true;
+        onStop();
+      };
+    }
+  }, [elapsed, colors, activeEntry.category_name, activeEntry.note, formatTime, onPause, onStop]);
 
   // Open popup window
   useEffect(() => {
@@ -41,7 +95,7 @@ export function PopOutTimer({ activeEntry, onStop, onPause, onClose, isDarkMode 
 
     const popup = window.open(
       '',
-      'chronoflow-timer',
+      'chronoflow-timer-' + Date.now(), // Unique name to allow reopening
       `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=no,toolbar=no,menubar=no,location=no,status=no`
     );
 
@@ -51,95 +105,48 @@ export function PopOutTimer({ activeEntry, onStop, onPause, onClose, isDarkMode 
       return;
     }
 
-    // Create container in popup
-    const div = popup.document.createElement('div');
-    div.id = 'popout-root';
-    popup.document.body.appendChild(div);
-    popup.document.title = 'ChronoFlow Timer';
+    popupRef.current = popup;
 
-    // Inject styles
-    const style = popup.document.createElement('style');
-    style.textContent = getPopupStyles(isDarkMode);
-    popup.document.head.appendChild(style);
+    // Set up the popup document
+    popup.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>ChronoFlow Timer</title>
+          <style>${getPopupStyles(isDarkMode)}</style>
+        </head>
+        <body>
+          <div id="popout-root"></div>
+        </body>
+      </html>
+    `);
+    popup.document.close();
 
     // Handle popup close
-    popup.onbeforeunload = () => {
-      onClose();
-    };
-
-    setPopupWindow(popup);
-    setContainer(div);
+    const checkClosed = setInterval(() => {
+      if (popup.closed) {
+        clearInterval(checkClosed);
+        if (!closedByUserRef.current) {
+          onClose();
+        }
+      }
+    }, 200);
 
     return () => {
+      clearInterval(checkClosed);
       if (popup && !popup.closed) {
         popup.close();
       }
+      popupRef.current = null;
     };
-  }, []);
+  }, [isDarkMode, onClose]);
 
-  // Update styles when theme changes
+  // Update popup content when elapsed time changes
   useEffect(() => {
-    if (popupWindow && !popupWindow.closed) {
-      const style = popupWindow.document.querySelector('style');
-      if (style) {
-        style.textContent = getPopupStyles(isDarkMode);
-      }
-    }
-  }, [isDarkMode, popupWindow]);
+    renderPopupContent();
+  }, [renderPopupContent]);
 
-  // Update title with elapsed time
-  useEffect(() => {
-    if (popupWindow && !popupWindow.closed) {
-      const h = Math.floor(elapsed / 3600);
-      const m = Math.floor((elapsed % 3600) / 60);
-      const s = elapsed % 60;
-      const timeStr = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-      popupWindow.document.title = `${timeStr} - ChronoFlow`;
-    }
-  }, [elapsed, popupWindow]);
-
-  const formatTime = (seconds: number) => {
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = seconds % 60;
-    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-  };
-
-  const colors = getAdaptiveCategoryColors(activeEntry.category_color, isDarkMode);
-
-  if (!container || !popupWindow || popupWindow.closed) {
-    return null;
-  }
-
-  return createPortal(
-    <div className="popout-timer">
-      <div className="popout-time">{formatTime(elapsed)}</div>
-      <div className="popout-info">
-        <span 
-          className="popout-category"
-          style={{ 
-            backgroundColor: colors.bgColor,
-            color: colors.textColor
-          }}
-        >
-          <span className="popout-dot" style={{ backgroundColor: colors.dotColor }} />
-          {activeEntry.category_name}
-        </span>
-        {activeEntry.note && (
-          <span className="popout-note" title={activeEntry.note}>{activeEntry.note}</span>
-        )}
-      </div>
-      <div className="popout-actions">
-        <button className="popout-btn popout-btn-pause" onClick={onPause} title="Pause">
-          ❚❚
-        </button>
-        <button className="popout-btn popout-btn-stop" onClick={onStop} title="Stop">
-          ■
-        </button>
-      </div>
-    </div>,
-    container
-  );
+  return null; // This component doesn't render anything in the main window
 }
 
 function getPopupStyles(isDarkMode: boolean): string {

@@ -1,16 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render } from '@testing-library/react';
 import { PopOutTimer } from '../PopOutTimer';
 import { TimeEntry } from '../../types';
-
-// Mock createPortal to render children directly
-vi.mock('react-dom', async () => {
-  const actual = await vi.importActual('react-dom');
-  return {
-    ...actual,
-    createPortal: (children: React.ReactNode) => children,
-  };
-});
 
 describe('PopOutTimer', () => {
   const mockActiveEntry: TimeEntry = {
@@ -31,39 +22,30 @@ describe('PopOutTimer', () => {
 
   let mockPopupWindow: {
     document: {
-      createElement: ReturnType<typeof vi.fn>;
-      body: { appendChild: ReturnType<typeof vi.fn> };
-      head: { appendChild: ReturnType<typeof vi.fn> };
+      write: ReturnType<typeof vi.fn>;
+      close: ReturnType<typeof vi.fn>;
       title: string;
-      querySelector: ReturnType<typeof vi.fn>;
+      getElementById: ReturnType<typeof vi.fn>;
     };
     close: ReturnType<typeof vi.fn>;
     closed: boolean;
-    onbeforeunload: (() => void) | null;
   };
 
   beforeEach(() => {
     vi.useFakeTimers();
     
-    // Create mock popup window
-    const mockDiv = document.createElement('div');
-    const mockStyle = document.createElement('style');
+    const mockRoot = document.createElement('div');
+    mockRoot.id = 'popout-root';
     
     mockPopupWindow = {
       document: {
-        createElement: vi.fn((tag: string) => {
-          if (tag === 'div') return mockDiv;
-          if (tag === 'style') return mockStyle;
-          return document.createElement(tag);
-        }),
-        body: { appendChild: vi.fn() },
-        head: { appendChild: vi.fn() },
+        write: vi.fn(),
+        close: vi.fn(),
         title: '',
-        querySelector: vi.fn(() => mockStyle),
+        getElementById: vi.fn(() => mockRoot),
       },
       close: vi.fn(),
       closed: false,
-      onbeforeunload: null,
     };
 
     vi.spyOn(window, 'open').mockReturnValue(mockPopupWindow as unknown as Window);
@@ -87,7 +69,7 @@ describe('PopOutTimer', () => {
 
     expect(window.open).toHaveBeenCalledWith(
       '',
-      'chronoflow-timer',
+      expect.stringContaining('chronoflow-timer-'),
       expect.stringContaining('width=')
     );
   });
@@ -112,7 +94,7 @@ describe('PopOutTimer', () => {
     );
   });
 
-  it('sets up onbeforeunload handler to call onClose', () => {
+  it('writes HTML content to popup document', () => {
     render(
       <PopOutTimer
         activeEntry={mockActiveEntry}
@@ -123,14 +105,11 @@ describe('PopOutTimer', () => {
       />
     );
 
-    expect(mockPopupWindow.onbeforeunload).toBeDefined();
-    
-    // Simulate popup close
-    if (mockPopupWindow.onbeforeunload) {
-      mockPopupWindow.onbeforeunload();
-    }
-    
-    expect(mockOnClose).toHaveBeenCalled();
+    expect(mockPopupWindow.document.write).toHaveBeenCalled();
+    const writeCall = mockPopupWindow.document.write.mock.calls[0][0];
+    expect(writeCall).toContain('<!DOCTYPE html>');
+    expect(writeCall).toContain('ChronoFlow Timer');
+    expect(writeCall).toContain('popout-root');
   });
 
   it('closes popup window on unmount', () => {
@@ -167,7 +146,11 @@ describe('PopOutTimer', () => {
     expect(mockPopupWindow.close).not.toHaveBeenCalled();
   });
 
-  it('creates container div in popup document', () => {
+  it('renders timer content with category and note', () => {
+    const mockRoot = document.createElement('div');
+    mockRoot.id = 'popout-root';
+    mockPopupWindow.document.getElementById = vi.fn(() => mockRoot);
+
     render(
       <PopOutTimer
         activeEntry={mockActiveEntry}
@@ -178,11 +161,14 @@ describe('PopOutTimer', () => {
       />
     );
 
-    expect(mockPopupWindow.document.createElement).toHaveBeenCalledWith('div');
-    expect(mockPopupWindow.document.body.appendChild).toHaveBeenCalled();
+    // Advance timer to trigger content render
+    vi.advanceTimersByTime(1000);
+
+    expect(mockRoot.innerHTML).toContain('Deep Work');
+    expect(mockRoot.innerHTML).toContain('Working on feature');
   });
 
-  it('injects styles into popup document', () => {
+  it('updates popup title with elapsed time', () => {
     render(
       <PopOutTimer
         activeEntry={mockActiveEntry}
@@ -193,67 +179,92 @@ describe('PopOutTimer', () => {
       />
     );
 
-    expect(mockPopupWindow.document.createElement).toHaveBeenCalledWith('style');
-    expect(mockPopupWindow.document.head.appendChild).toHaveBeenCalled();
-  });
-
-  it('updates popup title with elapsed time', async () => {
-    render(
-      <PopOutTimer
-        activeEntry={mockActiveEntry}
-        onStop={mockOnStop}
-        onPause={mockOnPause}
-        onClose={mockOnClose}
-        isDarkMode={false}
-      />
-    );
-
-    // Advance timer to trigger title update
-    await act(async () => {
-      vi.advanceTimersByTime(1000);
-    });
+    vi.advanceTimersByTime(1000);
 
     expect(mockPopupWindow.document.title).toMatch(/\d{2}:\d{2}:\d{2} - ChronoFlow/);
   });
+
+  it('uses unique window name to allow reopening', () => {
+    render(
+      <PopOutTimer
+        activeEntry={mockActiveEntry}
+        onStop={mockOnStop}
+        onPause={mockOnPause}
+        onClose={mockOnClose}
+        isDarkMode={false}
+      />
+    );
+
+    const openCall = (window.open as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(openCall[1]).toMatch(/^chronoflow-timer-\d+$/);
+  });
+
+  it('applies dark mode styles when isDarkMode is true', () => {
+    render(
+      <PopOutTimer
+        activeEntry={mockActiveEntry}
+        onStop={mockOnStop}
+        onPause={mockOnPause}
+        onClose={mockOnClose}
+        isDarkMode={true}
+      />
+    );
+
+    const writeCall = mockPopupWindow.document.write.mock.calls[0][0];
+    expect(writeCall).toContain('#1a1a2e'); // Dark mode background
+  });
+
+  it('applies light mode styles when isDarkMode is false', () => {
+    render(
+      <PopOutTimer
+        activeEntry={mockActiveEntry}
+        onStop={mockOnStop}
+        onPause={mockOnPause}
+        onClose={mockOnClose}
+        isDarkMode={false}
+      />
+    );
+
+    const writeCall = mockPopupWindow.document.write.mock.calls[0][0];
+    expect(writeCall).toContain('#ffffff'); // Light mode background
+  });
 });
 
-describe('PopOutTimer time formatting', () => {
-  it('formats elapsed time correctly', () => {
-    // Test the time formatting logic by checking the title updates
-    const mockEntry: TimeEntry = {
+describe('PopOutTimer without note', () => {
+  it('renders without note when entry has no note', () => {
+    vi.useFakeTimers();
+    
+    const mockRoot = document.createElement('div');
+    mockRoot.id = 'popout-root';
+    
+    const mockPopup = {
+      document: {
+        write: vi.fn(),
+        close: vi.fn(),
+        title: '',
+        getElementById: vi.fn(() => mockRoot),
+      },
+      close: vi.fn(),
+      closed: false,
+    };
+
+    vi.spyOn(window, 'open').mockReturnValue(mockPopup as unknown as Window);
+
+    const entryWithoutNote: TimeEntry = {
       id: 1,
       category_id: 1,
-      category_name: 'Test',
-      category_color: '#000',
+      category_name: 'Meeting',
+      category_color: '#10b981',
       note: null,
-      start_time: new Date(Date.now() - 7384000).toISOString(), // 2h 3m 4s ago
+      start_time: new Date(Date.now() - 60000).toISOString(),
       end_time: null,
       duration_minutes: null,
       created_at: new Date().toISOString(),
     };
 
-    vi.useFakeTimers();
-    
-    const mockDiv = document.createElement('div');
-    const mockStyle = document.createElement('style');
-    const mockPopup = {
-      document: {
-        createElement: vi.fn((tag: string) => tag === 'div' ? mockDiv : mockStyle),
-        body: { appendChild: vi.fn() },
-        head: { appendChild: vi.fn() },
-        title: '',
-        querySelector: vi.fn(() => mockStyle),
-      },
-      close: vi.fn(),
-      closed: false,
-      onbeforeunload: null,
-    };
-
-    vi.spyOn(window, 'open').mockReturnValue(mockPopup as unknown as Window);
-
     render(
       <PopOutTimer
-        activeEntry={mockEntry}
+        activeEntry={entryWithoutNote}
         onStop={vi.fn()}
         onPause={vi.fn()}
         onClose={vi.fn()}
@@ -261,12 +272,10 @@ describe('PopOutTimer time formatting', () => {
       />
     );
 
-    act(() => {
-      vi.advanceTimersByTime(1000);
-    });
+    vi.advanceTimersByTime(1000);
 
-    // Title should contain formatted time
-    expect(mockPopup.document.title).toContain('02:03:');
+    expect(mockRoot.innerHTML).toContain('Meeting');
+    expect(mockRoot.innerHTML).not.toContain('popout-note');
     
     vi.useRealTimers();
   });

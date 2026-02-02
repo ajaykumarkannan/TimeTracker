@@ -280,14 +280,6 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
               </div>
             </div>
             <div className="timer-actions">
-              <button 
-                className="btn btn-ghost btn-icon" 
-                onClick={() => setShowPopOut(true)} 
-                title="Pop out timer"
-                aria-label="Pop out timer to separate window"
-              >
-                <span className="popout-icon">⧉</span>
-              </button>
               <button className="btn btn-warning" onClick={handlePause} title="Pause">
                 <span className="pause-icon">❚❚</span>
                 Pause
@@ -637,6 +629,18 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
             )}
           </div>
         </div>
+      )}
+
+      {/* Floating pop-out button */}
+      {activeEntry && !showPopOut && (
+        <button 
+          className="floating-popout-btn"
+          onClick={() => setShowPopOut(true)} 
+          title="Pop out timer"
+          aria-label="Pop out timer to separate window"
+        >
+          <span className="popout-icon">⧉</span>
+        </button>
       )}
 
       {/* Pop-out timer window */}
