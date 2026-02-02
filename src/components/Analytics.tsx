@@ -538,12 +538,12 @@ export function Analytics() {
           </div>
           {canNavigatePrevious && (
             <div className="period-nav">
-              <button className="nav-btn" onClick={() => navigatePeriod(-1)} title="Previous">
+              <button className="period-nav-btn" onClick={() => navigatePeriod(-1)} title="Previous">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
                   <polyline points="15,18 9,12 15,6" />
                 </svg>
               </button>
-              <button className="nav-btn" onClick={() => navigatePeriod(1)} disabled={!canNavigateNext} title="Next">
+              <button className="period-nav-btn" onClick={() => navigatePeriod(1)} disabled={!canNavigateNext} title="Next">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
                   <polyline points="9,18 15,12 9,6" />
                 </svg>
