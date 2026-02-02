@@ -662,6 +662,10 @@
   flex: 1;
 }
 
+.cleanup-apply-all {
+  margin-left: auto;
+}
+
 .cleanup-close {
   font-size: 1.125rem;
   color: var(--text-muted);

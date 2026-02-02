@@ -379,6 +379,22 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
     setDismissedShortEntries(prev => new Set([...prev, entryId]));
   };
 
+  const handleApplyAll = async () => {
+    // Merge all candidates first
+    for (const candidate of mergeCandidates) {
+      await handleMergeEntries(candidate);
+    }
+    // Then delete all short entries
+    for (const { entry } of shortEntries) {
+      try {
+        await api.deleteEntry(entry.id);
+      } catch (error) {
+        console.error('Failed to delete entry:', error);
+      }
+    }
+    onEntryChange();
+  };
+
   const formatTime = (dateStr: string) => {
     const date = new Date(dateStr);
     return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
@@ -560,6 +576,9 @@ export function TimeEntryList({ entries, categories, onEntryChange }: Props) {
           <div className="cleanup-header">
             <span className="cleanup-icon">🧹</span>
             <span className="cleanup-title">Cleanup Suggestions</span>
+            <button className="btn btn-sm btn-primary cleanup-apply-all" onClick={handleApplyAll}>
+              Apply All
+            </button>
             <button className="btn-icon cleanup-close" onClick={() => setShowCleanupBanner(false)}>×</button>
           </div>
           
