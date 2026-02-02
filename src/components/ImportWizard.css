@@ -225,6 +225,7 @@
   gap: 1rem;
   margin-bottom: 1rem;
   flex-wrap: wrap;
+  align-items: center;
 }
 
 .import-stats .stat {
@@ -252,6 +253,12 @@
 .import-stats .stat.total {
   background: transparent;
   color: var(--text-secondary);
+}
+
+.import-stats .btn-small {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  margin-left: auto;
 }
 
 .new-categories-notice {

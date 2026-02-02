@@ -31,23 +31,18 @@ export function Analytics() {
   const [period, setPeriod] = useState<Period>(getStoredPeriod);
   const [periodOffset, setPeriodOffset] = useState(0); // 0 = current, -1 = previous, etc.
   const [showPreviousMenu, setShowPreviousMenu] = useState(false);
-  const [showExportMenu, setShowExportMenu] = useState(false);
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [activeEntry, setActiveEntry] = useState<TimeEntry | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const previousMenuRef = useRef<HTMLDivElement>(null);
-  const exportMenuRef = useRef<HTMLDivElement>(null);
 
   // Close menus when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (previousMenuRef.current && !previousMenuRef.current.contains(e.target as Node)) {
         setShowPreviousMenu(false);
-      }
-      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
-        setShowExportMenu(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -212,33 +207,20 @@ export function Analytics() {
     return date.toLocaleDateString(undefined, { weekday: 'short' });
   };
 
-  const handleExport = async (format: 'json' | 'csv') => {
+  const handleExport = async () => {
     setExporting(true);
     setShowExportMenu(false);
     try {
-      if (format === 'csv') {
-        const csvData = await api.exportCSV();
-        const blob = new Blob([csvData], { type: 'text/csv' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `chronoflow-export-${new Date().toISOString().split('T')[0]}.csv`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      } else {
-        const exportData = await api.exportData();
-        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `chronoflow-export-${new Date().toISOString().split('T')[0]}.json`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      }
+      const csvData = await api.exportCSV();
+      const blob = new Blob([csvData], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `chronoflow-export-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Export failed:', error);
     }
@@ -567,25 +549,14 @@ export function Analytics() {
             </div>
           )}
         </div>
-        <div className="export-dropdown" ref={exportMenuRef}>
-          <button className="export-btn" onClick={() => setShowExportMenu(!showExportMenu)} disabled={exporting}>
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="7,10 12,15 17,10" />
-              <line x1="12" y1="15" x2="12" y2="3" />
-            </svg>
-            {exporting ? 'Exporting...' : 'Export'}
-            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2">
-              <polyline points="6,9 12,15 18,9" />
-            </svg>
-          </button>
-          {showExportMenu && (
-            <div className="dropdown-menu">
-              <button onClick={() => handleExport('json')}>Export as JSON</button>
-              <button onClick={() => handleExport('csv')}>Export as CSV</button>
-            </div>
-          )}
-        </div>
+        <button className="export-btn" onClick={handleExport} disabled={exporting}>
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="7,10 12,15 17,10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+          {exporting ? 'Exporting...' : 'Export CSV'}
+        </button>
       </div>
 
       {/* Current ongoing task */}

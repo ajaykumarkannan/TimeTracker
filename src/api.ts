@@ -248,12 +248,6 @@ export const api = {
   },
 
   // Export
-  async exportData(): Promise<{ exportedAt: string; categories: Category[]; timeEntries: TimeEntry[] }> {
-    const res = await apiFetch(`${API_BASE}/export`);
-    if (!res.ok) throw new Error('Failed to export data');
-    return res.json();
-  },
-
   async exportCSV(): Promise<string> {
     const res = await apiFetch(`${API_BASE}/export/csv`);
     if (!res.ok) throw new Error('Failed to export CSV');

@@ -298,6 +298,14 @@ export function ImportWizard({ csv, onClose, onSuccess }: Props) {
               {stats.errors > 0 && <span className="stat errors">{stats.errors} errors</span>}
               {stats.skipped > 0 && <span className="stat skipped">{stats.skipped} skipped</span>}
               <span className="stat total">of {stats.total} total</span>
+              <button 
+                className="btn btn-small btn-ghost"
+                onClick={() => {
+                  setEntries(prev => prev.map(e => ({ ...e, skip: !!e.error })));
+                }}
+              >
+                Select All Valid
+              </button>
             </div>
 
             {newCategories.length > 0 && (

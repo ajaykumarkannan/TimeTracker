@@ -29,7 +29,7 @@ const faqs: FAQItem[] = [
   },
   {
     question: 'How do I export my data?',
-    answer: 'Go to Settings and use the "Export CSV" or "Export JSON" buttons. CSV is great for spreadsheets, while JSON includes all your data including categories.'
+    answer: 'Go to Settings and use the "Export CSV" button. You can also export from the Analytics page. CSV files work great with spreadsheets.'
   },
   {
     question: 'Can I import time entries?',

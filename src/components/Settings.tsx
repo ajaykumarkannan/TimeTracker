@@ -57,7 +57,6 @@ export function Settings({ onLogout, onConvertSuccess }: SettingsProps) {
   const [timezoneLoading, setTimezoneLoading] = useState(false);
 
   // Export/Reset state
-  const [exporting, setExporting] = useState(false);
   const [exportingCSV, setExportingCSV] = useState(false);
   const [showImportWizard, setShowImportWizard] = useState(false);
   const [importCSV, setImportCSV] = useState<string | null>(null);
@@ -110,25 +109,6 @@ export function Settings({ onLogout, onConvertSuccess }: SettingsProps) {
       setUpdateError(err instanceof Error ? err.message : 'Update failed');
     }
     setUpdateLoading(false);
-  };
-
-  const handleExport = async () => {
-    setExporting(true);
-    try {
-      const exportData = await api.exportData();
-      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `chronoflow-export-${new Date().toISOString().split('T')[0]}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Export failed:', error);
-    }
-    setExporting(false);
   };
 
   const handleExportCSV = async () => {
@@ -385,15 +365,6 @@ export function Settings({ onLogout, onConvertSuccess }: SettingsProps) {
             </div>
           )}
           {importError && <div className="form-error">{importError}</div>}
-          <div className="settings-action">
-            <div className="action-info">
-              <h3>Export as JSON</h3>
-              <p>Download all your time entries and categories as JSON.</p>
-            </div>
-            <button className="btn-secondary" onClick={handleExport} disabled={exporting}>
-              {exporting ? 'Exporting...' : 'Export JSON'}
-            </button>
-          </div>
           <div className="settings-action danger">
             <div className="action-info">
               <h3>Reset All Data</h3>
