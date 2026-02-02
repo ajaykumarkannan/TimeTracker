@@ -69,8 +69,8 @@ Both modes use the same server-side SQLite database - there is no localStorage-b
 ├── e2e/              # Playwright E2E tests
 ├── extension/        # Browser extension (popup)
 ├── public/           # Static assets
-├── logs/             # Winston log files
-└── data/             # SQLite database file
+├── logs/             # Winston log files (dev only; Docker uses named volume)
+└── data/             # SQLite database file (dev only; Docker uses named volume)
 ```
 
 ## Development Workflow
@@ -130,6 +130,19 @@ docker-compose up --build  # Build and run
 ```
 
 App runs on `http://localhost:4849`
+
+#### Data Persistence
+
+Docker uses **named volumes** (not bind mounts) for data persistence:
+- `chronoflow-data` - SQLite database (`/app/data/timetracker.db` in container)
+- `chronoflow-logs` - Winston log files (`/app/logs` in container)
+
+These are stored in Docker's internal storage (typically `/var/lib/docker/volumes/`). To find the exact path:
+```bash
+docker volume inspect chronoflow-data
+```
+
+Note: The local `./data` and `./logs` directories are for development only and are not used by Docker.
 
 ### Code Style
 
