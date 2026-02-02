@@ -77,7 +77,7 @@ Both modes use the same server-side SQLite database - there is no localStorage-b
 
 ### Git Workflow
 
-- **Work on feature branches**: Create feature branches from `main` for new work
+- **Work on feature branches**: Create feature branches from `main` for new work. If there are multiple changes in flight by different agents, ask the user what they would like.
 - **Commit frequently**: Make small, incremental commits as you work rather than one large commit at the end
 - **Write meaningful commit messages**: Describe what changed and why
 - **Ask before merging to main**: Never merge to `main` without explicit human approval
