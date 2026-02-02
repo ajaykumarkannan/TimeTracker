@@ -181,10 +181,14 @@
   background: var(--text-muted);
 }
 
+/* When empty, maintain structure but show minimal height */
 .daily-chart.empty {
-  height: auto;
-  min-height: 3rem;
+  min-height: 8rem;
   align-items: flex-end;
+}
+
+.daily-chart.empty.vertical-labels {
+  min-height: 10rem;
 }
 
 .chart-bar-container {
@@ -201,18 +205,20 @@
 
 /* Week view (7 days) - bars can expand to fill space */
 .daily-chart.view-day .chart-bar-container {
-  flex: 1 0 3rem;
+  flex: 1 1 3rem;
+  min-width: 3rem;
 }
 
-/* Week aggregation (month/quarter) - fixed width for consistency */
+/* Week aggregation (month/quarter) - expand to fill, with minimum width */
 .daily-chart.view-week .chart-bar-container {
-  flex: 0 0 auto;
+  flex: 1 1 4rem;
   min-width: 4rem;
 }
 
 /* Month aggregation (year/all) - can expand when few items */
 .daily-chart.view-month .chart-bar-container {
-  flex: 1 0 3rem;
+  flex: 1 1 3rem;
+  min-width: 3rem;
 }
 
 .chart-bar-container.today {
