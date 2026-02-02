@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Category, TimeEntry } from '../types';
 import { api } from '../api';
+import { useTheme } from '../contexts/ThemeContext';
+import { getAdaptiveCategoryColors } from '../hooks/useAdaptiveColors';
 import './TimeTracker.css';
 
 // Primary color palette - visually distinct colors
@@ -46,6 +48,9 @@ interface RecentTask {
 }
 
 export function TimeTracker({ categories, activeEntry, entries, onEntryChange, onCategoryChange }: Props) {
+  const { resolvedTheme } = useTheme();
+  const isDarkMode = resolvedTheme === 'dark';
+
   const nextColor = useMemo(() => {
     const usedColors = categories.map(c => c.color);
     return getNextAvailableColor(usedColors);
@@ -243,6 +248,9 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
 
   const displayCategories = categories.slice(0, 5);
 
+  // Helper to get adaptive colors for a category
+  const getCategoryColors = (color: string | null) => getAdaptiveCategoryColors(color, isDarkMode);
+
   return (
     <div className="time-tracker card">
       {activeEntry ? (
@@ -251,16 +259,21 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
             <div className="timer-display">
               <div className="timer-time">{formatTime(elapsed)}</div>
               <div className="timer-info">
-                <span 
-                  className="category-badge" 
-                  style={{ 
-                    backgroundColor: `${activeEntry.category_color}20`,
-                    color: activeEntry.category_color || '#6366f1'
-                  }}
-                >
-                  <span className="category-dot" style={{ backgroundColor: activeEntry.category_color || '#6366f1' }} />
-                  {activeEntry.category_name}
-                </span>
+                {(() => {
+                  const colors = getCategoryColors(activeEntry.category_color);
+                  return (
+                    <span 
+                      className="category-badge" 
+                      style={{ 
+                        backgroundColor: colors.bgColor,
+                        color: colors.textColor
+                      }}
+                    >
+                      <span className="category-dot" style={{ backgroundColor: colors.dotColor }} />
+                      {activeEntry.category_name}
+                    </span>
+                  );
+                })()}
                 {activeEntry.note && <span className="timer-note">{activeEntry.note}</span>}
               </div>
             </div>
@@ -284,16 +297,21 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                 <div className="task-prompt-modal" onClick={e => e.stopPropagation()}>
                   <div className="task-prompt-header">
                     <span className="task-prompt-title">Switch to</span>
-                    <span 
-                      className="category-badge" 
-                      style={{ 
-                        backgroundColor: `${switchTaskPrompt.categoryColor}20`,
-                        color: switchTaskPrompt.categoryColor || '#6366f1'
-                      }}
-                    >
-                      <span className="category-dot" style={{ backgroundColor: switchTaskPrompt.categoryColor || '#6366f1' }} />
-                      {switchTaskPrompt.categoryName}
-                    </span>
+                    {(() => {
+                      const colors = getCategoryColors(switchTaskPrompt.categoryColor);
+                      return (
+                        <span 
+                          className="category-badge" 
+                          style={{ 
+                            backgroundColor: colors.bgColor,
+                            color: colors.textColor
+                          }}
+                        >
+                          <span className="category-dot" style={{ backgroundColor: colors.dotColor }} />
+                          {switchTaskPrompt.categoryName}
+                        </span>
+                      );
+                    })()}
                   </div>
                   <input
                     type="text"
@@ -364,28 +382,34 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
               </div>
             ) : (
               <div className="switch-quick-options">
-                {recentTasks.slice(0, 3).map((task, idx) => (
-                  <button
-                    key={idx}
-                    className="switch-task-btn"
-                    onClick={() => handleSwitchTask(task.categoryId, task.note)}
-                    title={`${task.categoryName}: ${task.note}`}
-                  >
-                    <span className="category-dot" style={{ backgroundColor: task.categoryColor || '#6366f1' }} />
-                    <span className="switch-task-note">{task.note}</span>
-                  </button>
-                ))}
-                {displayCategories.slice(0, 2).map(cat => (
-                  <button
-                    key={cat.id}
-                    className="switch-category-btn"
-                    style={{ borderColor: cat.color || '#6366f1', color: cat.color || '#6366f1' }}
-                    onClick={() => handleCategorySwitchPrompt(cat)}
-                  >
-                    <span className="category-dot" style={{ backgroundColor: cat.color || '#6366f1' }} />
-                    {cat.name}
-                  </button>
-                ))}
+                {recentTasks.slice(0, 3).map((task, idx) => {
+                  const colors = getCategoryColors(task.categoryColor);
+                  return (
+                    <button
+                      key={idx}
+                      className="switch-task-btn"
+                      onClick={() => handleSwitchTask(task.categoryId, task.note)}
+                      title={`${task.categoryName}: ${task.note}`}
+                    >
+                      <span className="category-dot" style={{ backgroundColor: colors.dotColor }} />
+                      <span className="switch-task-note">{task.note}</span>
+                    </button>
+                  );
+                })}
+                {displayCategories.slice(0, 2).map(cat => {
+                  const colors = getCategoryColors(cat.color);
+                  return (
+                    <button
+                      key={cat.id}
+                      className="switch-category-btn"
+                      style={{ borderColor: colors.textColor, color: colors.textColor }}
+                      onClick={() => handleCategorySwitchPrompt(cat)}
+                    >
+                      <span className="category-dot" style={{ backgroundColor: colors.dotColor }} />
+                      {cat.name}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -394,16 +418,21 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
         <div className="paused-tracker">
           <div className="paused-info">
             <span className="paused-label">⏸ Paused</span>
-            <span 
-              className="category-badge" 
-              style={{ 
-                backgroundColor: `${pausedEntry.category_color}20`,
-                color: pausedEntry.category_color || '#6366f1'
-              }}
-            >
-              <span className="category-dot" style={{ backgroundColor: pausedEntry.category_color || '#6366f1' }} />
-              {pausedEntry.category_name}
-            </span>
+            {(() => {
+              const colors = getCategoryColors(pausedEntry.category_color);
+              return (
+                <span 
+                  className="category-badge" 
+                  style={{ 
+                    backgroundColor: colors.bgColor,
+                    color: colors.textColor
+                  }}
+                >
+                  <span className="category-dot" style={{ backgroundColor: colors.dotColor }} />
+                  {pausedEntry.category_name}
+                </span>
+              );
+            })()}
             {pausedEntry.note && <span className="timer-note">{pausedEntry.note}</span>}
           </div>
           <div className="timer-actions">
@@ -423,16 +452,21 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
             <div className="task-prompt-overlay" onClick={() => setTaskNamePrompt(null)}>
               <div className="task-prompt-modal" onClick={e => e.stopPropagation()}>
                 <div className="task-prompt-header">
-                  <span 
-                    className="category-badge" 
-                    style={{ 
-                      backgroundColor: `${taskNamePrompt.categoryColor}20`,
-                      color: taskNamePrompt.categoryColor || '#6366f1'
-                    }}
-                  >
-                    <span className="category-dot" style={{ backgroundColor: taskNamePrompt.categoryColor || '#6366f1' }} />
-                    {taskNamePrompt.categoryName}
-                  </span>
+                  {(() => {
+                    const colors = getCategoryColors(taskNamePrompt.categoryColor);
+                    return (
+                      <span 
+                        className="category-badge" 
+                        style={{ 
+                          backgroundColor: colors.bgColor,
+                          color: colors.textColor
+                        }}
+                      >
+                        <span className="category-dot" style={{ backgroundColor: colors.dotColor }} />
+                        {taskNamePrompt.categoryName}
+                      </span>
+                    );
+                  })()}
                 </div>
                 <input
                   type="text"
@@ -466,18 +500,21 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                 <div className="quick-start-group">
                   <span className="quick-start-label">Recent tasks</span>
                   <div className="quick-start-buttons">
-                    {recentTasks.map((task, idx) => (
-                      <button
-                        key={idx}
-                        className="quick-start-btn quick-start-task"
-                        onClick={() => handleQuickStartTask(task)}
-                        title={`${task.categoryName}: ${task.note}`}
-                      >
-                        <span className="category-dot" style={{ backgroundColor: task.categoryColor || '#6366f1' }} />
-                        <span className="task-note-text">{task.note}</span>
-                        <span className="task-category-hint">{task.categoryName}</span>
-                      </button>
-                    ))}
+                    {recentTasks.map((task, idx) => {
+                      const colors = getCategoryColors(task.categoryColor);
+                      return (
+                        <button
+                          key={idx}
+                          className="quick-start-btn quick-start-task"
+                          onClick={() => handleQuickStartTask(task)}
+                          title={`${task.categoryName}: ${task.note}`}
+                        >
+                          <span className="category-dot" style={{ backgroundColor: colors.dotColor }} />
+                          <span className="task-note-text">{task.note}</span>
+                          <span className="task-category-hint">{task.categoryName}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -485,17 +522,20 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
               <div className="quick-start-group">
                 <span className="quick-start-label">Categories</span>
                 <div className="quick-start-buttons">
-                  {displayCategories.map(cat => (
-                    <button
-                      key={cat.id}
-                      className="quick-start-btn quick-start-category"
-                      style={{ borderColor: cat.color || '#6366f1', color: cat.color || '#6366f1' }}
-                      onClick={() => handleCategoryQuickStart(cat)}
-                    >
-                      <span className="category-dot" style={{ backgroundColor: cat.color || '#6366f1' }} />
-                      {cat.name}
-                    </button>
-                  ))}
+                  {displayCategories.map(cat => {
+                    const colors = getCategoryColors(cat.color);
+                    return (
+                      <button
+                        key={cat.id}
+                        className="quick-start-btn quick-start-category"
+                        style={{ borderColor: colors.textColor, color: colors.textColor }}
+                        onClick={() => handleCategoryQuickStart(cat)}
+                      >
+                        <span className="category-dot" style={{ backgroundColor: colors.dotColor }} />
+                        {cat.name}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>
