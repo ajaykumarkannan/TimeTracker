@@ -442,6 +442,62 @@ router.get('/suggestions', (req: AuthRequest, res: Response) => {
   }
 });
 
+// Merge descriptions - update all entries with source descriptions to use target description
+router.post('/merge-descriptions', (req: AuthRequest, res: Response) => {
+  try {
+    const { sourceDescriptions, targetDescription } = req.body;
+    
+    if (!Array.isArray(sourceDescriptions) || sourceDescriptions.length === 0) {
+      return res.status(400).json({ error: 'sourceDescriptions must be a non-empty array' });
+    }
+    
+    if (typeof targetDescription !== 'string' || !targetDescription.trim()) {
+      return res.status(400).json({ error: 'targetDescription must be a non-empty string' });
+    }
+
+    const db = getDb();
+    
+    // Build placeholders for IN clause
+    const placeholders = sourceDescriptions.map(() => '?').join(', ');
+    
+    // Count entries that will be updated
+    const countResult = db.exec(
+      `SELECT COUNT(*) as count FROM time_entries 
+       WHERE user_id = ? AND description IN (${placeholders})`,
+      [req.userId as number, ...sourceDescriptions]
+    );
+    const totalEntries = countResult.length > 0 ? countResult[0].values[0][0] as number : 0;
+    
+    if (totalEntries === 0) {
+      return res.status(404).json({ error: 'No entries found with the specified descriptions' });
+    }
+    
+    // Update all entries with source descriptions to use target description
+    db.run(
+      `UPDATE time_entries SET description = ? 
+       WHERE user_id = ? AND description IN (${placeholders})`,
+      [targetDescription.trim(), req.userId as number, ...sourceDescriptions]
+    );
+    saveDatabase();
+
+    logger.info('Descriptions merged', { 
+      sourceDescriptions, 
+      targetDescription, 
+      entriesUpdated: totalEntries, 
+      userId: req.userId as number 
+    });
+
+    res.json({ 
+      merged: sourceDescriptions.length, 
+      entriesUpdated: totalEntries,
+      targetDescription: targetDescription.trim()
+    });
+  } catch (error) {
+    logger.error('Error merging descriptions', { error, userId: req.userId as number });
+    res.status(500).json({ error: 'Failed to merge descriptions' });
+  }
+});
+
 // Delete all entries for a specific date
 router.delete('/by-date/:date', (req: AuthRequest, res: Response) => {
   try {

@@ -50,6 +50,12 @@ export function Analytics() {
   const [descriptionsPageSize, setDescriptionsPageSize] = useState(10);
   const [descriptionsLoading, setDescriptionsLoading] = useState(false);
   const [descriptionsSortBy, setDescriptionsSortBy] = useState<'time' | 'alpha' | 'count' | 'recent'>('time');
+  
+  // Merge descriptions state
+  const [selectedDescriptions, setSelectedDescriptions] = useState<Set<string>>(new Set());
+  const [showMergeModal, setShowMergeModal] = useState(false);
+  const [mergeTarget, setMergeTarget] = useState<string>('');
+  const [merging, setMerging] = useState(false);
 
   // Close menus when clicking outside
   useEffect(() => {
@@ -258,6 +264,45 @@ export function Analytics() {
 
   const navigatePeriod = (direction: -1 | 1) => {
     setPeriodOffset(prev => prev + direction);
+  };
+
+  // Merge descriptions handlers
+  const toggleDescriptionSelection = (description: string) => {
+    setSelectedDescriptions(prev => {
+      const next = new Set(prev);
+      if (next.has(description)) {
+        next.delete(description);
+      } else {
+        next.add(description);
+      }
+      return next;
+    });
+  };
+
+  const openMergeModal = () => {
+    if (selectedDescriptions.size < 2) return;
+    // Default to the first selected description as target
+    setMergeTarget(Array.from(selectedDescriptions)[0]);
+    setShowMergeModal(true);
+  };
+
+  const handleMerge = async () => {
+    if (!mergeTarget || selectedDescriptions.size < 2) return;
+    setMerging(true);
+    try {
+      const sourceDescriptions = Array.from(selectedDescriptions);
+      await api.mergeDescriptions(sourceDescriptions, mergeTarget);
+      // Clear selection and refresh data
+      setSelectedDescriptions(new Set());
+      setShowMergeModal(false);
+      // Trigger data refresh
+      const { start, end } = getDateRange(period, periodOffset);
+      const result = await api.getDescriptions(start.toISOString(), end.toISOString(), descriptionsPage, descriptionsPageSize, descriptionsSortBy);
+      setDescriptions(result);
+    } catch (error) {
+      console.error('Failed to merge descriptions:', error);
+    }
+    setMerging(false);
   };
 
   useEffect(() => {
@@ -834,6 +879,14 @@ export function Analytics() {
           <div className="card-header">
             <h2 className="card-title">All Descriptions</h2>
             <div className="descriptions-header-controls">
+              {selectedDescriptions.size >= 2 && (
+                <button className="merge-btn" onClick={openMergeModal}>
+                  Merge {selectedDescriptions.size} selected
+                </button>
+              )}
+              {selectedDescriptions.size > 0 && selectedDescriptions.size < 2 && (
+                <span className="merge-hint">Select 2+ to merge</span>
+              )}
               <select 
                 className="sort-select"
                 value={descriptionsSortBy}
@@ -853,7 +906,14 @@ export function Analytics() {
             <>
               <div className="top-tasks">
                 {descriptions.descriptions.map((item, i) => (
-                  <div key={i} className="task-row">
+                  <div key={i} className={`task-row ${selectedDescriptions.has(item.description) ? 'selected' : ''}`}>
+                    <label className="task-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={selectedDescriptions.has(item.description)}
+                        onChange={() => toggleDescriptionSelection(item.description)}
+                      />
+                    </label>
                     <span className="task-rank">#{(descriptionsPage - 1) * descriptionsPageSize + i + 1}</span>
                     <span className="task-name">{item.description}</span>
                     <span className="task-count">{item.count}×</span>
@@ -891,6 +951,40 @@ export function Analytics() {
               </div>
             </>
           )}
+        </div>
+      )}
+
+      {/* Merge descriptions modal */}
+      {showMergeModal && (
+        <div className="modal-overlay" onClick={() => setShowMergeModal(false)}>
+          <div className="merge-modal" onClick={e => e.stopPropagation()}>
+            <h3>Merge Descriptions</h3>
+            <p className="merge-info">
+              Select which description to keep. All {selectedDescriptions.size} descriptions will be merged into the selected one.
+            </p>
+            <div className="merge-options">
+              {Array.from(selectedDescriptions).map(desc => (
+                <label key={desc} className={`merge-option ${mergeTarget === desc ? 'selected' : ''}`}>
+                  <input
+                    type="radio"
+                    name="mergeTarget"
+                    value={desc}
+                    checked={mergeTarget === desc}
+                    onChange={() => setMergeTarget(desc)}
+                  />
+                  <span className="merge-option-text">{desc}</span>
+                </label>
+              ))}
+            </div>
+            <div className="merge-actions">
+              <button className="btn btn-ghost" onClick={() => setShowMergeModal(false)} disabled={merging}>
+                Cancel
+              </button>
+              <button className="btn btn-primary" onClick={handleMerge} disabled={merging || !mergeTarget}>
+                {merging ? 'Merging...' : 'Merge'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

@@ -894,3 +894,167 @@
     justify-content: space-between;
   }
 }
+
+/* Merge descriptions */
+.merge-btn {
+  padding: 0.375rem 0.75rem;
+  background: var(--primary);
+  border: none;
+  border-radius: var(--radius-sm, 0.25rem);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: white;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.merge-btn:hover {
+  background: var(--primary-hover, var(--primary));
+  filter: brightness(1.1);
+}
+
+.merge-hint {
+  font-size: 0.75rem;
+  color: var(--text-tertiary, var(--text-muted));
+  font-style: italic;
+}
+
+.task-checkbox {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.task-checkbox input[type="checkbox"] {
+  width: 1rem;
+  height: 1rem;
+  cursor: pointer;
+  accent-color: var(--primary);
+}
+
+.task-row.selected {
+  background: var(--primary-alpha, rgba(99, 102, 241, 0.1));
+  margin: 0 -0.5rem;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+  border-radius: var(--radius-sm, 0.25rem);
+}
+
+/* Merge modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.merge-modal {
+  background: var(--bg-primary);
+  border-radius: var(--radius-lg, 0.75rem);
+  padding: 1.5rem;
+  max-width: 28rem;
+  width: 100%;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+.merge-modal h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.merge-info {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin: 0 0 1rem;
+  line-height: 1.5;
+}
+
+.merge-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  max-height: 15rem;
+  overflow-y: auto;
+}
+
+.merge-option {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: var(--bg-secondary);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-md, 0.5rem);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.merge-option:hover {
+  border-color: var(--text-tertiary);
+}
+
+.merge-option.selected {
+  border-color: var(--primary);
+  background: var(--primary-alpha, rgba(99, 102, 241, 0.1));
+}
+
+.merge-option input[type="radio"] {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--primary);
+  flex-shrink: 0;
+}
+
+.merge-option-text {
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+.merge-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.merge-actions .btn {
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border-radius: var(--radius-sm, 0.25rem);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.merge-actions .btn-ghost {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+
+.merge-actions .btn-ghost:hover:not(:disabled) {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.merge-actions .btn-primary {
+  background: var(--primary);
+  border: none;
+  color: white;
+}
+
+.merge-actions .btn-primary:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.merge-actions .btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

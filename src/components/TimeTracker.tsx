@@ -147,7 +147,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   // Filter modal suggestions (for task/switch prompts)
   const modalSuggestions = useMemo(() => {
     const categoryId = taskNamePrompt?.categoryId || switchTaskPrompt?.categoryId;
-    const query = taskNamePrompt ? promptedTaskName : switchTaskName;
+    const query = taskNamePrompt ? promptedTaskName : (switchTaskPrompt ? switchTaskName : '');
     
     if (!categoryId) return [];
     
@@ -158,6 +158,9 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
         .map(s => ({ ...s, ...fuzzyMatch(query, s.description) }))
         .filter(s => s.match)
         .sort((a, b) => b.score - a.score || b.count - a.count);
+    } else {
+      // No query - sort by count
+      filtered = filtered.sort((a, b) => b.count - a.count);
     }
     
     return filtered.slice(0, 8);
@@ -172,8 +175,11 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   }, [suggestions, selectedCategory, description]);
 
   useEffect(() => {
+    // Show modal suggestions when modal opens and has suggestions
     if (modalSuggestions.length > 0 && (taskNamePrompt || switchTaskPrompt)) {
       setShowModalSuggestions(true);
+    } else if (!taskNamePrompt && !switchTaskPrompt) {
+      setShowModalSuggestions(false);
     }
     setSelectedModalSuggestionIndex(-1);
   }, [modalSuggestions, taskNamePrompt, switchTaskPrompt]);

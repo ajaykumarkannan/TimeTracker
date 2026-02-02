@@ -202,6 +202,18 @@ export const api = {
     return res.json();
   },
 
+  async mergeDescriptions(sourceDescriptions: string[], targetDescription: string): Promise<{ merged: number; entriesUpdated: number; targetDescription: string }> {
+    const res = await apiFetch(`${API_BASE}/time-entries/merge-descriptions`, {
+      method: 'POST',
+      body: JSON.stringify({ sourceDescriptions, targetDescription })
+    });
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || 'Failed to merge descriptions');
+    }
+    return res.json();
+  },
+
   async getActiveEntry(): Promise<TimeEntry | null> {
     const res = await apiFetch(`${API_BASE}/time-entries/active`);
     if (!res.ok) throw new Error('Failed to fetch active entry');
