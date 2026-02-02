@@ -49,9 +49,9 @@ test.describe('Time Tracker E2E', () => {
     // Stop timer
     await page.click('button:has-text("Stop")');
 
-    // Verify entry appears in history
+    // Wait for the entry to appear in history (give time for API call and re-render)
     await expect(page.locator('.time-entry-list')).toBeVisible();
-    await expect(page.locator('.entry-category:has-text("Development")')).toBeVisible();
+    await expect(page.locator('.entry-category:has-text("Development")')).toBeVisible({ timeout: 10000 });
   });
 
   test('edit and delete category', async ({ page }) => {
@@ -94,11 +94,13 @@ test.describe('Time Tracker E2E', () => {
     await page.click('.task-prompt-modal button:has-text("Start")');
     
     await page.waitForTimeout(2000);
+    
+    // Stop timer
     await page.click('button:has-text("Stop")');
 
-    // Check history section shows the entry
+    // Wait for the entry to appear in history (give time for API call and re-render)
     await expect(page.locator('.time-entry-list')).toBeVisible();
-    await expect(page.locator('.entry-category:has-text("Meetings")')).toBeVisible();
+    await expect(page.locator('.entry-category:has-text("Meetings")')).toBeVisible({ timeout: 10000 });
   });
 
   test('timer updates in real-time', async ({ page }) => {

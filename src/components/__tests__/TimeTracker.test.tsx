@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { TimeTracker } from '../TimeTracker';
 import { ThemeProvider } from '../../contexts/ThemeContext';
 
@@ -15,9 +15,17 @@ vi.mock('../../api', () => ({
 
 import { api } from '../../api';
 
-// Helper to render with ThemeProvider
-const renderWithTheme = (ui: React.ReactElement) => {
-  return render(<ThemeProvider>{ui}</ThemeProvider>);
+// Helper to render with ThemeProvider and wait for effects
+const renderWithTheme = async (ui: React.ReactElement) => {
+  let result;
+  await act(async () => {
+    result = render(<ThemeProvider>{ui}</ThemeProvider>);
+  });
+  // Wait for any pending state updates
+  await act(async () => {
+    await new Promise(resolve => setTimeout(resolve, 0));
+  });
+  return result!;
 };
 
 describe('TimeTracker', () => {
@@ -47,8 +55,8 @@ describe('TimeTracker', () => {
     vi.clearAllMocks();
   });
 
-  it('renders start form when no active entry', () => {
-    renderWithTheme(
+  it('renders start form when no active entry', async () => {
+    await renderWithTheme(
       <TimeTracker 
         categories={mockCategories} 
         activeEntry={null}
@@ -62,7 +70,7 @@ describe('TimeTracker', () => {
   });
 
   it('starts timer when category selected and start clicked', async () => {
-    renderWithTheme(
+    await renderWithTheme(
       <TimeTracker 
         categories={mockCategories} 
         activeEntry={null}
@@ -73,10 +81,14 @@ describe('TimeTracker', () => {
     );
     
     const select = screen.getByRole('combobox');
-    fireEvent.change(select, { target: { value: '1' } });
+    await act(async () => {
+      fireEvent.change(select, { target: { value: '1' } });
+    });
     
     const startButton = screen.getByRole('button', { name: /start/i });
-    fireEvent.click(startButton);
+    await act(async () => {
+      fireEvent.click(startButton);
+    });
     
     await waitFor(() => {
       expect(api.startEntry).toHaveBeenCalledWith(1, undefined);
@@ -84,7 +96,7 @@ describe('TimeTracker', () => {
     });
   });
 
-  it('displays active timer with category name', () => {
+  it('displays active timer with category name', async () => {
     const activeEntry = {
       id: 1,
       category_id: 1,
@@ -97,7 +109,7 @@ describe('TimeTracker', () => {
       created_at: '2024-01-01'
     };
 
-    renderWithTheme(
+    await renderWithTheme(
       <TimeTracker 
         categories={mockCategories} 
         activeEntry={activeEntry}
@@ -126,7 +138,7 @@ describe('TimeTracker', () => {
       created_at: '2024-01-01'
     };
 
-    renderWithTheme(
+    await renderWithTheme(
       <TimeTracker 
         categories={mockCategories} 
         activeEntry={activeEntry}
@@ -137,7 +149,9 @@ describe('TimeTracker', () => {
     );
     
     const stopButton = screen.getByRole('button', { name: /stop/i });
-    fireEvent.click(stopButton);
+    await act(async () => {
+      fireEvent.click(stopButton);
+    });
     
     await waitFor(() => {
       expect(api.stopEntry).toHaveBeenCalledWith(1);
@@ -145,8 +159,8 @@ describe('TimeTracker', () => {
     });
   });
 
-  it('disables start button when no category selected', () => {
-    renderWithTheme(
+  it('disables start button when no category selected', async () => {
+    await renderWithTheme(
       <TimeTracker 
         categories={mockCategories} 
         activeEntry={null}

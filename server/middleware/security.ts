@@ -4,15 +4,36 @@ import { config } from '../config';
 // Rate limiting store (in-memory, resets on restart)
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
 
-// Clean up expired entries periodically
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, value] of rateLimitStore.entries()) {
-    if (now > value.resetTime) {
-      rateLimitStore.delete(key);
+// Track cleanup interval for proper shutdown
+let cleanupInterval: NodeJS.Timeout | null = null;
+
+// Start cleanup interval
+function startCleanup(): void {
+  if (cleanupInterval) return;
+  
+  cleanupInterval = setInterval(() => {
+    const now = Date.now();
+    for (const [key, value] of rateLimitStore.entries()) {
+      if (now > value.resetTime) {
+        rateLimitStore.delete(key);
+      }
     }
+  }, 60000); // Clean every minute
+  
+  // Don't prevent process exit
+  cleanupInterval.unref();
+}
+
+// Stop cleanup interval (for graceful shutdown)
+export function stopRateLimitCleanup(): void {
+  if (cleanupInterval) {
+    clearInterval(cleanupInterval);
+    cleanupInterval = null;
   }
-}, 60000); // Clean every minute
+}
+
+// Initialize cleanup on module load
+startCleanup();
 
 export function rateLimiter(req: Request, res: Response, next: NextFunction): void {
   // Get client IP (supports proxy)

@@ -1,11 +1,13 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { TimeEntry, Category } from '../types';
 import { api } from '../api';
+import { formatTime, formatDuration, formatDate, formatDateTimeLocal, formatDateOnly, formatTimeOnly, combineDateAndTime } from '../utils/timeUtils';
 import './TimeEntryList.css';
 
 interface Props {
   categories: Category[];
   onEntryChange: () => void;
+  refreshKey?: number;
 }
 
 type EditField = 'category' | 'description' | 'startTime' | 'endTime' | null;
@@ -21,7 +23,7 @@ interface ShortEntry {
   durationSeconds: number;
 }
 
-export function TimeEntryList({ categories, onEntryChange }: Props) {
+export function TimeEntryList({ categories, onEntryChange, refreshKey }: Props) {
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<number | null>(null);
@@ -85,6 +87,13 @@ export function TimeEntryList({ categories, onEntryChange }: Props) {
   useEffect(() => {
     loadEntries();
   }, [loadEntries]);
+
+  // Reload entries when parent signals a change via refreshKey
+  useEffect(() => {
+    if (refreshKey !== undefined && refreshKey > 0) {
+      loadEntries();
+    }
+  }, [refreshKey, loadEntries]);
 
   // Reload entries when onEntryChange is triggered externally
   const handleEntryChangeInternal = useCallback(async () => {
@@ -288,31 +297,6 @@ export function TimeEntryList({ categories, onEntryChange }: Props) {
     setEditEndTime(entry.end_time ? formatDateTimeLocal(entry.end_time) : '');
   };
 
-  const formatDateTimeLocal = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const offset = date.getTimezoneOffset();
-    const local = new Date(date.getTime() - offset * 60000);
-    return local.toISOString().slice(0, 16);
-  };
-
-  const formatDateOnly = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const offset = date.getTimezoneOffset();
-    const local = new Date(date.getTime() - offset * 60000);
-    return local.toISOString().slice(0, 10);
-  };
-
-  const formatTimeOnly = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const offset = date.getTimezoneOffset();
-    const local = new Date(date.getTime() - offset * 60000);
-    return local.toISOString().slice(11, 16);
-  };
-
-  const combineDateAndTime = (dateStr: string, timeStr: string) => {
-    return new Date(`${dateStr}T${timeStr}`);
-  };
-
   const openManualEntry = () => {
     const now = new Date();
     const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
@@ -491,32 +475,6 @@ export function TimeEntryList({ categories, onEntryChange }: Props) {
       }
     }
     handleEntryChangeInternal();
-  };
-
-  const formatTime = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-  };
-
-  const formatDuration = (minutes: number | null) => {
-    if (minutes === null) return '—';
-    if (minutes === 0) return '<1m';
-    const h = Math.floor(minutes / 60);
-    const m = minutes % 60;
-    if (h === 0) return `${m}m`;
-    if (m === 0) return `${h}h`;
-    return `${h}h ${m}m`;
-  };
-
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-
-    if (date.toDateString() === today.toDateString()) return 'Today';
-    if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
-    return date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
   };
 
   const getTotalMinutes = () => {

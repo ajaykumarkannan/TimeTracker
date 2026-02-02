@@ -174,6 +174,16 @@ const migrations: Migration[] = [
       db.run(`CREATE INDEX IF NOT EXISTS idx_time_entries_user_end ON time_entries(user_id, end_time)`);
     }
   },
+  {
+    version: 5,
+    name: 'add_analytics_indexes',
+    up: (db) => {
+      // Composite index for analytics queries that filter by user and category
+      db.run(`CREATE INDEX IF NOT EXISTS idx_time_entries_user_category ON time_entries(user_id, category_id)`);
+      // Index for description-based queries (suggestions, merge)
+      db.run(`CREATE INDEX IF NOT EXISTS idx_time_entries_user_description ON time_entries(user_id, description)`);
+    }
+  },
 ];
 
 export function runMigrations(db: SqlJsDatabase): void {

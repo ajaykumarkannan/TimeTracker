@@ -2,6 +2,12 @@ import { Router, Response } from 'express';
 import { getDb, saveDatabase } from '../database';
 import { logger } from '../logger';
 import { flexAuthMiddleware, AuthRequest } from '../middleware/auth';
+import { 
+  TIME_ENTRIES_WITH_CATEGORIES_QUERY, 
+  rowToTimeEntry, 
+  rowsToTimeEntries,
+  calculateDurationMinutes 
+} from '../utils/queryHelpers';
 
 const router = Router();
 
@@ -16,13 +22,7 @@ router.get('/', (req: AuthRequest, res: Response) => {
     const startDate = req.query.startDate as string;
     const endDate = req.query.endDate as string;
     
-    let query = `
-      SELECT te.id, te.user_id, te.category_id, c.name as category_name, c.color as category_color,
-             te.description, te.start_time, te.end_time, te.duration_minutes, te.created_at
-      FROM time_entries te
-      JOIN categories c ON te.category_id = c.id
-      WHERE te.user_id = ?
-    `;
+    let query = TIME_ENTRIES_WITH_CATEGORIES_QUERY + ` WHERE te.user_id = ?`;
     const params: (number | string)[] = [req.userId as number];
     
     // Optional date filtering
@@ -39,23 +39,7 @@ router.get('/', (req: AuthRequest, res: Response) => {
     params.push(limit, offset);
     
     const result = db.exec(query, params);
-
-    const entries = result.length > 0 
-      ? result[0].values.map(row => ({
-          id: row[0] as number,
-          user_id: row[1] as number,
-          category_id: row[2] as number,
-          category_name: row[3] as string,
-          category_color: row[4] as string | null,
-          description: row[5] as string | null,
-          start_time: row[6] as string,
-          end_time: row[7] as string | null,
-          duration_minutes: row[8] as number | null,
-          created_at: row[9] as string
-        }))
-      : [];
-
-    res.json(entries);
+    res.json(rowsToTimeEntries(result));
   } catch (error) {
     logger.error('Error fetching time entries', { error, userId: req.userId as number });
     res.status(500).json({ error: 'Failed to fetch time entries' });
@@ -66,32 +50,16 @@ router.get('/', (req: AuthRequest, res: Response) => {
 router.get('/active', (req: AuthRequest, res: Response) => {
   try {
     const db = getDb();
-    const result = db.exec(`
-      SELECT te.id, te.user_id, te.category_id, c.name as category_name, c.color as category_color,
-             te.description, te.start_time, te.end_time, te.duration_minutes, te.created_at
-      FROM time_entries te
-      JOIN categories c ON te.category_id = c.id
-      WHERE te.user_id = ? AND te.end_time IS NULL
-      LIMIT 1
-    `, [req.userId as number]);
+    const result = db.exec(
+      TIME_ENTRIES_WITH_CATEGORIES_QUERY + ` WHERE te.user_id = ? AND te.end_time IS NULL LIMIT 1`,
+      [req.userId as number]
+    );
 
     if (result.length === 0 || result[0].values.length === 0) {
       return res.json(null);
     }
 
-    const row = result[0].values[0];
-    res.json({
-      id: row[0] as number,
-      user_id: row[1] as number,
-      category_id: row[2] as number,
-      category_name: row[3] as string,
-      category_color: row[4] as string | null,
-      description: row[5] as string | null,
-      start_time: row[6] as string,
-      end_time: row[7] as string | null,
-      duration_minutes: row[8] as number | null,
-      created_at: row[9] as string
-    });
+    res.json(rowToTimeEntry(result[0].values[0]));
   } catch (error) {
     logger.error('Error fetching active entry', { error, userId: req.userId as number });
     res.status(500).json({ error: 'Failed to fetch active entry' });
@@ -128,7 +96,7 @@ router.post('/start', (req: AuthRequest, res: Response) => {
       const activeId = activeResult[0].values[0][0] as number;
       const startTime = activeResult[0].values[0][1] as string;
       const endTime = new Date().toISOString();
-      const duration = Math.round((new Date(endTime).getTime() - new Date(startTime).getTime()) / 60000);
+      const duration = calculateDurationMinutes(startTime, endTime);
       
       db.run(
         `UPDATE time_entries SET end_time = ?, duration_minutes = ? WHERE id = ?`,
@@ -143,29 +111,15 @@ router.post('/start', (req: AuthRequest, res: Response) => {
     );
     saveDatabase();
 
-    const result = db.exec(`
-      SELECT te.id, te.user_id, te.category_id, c.name as category_name, c.color as category_color,
-             te.description, te.start_time, te.end_time, te.duration_minutes, te.created_at
-      FROM time_entries te
-      JOIN categories c ON te.category_id = c.id
-      WHERE te.user_id = ? AND te.end_time IS NULL
-    `, [req.userId as number]);
+    const result = db.exec(
+      TIME_ENTRIES_WITH_CATEGORIES_QUERY + ` WHERE te.user_id = ? AND te.end_time IS NULL`,
+      [req.userId as number]
+    );
 
-    const row = result[0].values[0];
-    logger.info('Time entry started', { entryId: row[0], userId: req.userId as number });
+    const entry = rowToTimeEntry(result[0].values[0]);
+    logger.info('Time entry started', { entryId: entry.id, userId: req.userId as number });
 
-    res.status(201).json({
-      id: row[0] as number,
-      user_id: row[1] as number,
-      category_id: row[2] as number,
-      category_name: row[3] as string,
-      category_color: row[4] as string | null,
-      description: row[5] as string | null,
-      start_time: row[6] as string,
-      end_time: row[7] as string | null,
-      duration_minutes: row[8] as number | null,
-      created_at: row[9] as string
-    });
+    res.status(201).json(entry);
   } catch (error) {
     logger.error('Error starting time entry', { error, userId: req.userId as number });
     res.status(500).json({ error: 'Failed to start time entry' });
@@ -189,7 +143,7 @@ router.post('/:id/stop', (req: AuthRequest, res: Response) => {
 
     const startTime = existing[0].values[0][0] as string;
     const endTime = new Date().toISOString();
-    const duration = Math.round((new Date(endTime).getTime() - new Date(startTime).getTime()) / 60000);
+    const duration = calculateDurationMinutes(startTime, endTime);
 
     db.run(
       `UPDATE time_entries SET end_time = ?, duration_minutes = ? WHERE id = ?`,
@@ -197,29 +151,15 @@ router.post('/:id/stop', (req: AuthRequest, res: Response) => {
     );
     saveDatabase();
 
-    const result = db.exec(`
-      SELECT te.id, te.user_id, te.category_id, c.name as category_name, c.color as category_color,
-             te.description, te.start_time, te.end_time, te.duration_minutes, te.created_at
-      FROM time_entries te
-      JOIN categories c ON te.category_id = c.id
-      WHERE te.id = ?
-    `, [id]);
+    const result = db.exec(
+      TIME_ENTRIES_WITH_CATEGORIES_QUERY + ` WHERE te.id = ?`,
+      [id]
+    );
 
-    const row = result[0].values[0];
+    const entry = rowToTimeEntry(result[0].values[0]);
     logger.info('Time entry stopped', { entryId: id, duration, userId: req.userId as number });
 
-    res.json({
-      id: row[0] as number,
-      user_id: row[1] as number,
-      category_id: row[2] as number,
-      category_name: row[3] as string,
-      category_color: row[4] as string | null,
-      description: row[5] as string | null,
-      start_time: row[6] as string,
-      end_time: row[7] as string | null,
-      duration_minutes: row[8] as number | null,
-      created_at: row[9] as string
-    });
+    res.json(entry);
   } catch (error) {
     logger.error('Error stopping time entry', { error, userId: req.userId as number });
     res.status(500).json({ error: 'Failed to stop time entry' });
@@ -258,10 +198,7 @@ router.put('/:id', (req: AuthRequest, res: Response) => {
     const newStart = start_time || currentStart;
     const newEnd = end_time !== undefined ? end_time : currentEnd;
     
-    let duration: number | null = null;
-    if (newEnd) {
-      duration = Math.round((new Date(newEnd).getTime() - new Date(newStart).getTime()) / 60000);
-    }
+    const duration = newEnd ? calculateDurationMinutes(newStart, newEnd) : null;
 
     db.run(
       `UPDATE time_entries 
@@ -275,29 +212,13 @@ router.put('/:id', (req: AuthRequest, res: Response) => {
     );
     saveDatabase();
 
-    const result = db.exec(`
-      SELECT te.id, te.user_id, te.category_id, c.name as category_name, c.color as category_color,
-             te.description, te.start_time, te.end_time, te.duration_minutes, te.created_at
-      FROM time_entries te
-      JOIN categories c ON te.category_id = c.id
-      WHERE te.id = ?
-    `, [id]);
+    const result = db.exec(
+      TIME_ENTRIES_WITH_CATEGORIES_QUERY + ` WHERE te.id = ?`,
+      [id]
+    );
 
-    const row = result[0].values[0];
     logger.info('Time entry updated', { entryId: id, userId: req.userId as number });
-
-    res.json({
-      id: row[0] as number,
-      user_id: row[1] as number,
-      category_id: row[2] as number,
-      category_name: row[3] as string,
-      category_color: row[4] as string | null,
-      description: row[5] as string | null,
-      start_time: row[6] as string,
-      end_time: row[7] as string | null,
-      duration_minutes: row[8] as number | null,
-      created_at: row[9] as string
-    });
+    res.json(rowToTimeEntry(result[0].values[0]));
   } catch (error) {
     logger.error('Error updating time entry', { error, userId: req.userId as number });
     res.status(500).json({ error: 'Failed to update time entry' });
@@ -325,7 +246,7 @@ router.post('/', (req: AuthRequest, res: Response) => {
     }
 
     // Calculate duration
-    const duration = Math.round((new Date(end_time).getTime() - new Date(start_time).getTime()) / 60000);
+    const duration = calculateDurationMinutes(start_time, end_time);
     
     if (duration < 0) {
       return res.status(400).json({ error: 'End time must be after start time' });
@@ -340,29 +261,15 @@ router.post('/', (req: AuthRequest, res: Response) => {
     const result = db.exec(`SELECT last_insert_rowid() as id`);
     const newId = result[0].values[0][0] as number;
 
-    const entryResult = db.exec(`
-      SELECT te.id, te.user_id, te.category_id, c.name as category_name, c.color as category_color,
-             te.description, te.start_time, te.end_time, te.duration_minutes, te.created_at
-      FROM time_entries te
-      JOIN categories c ON te.category_id = c.id
-      WHERE te.id = ?
-    `, [newId]);
+    const entryResult = db.exec(
+      TIME_ENTRIES_WITH_CATEGORIES_QUERY + ` WHERE te.id = ?`,
+      [newId]
+    );
 
-    const row = entryResult[0].values[0];
+    const entry = rowToTimeEntry(entryResult[0].values[0]);
     logger.info('Manual time entry created', { entryId: newId, userId: req.userId as number });
 
-    res.status(201).json({
-      id: row[0] as number,
-      user_id: row[1] as number,
-      category_id: row[2] as number,
-      category_name: row[3] as string,
-      category_color: row[4] as string | null,
-      description: row[5] as string | null,
-      start_time: row[6] as string,
-      end_time: row[7] as string | null,
-      duration_minutes: row[8] as number | null,
-      created_at: row[9] as string
-    });
+    res.status(201).json(entry);
   } catch (error) {
     logger.error('Error creating manual time entry', { error, userId: req.userId as number });
     res.status(500).json({ error: 'Failed to create time entry' });

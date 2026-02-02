@@ -29,6 +29,7 @@ function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLoggedIn: bo
   const [categories, setCategories] = useState<Category[]>([]);
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [activeEntry, setActiveEntry] = useState<TimeEntry | null>(null);
+  const [entryRefreshKey, setEntryRefreshKey] = useState(0);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
@@ -81,6 +82,7 @@ function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLoggedIn: bo
     ]);
     setEntries(recentEnts);
     setActiveEntry(active);
+    setEntryRefreshKey(k => k + 1);
   };
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
@@ -208,6 +210,7 @@ function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLoggedIn: bo
             <TimeEntryList
               categories={categories}
               onEntryChange={handleEntryChange}
+              refreshKey={entryRefreshKey}
             />
           </>
         )}
