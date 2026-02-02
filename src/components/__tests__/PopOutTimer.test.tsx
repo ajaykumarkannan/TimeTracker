@@ -20,6 +20,9 @@ describe('PopOutTimer', () => {
   const mockOnPause = vi.fn();
   const mockOnClose = vi.fn();
 
+  let mockTimerDisplay: HTMLElement;
+  let mockPauseBtn: HTMLElement;
+  let mockStopBtn: HTMLElement;
   let mockPopupWindow: {
     document: {
       write: ReturnType<typeof vi.fn>;
@@ -34,15 +37,24 @@ describe('PopOutTimer', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     
-    const mockRoot = document.createElement('div');
-    mockRoot.id = 'popout-root';
+    mockTimerDisplay = document.createElement('div');
+    mockTimerDisplay.id = 'timer-display';
+    mockPauseBtn = document.createElement('button');
+    mockPauseBtn.id = 'pause-btn';
+    mockStopBtn = document.createElement('button');
+    mockStopBtn.id = 'stop-btn';
     
     mockPopupWindow = {
       document: {
         write: vi.fn(),
         close: vi.fn(),
         title: '',
-        getElementById: vi.fn(() => mockRoot),
+        getElementById: vi.fn((id: string) => {
+          if (id === 'timer-display') return mockTimerDisplay;
+          if (id === 'pause-btn') return mockPauseBtn;
+          if (id === 'stop-btn') return mockStopBtn;
+          return null;
+        }),
       },
       close: vi.fn(),
       closed: false,
@@ -109,7 +121,8 @@ describe('PopOutTimer', () => {
     const writeCall = mockPopupWindow.document.write.mock.calls[0][0];
     expect(writeCall).toContain('<!DOCTYPE html>');
     expect(writeCall).toContain('ChronoFlow Timer');
-    expect(writeCall).toContain('popout-root');
+    expect(writeCall).toContain('Deep Work');
+    expect(writeCall).toContain('Working on feature');
   });
 
   it('closes popup window on unmount', () => {
@@ -146,11 +159,7 @@ describe('PopOutTimer', () => {
     expect(mockPopupWindow.close).not.toHaveBeenCalled();
   });
 
-  it('renders timer content with category and note', () => {
-    const mockRoot = document.createElement('div');
-    mockRoot.id = 'popout-root';
-    mockPopupWindow.document.getElementById = vi.fn(() => mockRoot);
-
+  it('updates only the timer display text content', () => {
     render(
       <PopOutTimer
         activeEntry={mockActiveEntry}
@@ -161,11 +170,14 @@ describe('PopOutTimer', () => {
       />
     );
 
-    // Advance timer to trigger content render
+    // Initial update should set the timer
+    expect(mockTimerDisplay.textContent).toMatch(/\d{2}:\d{2}:\d{2}/);
+
+    // Advance timer
     vi.advanceTimersByTime(1000);
 
-    expect(mockRoot.innerHTML).toContain('Deep Work');
-    expect(mockRoot.innerHTML).toContain('Working on feature');
+    // Timer should still be updated
+    expect(mockTimerDisplay.textContent).toMatch(/\d{2}:\d{2}:\d{2}/);
   });
 
   it('updates popup title with elapsed time', () => {
@@ -228,21 +240,38 @@ describe('PopOutTimer', () => {
     const writeCall = mockPopupWindow.document.write.mock.calls[0][0];
     expect(writeCall).toContain('#ffffff'); // Light mode background
   });
+
+  it('attaches click handlers to pause and stop buttons', () => {
+    render(
+      <PopOutTimer
+        activeEntry={mockActiveEntry}
+        onStop={mockOnStop}
+        onPause={mockOnPause}
+        onClose={mockOnClose}
+        isDarkMode={false}
+      />
+    );
+
+    // Simulate clicking pause button
+    mockPauseBtn.onclick?.(new MouseEvent('click'));
+    expect(mockOnPause).toHaveBeenCalled();
+
+    // Simulate clicking stop button
+    mockStopBtn.onclick?.(new MouseEvent('click'));
+    expect(mockOnStop).toHaveBeenCalled();
+  });
 });
 
 describe('PopOutTimer without note', () => {
-  it('renders without note when entry has no note', () => {
+  it('renders without note span when entry has no note', () => {
     vi.useFakeTimers();
-    
-    const mockRoot = document.createElement('div');
-    mockRoot.id = 'popout-root';
     
     const mockPopup = {
       document: {
         write: vi.fn(),
         close: vi.fn(),
         title: '',
-        getElementById: vi.fn(() => mockRoot),
+        getElementById: vi.fn(() => document.createElement('div')),
       },
       close: vi.fn(),
       closed: false,
@@ -272,10 +301,12 @@ describe('PopOutTimer without note', () => {
       />
     );
 
-    vi.advanceTimersByTime(1000);
-
-    expect(mockRoot.innerHTML).toContain('Meeting');
-    expect(mockRoot.innerHTML).not.toContain('popout-note');
+    const writeCall = mockPopup.document.write.mock.calls[0][0];
+    expect(writeCall).toContain('Meeting');
+    // When note is null, the note span should not be rendered
+    // The template uses conditional: ${activeEntry.note ? `<span class="popout-note"...` : ''}
+    // So we check that the note title attribute is not present
+    expect(writeCall).not.toContain('title="null"');
     
     vi.useRealTimers();
   });
