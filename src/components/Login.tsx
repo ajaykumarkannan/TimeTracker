@@ -6,11 +6,12 @@ import './Login.css';
 interface Props {
   onBack: () => void;
   onSuccess?: () => void;
+  sessionExpired?: boolean;
 }
 
 type Mode = 'login' | 'register' | 'forgot' | 'reset';
 
-export function Login({ onBack, onSuccess }: Props) {
+export function Login({ onBack, onSuccess, sessionExpired }: Props) {
   const { login, register } = useAuth();
   const [mode, setMode] = useState<Mode>('login');
   const [email, setEmail] = useState('');
@@ -20,6 +21,7 @@ export function Login({ onBack, onSuccess }: Props) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showSessionExpiredMessage, setShowSessionExpiredMessage] = useState(sessionExpired || false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -130,6 +132,20 @@ export function Login({ onBack, onSuccess }: Props) {
         return (
           <>
             <h2>{mode === 'register' ? 'Create Account' : 'Welcome Back'}</h2>
+            {showSessionExpiredMessage && (
+              <div className="session-expired-message">
+                <strong>Session expired</strong>
+                <p>Your session has expired. Please sign in again to continue.</p>
+                <button 
+                  type="button" 
+                  className="dismiss-btn"
+                  onClick={() => setShowSessionExpiredMessage(false)}
+                  aria-label="Dismiss"
+                >
+                  ×
+                </button>
+              </div>
+            )}
             {error && <div className="error-message">{error}</div>}
             {success && <div className="success-message">{success}</div>}
             <div className="form-group">
