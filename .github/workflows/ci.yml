@@ -65,8 +65,49 @@ jobs:
       - name: Install dependencies
         run: npm ci
       
-      - name: Run unit tests
-        run: npm test -- --reporter=verbose
+      - name: Run unit tests with coverage
+        run: npm run test:coverage
+      
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 30
+      
+      - name: Extract coverage percentage
+        id: coverage
+        run: |
+          COVERAGE=$(node -e "const c = require('./coverage/coverage-summary.json'); console.log(Math.round(c.total.lines.pct))")
+          echo "percentage=$COVERAGE" >> $GITHUB_OUTPUT
+          echo "Coverage: $COVERAGE%"
+      
+      - name: Create coverage badge
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: schneegans/dynamic-badges-action@v1.7.0
+        with:
+          auth: ${{ secrets.GIST_TOKEN }}
+          gistID: ${{ vars.COVERAGE_GIST_ID }}
+          filename: chronoflow-coverage-badge.json
+          label: coverage
+          message: ${{ steps.coverage.outputs.percentage }}%
+          valColorRange: ${{ steps.coverage.outputs.percentage }}
+          maxColorRange: 100
+          minColorRange: 0
+      
+      - name: Coverage summary
+        run: |
+          echo "## Coverage Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Coverage |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|----------|" >> $GITHUB_STEP_SUMMARY
+          node -e "
+            const c = require('./coverage/coverage-summary.json').total;
+            console.log('| Statements | ' + c.statements.pct.toFixed(1) + '% |');
+            console.log('| Branches | ' + c.branches.pct.toFixed(1) + '% |');
+            console.log('| Functions | ' + c.functions.pct.toFixed(1) + '% |');
+            console.log('| Lines | ' + c.lines.pct.toFixed(1) + '% |');
+          " >> $GITHUB_STEP_SUMMARY
 
   build:
     name: Build
