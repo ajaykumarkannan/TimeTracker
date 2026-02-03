@@ -694,7 +694,7 @@ export function Analytics() {
   // Check if drill-down is possible (not at the most granular level)
   const canDrillDown = useMemo(() => {
     const aggregation = getAggregation(period);
-    return aggregation !== 'hour' && aggregation !== 'day';
+    return aggregation !== 'hour';
   }, [period]);
 
   // Ref for scrolling to end
