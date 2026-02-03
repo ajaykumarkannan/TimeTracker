@@ -1,8 +1,35 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { TimeEntry, Category } from '../types';
 import { api } from '../api';
 import { formatTime, formatDuration, formatDate, formatDateTimeLocal, formatDateOnly, formatTimeOnly, combineDateAndTime } from '../utils/timeUtils';
 import './TimeEntryList.css';
+
+// Simple fuzzy match - checks if all characters in query appear in order in target
+function fuzzyMatch(query: string, target: string): { match: boolean; score: number } {
+  const q = query.toLowerCase();
+  const t = target.toLowerCase();
+  
+  if (!q) return { match: true, score: 1 };
+  if (t.includes(q)) return { match: true, score: 2 }; // Exact substring match scores highest
+  
+  let qIdx = 0;
+  let consecutiveMatches = 0;
+  let maxConsecutive = 0;
+  
+  for (let tIdx = 0; tIdx < t.length && qIdx < q.length; tIdx++) {
+    if (t[tIdx] === q[qIdx]) {
+      qIdx++;
+      consecutiveMatches++;
+      maxConsecutive = Math.max(maxConsecutive, consecutiveMatches);
+    } else {
+      consecutiveMatches = 0;
+    }
+  }
+  
+  const match = qIdx === q.length;
+  const score = match ? maxConsecutive / q.length : 0;
+  return { match, score };
+}
 
 interface Props {
   categories: Category[];
@@ -68,6 +95,73 @@ export function TimeEntryList({ categories, onEntryChange, refreshKey }: Props) 
   const [showCleanupBanner, setShowCleanupBanner] = useState(true);
   const [dismissedMerges, setDismissedMerges] = useState<Set<string>>(new Set());
   const [dismissedShortEntries, setDismissedShortEntries] = useState<Set<number>>(new Set());
+  
+  // Description suggestions for manual entry
+  const [cachedSuggestions, setCachedSuggestions] = useState<{ description: string; categoryId: number; count: number; totalMinutes: number; lastUsed: string }[]>([]);
+  const [showManualSuggestions, setShowManualSuggestions] = useState(false);
+  const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
+  const manualDescriptionRef = useRef<HTMLInputElement>(null);
+  const suggestionsRef = useRef<HTMLDivElement>(null);
+
+  // Fetch suggestions for manual entry
+  useEffect(() => {
+    const fetchSuggestions = async () => {
+      try {
+        const results = await api.getDescriptionSuggestions(undefined, undefined);
+        setCachedSuggestions(results);
+      } catch (error) {
+        console.error('Failed to fetch suggestions:', error);
+      }
+    };
+    fetchSuggestions();
+  }, [entries.length]); // Refetch when entries change
+
+  // Filter suggestions based on description input
+  const manualSuggestions = useMemo(() => {
+    let filtered = cachedSuggestions;
+    
+    // Filter by category if selected
+    if (manualCategory) {
+      filtered = filtered.filter(s => s.categoryId === manualCategory);
+    }
+    
+    // Fuzzy filter by description
+    if (manualDescription) {
+      filtered = filtered
+        .map(s => ({ ...s, ...fuzzyMatch(manualDescription, s.description) }))
+        .filter(s => s.match)
+        .sort((a, b) => b.score - a.score || b.count - a.count);
+    } else {
+      // No query - sort by count
+      filtered = filtered.sort((a, b) => b.count - a.count);
+    }
+    
+    return filtered.slice(0, 8);
+  }, [cachedSuggestions, manualCategory, manualDescription]);
+
+  // Show suggestions when there are matches
+  useEffect(() => {
+    if (showManualEntry && manualSuggestions.length > 0) {
+      setShowManualSuggestions(true);
+    }
+    setSelectedSuggestionIndex(-1);
+  }, [showManualEntry, manualSuggestions]);
+
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        suggestionsRef.current && 
+        !suggestionsRef.current.contains(e.target as Node) &&
+        manualDescriptionRef.current &&
+        !manualDescriptionRef.current.contains(e.target as Node)
+      ) {
+        setShowManualSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Load entries based on date filter
   const loadEntries = useCallback(async () => {
@@ -325,12 +419,56 @@ export function TimeEntryList({ categories, onEntryChange, refreshKey }: Props) 
     setManualCategory('');
     setManualDescription('');
     setManualError('');
+    setShowManualSuggestions(false);
+    setSelectedSuggestionIndex(-1);
     setShowManualEntry(true);
   };
 
   const closeManualEntry = () => {
     setShowManualEntry(false);
     setManualError('');
+    setShowManualSuggestions(false);
+    setSelectedSuggestionIndex(-1);
+  };
+
+  const handleManualSuggestionSelect = (suggestion: { description: string; categoryId: number }) => {
+    setManualDescription(suggestion.description);
+    // Auto-select category based on suggestion's past history
+    if (!manualCategory || manualCategory !== suggestion.categoryId) {
+      setManualCategory(suggestion.categoryId);
+    }
+    setShowManualSuggestions(false);
+    setSelectedSuggestionIndex(-1);
+    manualDescriptionRef.current?.focus();
+  };
+
+  const handleManualDescriptionKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!showManualSuggestions || manualSuggestions.length === 0) {
+      return;
+    }
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setSelectedSuggestionIndex(prev => 
+          prev < manualSuggestions.length - 1 ? prev + 1 : prev
+        );
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setSelectedSuggestionIndex(prev => prev > 0 ? prev - 1 : -1);
+        break;
+      case 'Enter':
+        if (selectedSuggestionIndex >= 0) {
+          e.preventDefault();
+          handleManualSuggestionSelect(manualSuggestions[selectedSuggestionIndex]);
+        }
+        break;
+      case 'Escape':
+        setShowManualSuggestions(false);
+        setSelectedSuggestionIndex(-1);
+        break;
+    }
   };
 
   const handleManualSubmit = async () => {
@@ -400,6 +538,8 @@ export function TimeEntryList({ categories, onEntryChange, refreshKey }: Props) 
       }));
       setEditingId(null);
       setEditField(null);
+      // Notify parent to refresh (important for active entry updates)
+      onEntryChange();
     } catch (error) {
       console.error('Failed to update entry:', error);
     }
@@ -413,10 +553,19 @@ export function TimeEntryList({ categories, onEntryChange, refreshKey }: Props) 
   const handleKeyDown = (e: React.KeyboardEvent, entryId: number) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      handleSave(entryId);
+      e.stopPropagation();
+      // Use setTimeout to ensure the input value is captured before saving
+      setTimeout(() => handleSave(entryId), 0);
     } else if (e.key === 'Escape') {
+      e.preventDefault();
       handleCancel();
     }
+  };
+
+  // Handle form submission for time inputs (Enter key may not work consistently on datetime-local)
+  const handleTimeInputSubmit = (e: React.FormEvent, entryId: number) => {
+    e.preventDefault();
+    handleSave(entryId);
   };
 
   const handleDelete = async (id: number) => {
@@ -573,7 +722,46 @@ export function TimeEntryList({ categories, onEntryChange, refreshKey }: Props) 
               </div>
               <div className="form-group">
                 <label>Description <span className="optional">(optional)</span></label>
-                <input type="text" value={manualDescription} onChange={(e) => setManualDescription(e.target.value)} placeholder="What were you working on?" />
+                <div className="description-input-wrapper">
+                  <input 
+                    ref={manualDescriptionRef}
+                    type="text" 
+                    value={manualDescription} 
+                    onChange={(e) => setManualDescription(e.target.value)} 
+                    onFocus={() => {
+                      if (manualSuggestions.length > 0) setShowManualSuggestions(true);
+                    }}
+                    onKeyDown={handleManualDescriptionKeyDown}
+                    placeholder="What were you working on?" 
+                    autoComplete="off"
+                  />
+                  {showManualSuggestions && manualSuggestions.length > 0 && (
+                    <div className="description-suggestions" ref={suggestionsRef}>
+                      {manualSuggestions.map((suggestion, idx) => {
+                        const cat = categories.find(c => c.id === suggestion.categoryId);
+                        return (
+                          <button
+                            key={`${suggestion.categoryId}-${suggestion.description}`}
+                            className={`suggestion-item ${idx === selectedSuggestionIndex ? 'selected' : ''}`}
+                            onClick={() => handleManualSuggestionSelect(suggestion)}
+                            onMouseEnter={() => setSelectedSuggestionIndex(idx)}
+                            type="button"
+                          >
+                            <span className="suggestion-text">{suggestion.description}</span>
+                            <span className="suggestion-meta">
+                              <span 
+                                className="category-dot" 
+                                style={{ backgroundColor: cat?.color || '#6366f1' }} 
+                              />
+                              <span className="suggestion-category">{cat?.name || 'Unknown'}</span>
+                              <span className="suggestion-count">×{suggestion.count}</span>
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="form-row-datetime">
                 <div className="form-group">
@@ -840,50 +1028,65 @@ export function TimeEntryList({ categories, onEntryChange, refreshKey }: Props) 
                         </div>
                         <div className="entry-meta">
                           {isEditing && editField === 'startTime' ? (
-                            <input
-                              type="datetime-local"
-                              className="inline-edit-time"
-                              value={editStartTime}
-                              onChange={(e) => setEditStartTime(e.target.value)}
-                              onBlur={() => handleSave(entry.id)}
-                              onKeyDown={(e) => handleKeyDown(e, entry.id)}
-                              autoFocus
+                            <form 
+                              className="inline-edit-time-form"
+                              onSubmit={(e) => handleTimeInputSubmit(e, entry.id)}
                               onClick={(e) => e.stopPropagation()}
-                            />
+                            >
+                              <input
+                                type="datetime-local"
+                                className="inline-edit-time"
+                                value={editStartTime}
+                                onChange={(e) => setEditStartTime(e.target.value)}
+                                onBlur={() => handleSave(entry.id)}
+                                onKeyDown={(e) => handleKeyDown(e, entry.id)}
+                                autoFocus
+                              />
+                              <button type="submit" className="inline-edit-save-btn" title="Save">✓</button>
+                              <button type="button" className="inline-edit-cancel-btn" onClick={handleCancel} title="Cancel">✕</button>
+                            </form>
                           ) : (
-                            <span 
-                              className="entry-time editable"
-                              onDoubleClick={(e) => { e.stopPropagation(); startEdit(entry, 'startTime'); }}
-                              title="Double-click to edit start time"
+                            <button 
+                              className="entry-time-btn editable"
+                              onClick={(e) => { e.stopPropagation(); startEdit(entry, 'startTime'); }}
+                              title="Tap to edit start time"
                             >
                               {formatTime(entry.start_time)}
-                            </span>
+                            </button>
                           )}
                           <span className="time-separator">–</span>
                           {isEditing && editField === 'endTime' ? (
-                            <input
-                              type="datetime-local"
-                              className="inline-edit-time"
-                              value={editEndTime}
-                              onChange={(e) => setEditEndTime(e.target.value)}
-                              onBlur={() => handleSave(entry.id)}
-                              onKeyDown={(e) => handleKeyDown(e, entry.id)}
-                              autoFocus
+                            <form 
+                              className="inline-edit-time-form"
+                              onSubmit={(e) => handleTimeInputSubmit(e, entry.id)}
                               onClick={(e) => e.stopPropagation()}
-                            />
+                            >
+                              <input
+                                type="datetime-local"
+                                className="inline-edit-time"
+                                value={editEndTime}
+                                onChange={(e) => setEditEndTime(e.target.value)}
+                                onBlur={() => handleSave(entry.id)}
+                                onKeyDown={(e) => handleKeyDown(e, entry.id)}
+                                autoFocus
+                              />
+                              <button type="submit" className="inline-edit-save-btn" title="Save">✓</button>
+                              <button type="button" className="inline-edit-cancel-btn" onClick={handleCancel} title="Cancel">✕</button>
+                            </form>
                           ) : (
-                            <span 
-                              className={`entry-time editable ${!entry.end_time ? 'active-time' : ''}`}
-                              onDoubleClick={(e) => { 
+                            <button 
+                              className={`entry-time-btn editable ${!entry.end_time ? 'active-time' : ''}`}
+                              onClick={(e) => { 
                                 if (entry.end_time) {
                                   e.stopPropagation(); 
                                   startEdit(entry, 'endTime'); 
                                 }
                               }}
-                              title={entry.end_time ? "Double-click to edit end time" : "Currently tracking"}
+                              disabled={!entry.end_time}
+                              title={entry.end_time ? "Tap to edit end time" : "Currently tracking"}
                             >
                               {entry.end_time ? formatTime(entry.end_time) : 'now'}
-                            </span>
+                            </button>
                           )}
                           <span className={`entry-duration ${!entry.end_time ? 'active' : ''}`}>
                             {formatDuration(entry.duration_minutes)}

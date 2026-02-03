@@ -106,6 +106,101 @@
   gap: 0.375rem;
 }
 
+.manual-entry-form .description-input-wrapper {
+  position: relative;
+}
+
+.manual-entry-form .description-input-wrapper input {
+  width: 100%;
+  padding: 0.625rem 0.875rem;
+  font-size: 0.875rem;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--input-bg);
+  color: var(--text-primary);
+  outline: none;
+  transition: all 0.15s ease;
+}
+
+.manual-entry-form .description-input-wrapper input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-alpha);
+}
+
+/* Description suggestions dropdown */
+.description-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 0.25rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  z-index: 100;
+  max-height: 16rem;
+  overflow-y: auto;
+}
+
+.suggestion-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.625rem 0.875rem;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+.suggestion-item:hover,
+.suggestion-item.selected {
+  background: var(--bg-secondary);
+}
+
+.suggestion-text {
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.suggestion-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex-shrink: 0;
+}
+
+.suggestion-meta .category-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.suggestion-category {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  max-width: 6rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.suggestion-count {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  font-family: 'JetBrains Mono', monospace;
+}
+
 .manual-entry-form .form-group label {
   font-size: 0.6875rem;
   font-weight: 600;
@@ -556,7 +651,40 @@
   color: var(--success);
 }
 
-/* Inline time edit */
+/* Time button (replacing span for better touch targets) */
+.entry-time-btn {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  padding: 0.25rem 0.5rem;
+  margin: -0.25rem -0.5rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.entry-time-btn:hover:not(:disabled) {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+}
+
+.entry-time-btn:disabled {
+  cursor: default;
+}
+
+.entry-time-btn.active-time {
+  color: var(--success);
+  font-weight: 500;
+}
+
+/* Inline time edit form */
+.inline-edit-time-form {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
 .inline-edit-time {
   font-size: 0.75rem;
   padding: 0.25rem 0.375rem;
@@ -566,6 +694,41 @@
   color: var(--text-primary);
   outline: none;
   width: 13rem;
+}
+
+/* Save/Cancel buttons for inline time edit */
+.inline-edit-save-btn,
+.inline-edit-cancel-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  font-size: 0.875rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.inline-edit-save-btn {
+  background: var(--success);
+  color: white;
+}
+
+.inline-edit-save-btn:hover {
+  background: var(--success-hover, #16a34a);
+}
+
+.inline-edit-cancel-btn {
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+}
+
+.inline-edit-cancel-btn:hover {
+  background: var(--error-bg);
+  color: var(--error);
 }
 
 /* Overlap warning */
@@ -655,6 +818,8 @@
   .entry-meta {
     width: 100%;
     justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
   }
   
   .delete-btn {
@@ -693,6 +858,45 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+  
+  /* Touch-friendly time buttons */
+  .entry-time-btn {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0.5rem 0.75rem;
+    margin: 0;
+    font-size: 0.875rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--bg-secondary);
+  }
+  
+  .entry-time-btn:hover:not(:disabled),
+  .entry-time-btn:active:not(:disabled) {
+    background: var(--bg-tertiary);
+    border-color: var(--primary);
+  }
+  
+  /* Inline edit time form on mobile */
+  .inline-edit-time-form {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  
+  .inline-edit-time {
+    flex: 1;
+    min-width: 10rem;
+    min-height: 44px;
+    font-size: 0.875rem;
+    padding: 0.5rem;
+  }
+  
+  .inline-edit-save-btn,
+  .inline-edit-cancel-btn {
+    width: 44px;
+    height: 44px;
+    font-size: 1.125rem;
   }
   
   /* Filter inputs touch targets */
