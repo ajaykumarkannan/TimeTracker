@@ -790,7 +790,7 @@ export function TimeEntryList({ categories, onEntryChange, refreshKey }: Props) 
                           ) : (
                             <span 
                               className="entry-category editable"
-                              onDoubleClick={(e) => { e.stopPropagation(); startEdit(entry, 'category'); }}
+                              onClick={(e) => { e.stopPropagation(); startEdit(entry, 'category'); }}
                             >
                               {entry.category_name}
                             </span>
