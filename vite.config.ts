@@ -16,6 +16,29 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: './src/test/setup.ts',
-    exclude: ['**/node_modules/**', '**/e2e/**', '**/dist/**']
+    exclude: ['**/node_modules/**', '**/e2e/**', '**/dist/**'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'json-summary', 'html', 'lcov'],
+      reportsDirectory: './coverage',
+      exclude: [
+        'node_modules/**',
+        'dist/**',
+        'e2e/**',
+        '**/*.d.ts',
+        '**/*.test.{ts,tsx}',
+        '**/__tests__/**',
+        'src/test/**',
+        'vite.config.ts',
+        'eslint.config.js',
+        'playwright.config.ts'
+      ],
+      thresholds: {
+        statements: 50,
+        branches: 40,
+        functions: 40,
+        lines: 50
+      }
+    }
   }
 })

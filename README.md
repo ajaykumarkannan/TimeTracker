@@ -1,6 +1,11 @@
 # ChronoFlow ⏱️
 
+[![CI](https://github.com/ajaykumarkannan/TimeTracker/actions/workflows/ci.yml/badge.svg)](https://github.com/ajaykumarkannan/TimeTracker/actions/workflows/ci.yml)
+![Coverage](https://img.shields.io/badge/coverage-63%25-yellow)
+
 A simple, beautiful time tracking app to understand where your hours go.
+
+> **Note**: To enable dynamic coverage badges, create a GitHub Gist and set `GIST_TOKEN` secret and `COVERAGE_GIST_ID` variable in your repository settings. See [dynamic-badges-action](https://github.com/schneegans/dynamic-badges-action) for details.
 
 ## Features
 

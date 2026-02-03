@@ -576,7 +576,7 @@ export function TimeEntryList({ categories, onEntryChange, onCategoryChange, ref
     setCreatingCategory(false);
   };
 
-  const handleCategorySelectChange = (e: React.ChangeEvent<HTMLSelectElement>, entryId: number) => {
+  const handleCategorySelectChange = (e: React.ChangeEvent<HTMLSelectElement>, _entryId: number) => {
     const value = e.target.value;
     if (value === 'new') {
       setShowNewCategory(true);
