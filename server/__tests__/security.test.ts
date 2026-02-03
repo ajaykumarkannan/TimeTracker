@@ -1,8 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Request, Response, NextFunction } from 'express';
-import { rateLimiter, securityHeaders, sanitizeInput } from '../middleware/security';
 
-// Mock config
+// Mock config before importing security module
 vi.mock('../config', () => ({
   config: {
     rateLimitWindowMs: 60000,
@@ -11,7 +10,27 @@ vi.mock('../config', () => ({
   }
 }));
 
+import { rateLimiter, securityHeaders, sanitizeInput, stopRateLimitCleanup } from '../middleware/security';
+import { config } from '../config';
+
 describe('Security Middleware', () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  describe('stopRateLimitCleanup', () => {
+    it('can be called without error', () => {
+      expect(() => stopRateLimitCleanup()).not.toThrow();
+    });
+
+    it('can be called multiple times safely', () => {
+      expect(() => {
+        stopRateLimitCleanup();
+        stopRateLimitCleanup();
+      }).not.toThrow();
+    });
+  });
+
   describe('rateLimiter', () => {
     let mockReq: Partial<Request>;
     let mockRes: Partial<Response>;
@@ -71,6 +90,29 @@ describe('Security Middleware', () => {
         error: 'Too many requests'
       }));
     });
+
+    it('handles missing IP gracefully', () => {
+      mockReq = {
+        ip: undefined,
+        socket: { remoteAddress: undefined } as unknown as Request['socket']
+      };
+      
+      rateLimiter(mockReq as Request, mockRes as Response, mockNext);
+      
+      expect(mockNext).toHaveBeenCalled();
+    });
+
+    it('uses socket remoteAddress when ip is not available', () => {
+      mockReq = {
+        ip: undefined,
+        socket: { remoteAddress: '10.0.0.1' } as unknown as Request['socket']
+      };
+      
+      rateLimiter(mockReq as Request, mockRes as Response, mockNext);
+      
+      expect(mockNext).toHaveBeenCalled();
+      expect(setHeaderMock).toHaveBeenCalledWith('X-RateLimit-Limit', 5);
+    });
   });
 
   describe('securityHeaders', () => {
@@ -110,6 +152,33 @@ describe('Security Middleware', () => {
         'Content-Security-Policy',
         expect.stringContaining("default-src 'self'")
       );
+    });
+
+    it('sets HSTS header in production', () => {
+      // Change to production mode
+      vi.mocked(config).nodeEnv = 'production';
+      
+      securityHeaders(mockReq as Request, mockRes as Response, mockNext);
+      
+      expect(setHeaderMock).toHaveBeenCalledWith(
+        'Strict-Transport-Security',
+        'max-age=31536000; includeSubDomains'
+      );
+      
+      // Reset to development
+      vi.mocked(config).nodeEnv = 'development';
+    });
+
+    it('does not set HSTS header in development', () => {
+      vi.mocked(config).nodeEnv = 'development';
+      
+      securityHeaders(mockReq as Request, mockRes as Response, mockNext);
+      
+      // HSTS should not be set
+      const hstsCall = setHeaderMock.mock.calls.find(
+        (call: unknown[]) => call[0] === 'Strict-Transport-Security'
+      );
+      expect(hstsCall).toBeUndefined();
     });
   });
 
@@ -175,6 +244,38 @@ describe('Security Middleware', () => {
       expect(mockReq.body.count).toBe(42);
       expect(mockReq.body.active).toBe(true);
       expect(mockReq.body.data).toBe(null);
+    });
+
+    it('handles arrays with nested objects', () => {
+      mockReq.body = { 
+        items: [
+          { name: '  nested\0item  ', value: 123 },
+          { name: 'clean', value: 456 }
+        ]
+      };
+      
+      sanitizeInput(mockReq as Request, mockRes as Response, mockNext);
+      
+      expect(mockReq.body.items[0].name).toBe('nesteditem');
+      expect(mockReq.body.items[0].value).toBe(123);
+      expect(mockReq.body.items[1].name).toBe('clean');
+    });
+
+    it('handles empty body', () => {
+      mockReq.body = undefined;
+      
+      sanitizeInput(mockReq as Request, mockRes as Response, mockNext);
+      
+      expect(mockNext).toHaveBeenCalled();
+    });
+
+    it('handles non-object body', () => {
+      mockReq.body = 'string body';
+      
+      sanitizeInput(mockReq as Request, mockRes as Response, mockNext);
+      
+      expect(mockNext).toHaveBeenCalled();
+      expect(mockReq.body).toBe('string body');
     });
   });
 });

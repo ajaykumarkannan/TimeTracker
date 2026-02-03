@@ -3,6 +3,7 @@ import {
   hexToRgb,
   rgbToHsl,
   hslToHex,
+  getLuminance,
   getAdaptiveTextColor,
   getAdaptiveBgColor,
   getAdaptiveDotColor,
@@ -51,6 +52,40 @@ describe('colorUtils', () => {
       expect(hslToHex(0, 100, 50).toLowerCase()).toBe('#ff0000'); // Red
       expect(hslToHex(120, 100, 50).toLowerCase()).toBe('#00ff00'); // Green
       expect(hslToHex(240, 100, 50).toLowerCase()).toBe('#0000ff'); // Blue
+    });
+
+    it('handles all hue ranges', () => {
+      // Test each 60-degree segment of the color wheel
+      expect(hslToHex(30, 100, 50)).toBeTruthy(); // 0-60 range (orange)
+      expect(hslToHex(90, 100, 50)).toBeTruthy(); // 60-120 range (yellow-green)
+      expect(hslToHex(150, 100, 50)).toBeTruthy(); // 120-180 range (cyan-ish)
+      expect(hslToHex(210, 100, 50)).toBeTruthy(); // 180-240 range (blue-ish)
+      expect(hslToHex(270, 100, 50)).toBeTruthy(); // 240-300 range (purple)
+      expect(hslToHex(330, 100, 50)).toBeTruthy(); // 300-360 range (magenta)
+    });
+  });
+
+  describe('getLuminance', () => {
+    it('calculates luminance for white', () => {
+      expect(getLuminance(255, 255, 255)).toBeCloseTo(1, 1);
+    });
+
+    it('calculates luminance for black', () => {
+      expect(getLuminance(0, 0, 0)).toBeCloseTo(0, 1);
+    });
+
+    it('calculates luminance for colors', () => {
+      // Red has lower luminance than green due to human perception
+      const redLum = getLuminance(255, 0, 0);
+      const greenLum = getLuminance(0, 255, 0);
+      expect(greenLum).toBeGreaterThan(redLum);
+    });
+
+    it('handles low color values (linear region)', () => {
+      // Values <= 0.03928 * 255 ≈ 10 use linear formula
+      const lum = getLuminance(10, 10, 10);
+      expect(lum).toBeGreaterThan(0);
+      expect(lum).toBeLessThan(0.01);
     });
   });
 
@@ -123,6 +158,21 @@ describe('colorUtils', () => {
     it('keeps original color in light mode', () => {
       const color = '#6366f1';
       expect(getAdaptiveDotColor(color, false)).toBe(color);
+    });
+
+    it('returns original color for invalid hex', () => {
+      expect(getAdaptiveDotColor('invalid', true)).toBe('invalid');
+      expect(getAdaptiveDotColor('invalid', false)).toBe('invalid');
+    });
+
+    it('keeps already light colors unchanged in dark mode', () => {
+      const lightColor = '#aaaaaa'; // Already light
+      const adapted = getAdaptiveDotColor(lightColor, true);
+      const adaptedRgb = hexToRgb(adapted)!;
+      const adaptedHsl = rgbToHsl(adaptedRgb.r, adaptedRgb.g, adaptedRgb.b);
+      
+      // Should maintain at least minimum lightness
+      expect(adaptedHsl.l).toBeGreaterThanOrEqual(55);
     });
   });
 });
