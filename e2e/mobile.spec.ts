@@ -59,8 +59,8 @@ test.describe('Mobile UI', () => {
     // Should have open class (transforms to X)
     await expect(hamburgerBtn).toHaveClass(/open/);
     
-    // Click again to close
-    await hamburgerBtn.click();
+    // Click overlay to close (overlay covers the hamburger when open)
+    await page.locator('.mobile-nav-overlay').click();
     
     // Should not have open class
     await expect(hamburgerBtn).not.toHaveClass(/open/);

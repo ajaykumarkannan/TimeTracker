@@ -270,6 +270,7 @@ body {
   inset: 0;
   background: transparent;
   z-index: 150;
+  pointer-events: auto;
 }
 
 .header-center {
