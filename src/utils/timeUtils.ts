@@ -7,8 +7,8 @@ import { TimeEntry } from '../types';
 export function detectOverlaps(entries: TimeEntry[]): Map<number, TimeEntry> {
   const overlaps = new Map<number, TimeEntry>();
   
-  // Only process completed entries
-  const completed = entries.filter(e => e.end_time);
+  // Only process completed entries (filter ensures end_time exists)
+  const completed = entries.filter((e): e is TimeEntry & { end_time: string } => e.end_time !== null);
   if (completed.length < 2) return overlaps;
   
   // Sort by start time for efficient overlap detection
@@ -20,7 +20,7 @@ export function detectOverlaps(entries: TimeEntry[]): Map<number, TimeEntry> {
   for (let i = 0; i < sorted.length; i++) {
     const current = sorted[i];
     const currentStart = new Date(current.start_time).getTime();
-    const currentEnd = new Date(current.end_time!).getTime();
+    const currentEnd = new Date(current.end_time).getTime();
     
     // Only check entries that could possibly overlap
     for (let j = i + 1; j < sorted.length; j++) {
@@ -30,7 +30,7 @@ export function detectOverlaps(entries: TimeEntry[]): Map<number, TimeEntry> {
       // If next entry starts after current ends, no more overlaps possible
       if (nextStart >= currentEnd) break;
       
-      const nextEnd = new Date(next.end_time!).getTime();
+      const nextEnd = new Date(next.end_time).getTime();
       
       // Check if ranges overlap
       if (currentStart < nextEnd && currentEnd > nextStart) {

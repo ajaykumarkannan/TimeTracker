@@ -120,14 +120,15 @@ export function TimeEntryList({ categories, onEntryChange, refreshKey }: Props) 
   const mergeCandidates = useMemo((): MergeCandidate[] => {
     const candidates: MergeCandidate[] = [];
     // Sort by start time ascending to find consecutive entries
+    // Type guard ensures end_time is defined for all entries in sorted array
     const sorted = [...entries]
-      .filter(e => e.end_time) // Only completed entries
+      .filter((e): e is TimeEntry & { end_time: string } => e.end_time !== null)
       .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
     
     let i = 0;
     while (i < sorted.length) {
       const current = sorted[i];
-      const group: TimeEntry[] = [current];
+      const group: (TimeEntry & { end_time: string })[] = [current];
       
       // Look for consecutive entries with same category and note
       let j = i + 1;
@@ -139,7 +140,7 @@ export function TimeEntryList({ categories, onEntryChange, refreshKey }: Props) 
         if (next.category_id !== current.category_id || next.description !== current.description) break;
         
         // Check if back-to-back (within 1 minute gap)
-        const prevEnd = new Date(prev.end_time!).getTime();
+        const prevEnd = new Date(prev.end_time).getTime();
         const nextStart = new Date(next.start_time).getTime();
         const gapMs = nextStart - prevEnd;
         
@@ -178,7 +179,9 @@ export function TimeEntryList({ categories, onEntryChange, refreshKey }: Props) 
       })
       .map(e => ({
         entry: e,
-        durationSeconds: Math.round((new Date(e.end_time!).getTime() - new Date(e.start_time).getTime()) / 1000)
+        durationSeconds: e.end_time 
+          ? Math.round((new Date(e.end_time).getTime() - new Date(e.start_time).getTime()) / 1000)
+          : 0
       }));
   }, [entries, dismissedShortEntries]);
 

@@ -486,7 +486,7 @@ export function Analytics() {
       await api.updateDescription(
         editingDescription,
         hasDescriptionChange ? editDescriptionValue : undefined,
-        hasCategoryChange ? editCategoryId! : undefined
+        hasCategoryChange && editCategoryId !== null ? editCategoryId : undefined
       );
       // Refresh descriptions
       const { start, end } = getDateRange(period, effectiveOffset);
@@ -664,7 +664,8 @@ export function Analytics() {
         });
       }
       
-      const bucket = buckets.get(bucketKey)!;
+      const bucket = buckets.get(bucketKey);
+      if (!bucket) continue;
       bucket.minutes += day.minutes;
       
       // Merge category data

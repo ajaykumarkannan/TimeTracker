@@ -304,9 +304,9 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   // Get recent tasks from entries (unique description + category combinations)
   const recentTasks = useMemo((): RecentTask[] => {
     const taskMap = new Map<string, RecentTask>();
-    
+
     entries
-      .filter(e => e.description && e.description.trim())
+      .filter((e): e is TimeEntry & { description: string } => Boolean(e.description && e.description.trim()))
       .forEach(entry => {
         const key = `${entry.category_id}:${entry.description}`;
         const existing = taskMap.get(key);
@@ -314,7 +314,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
           existing.count++;
         } else {
           taskMap.set(key, {
-            description: entry.description!,
+            description: entry.description,
             categoryId: entry.category_id,
             categoryName: entry.category_name,
             categoryColor: entry.category_color,
