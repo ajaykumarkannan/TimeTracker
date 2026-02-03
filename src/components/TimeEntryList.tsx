@@ -757,7 +757,7 @@ export function TimeEntryList({ categories, onEntryChange, onCategoryChange, ref
                 </select>
               </div>
               <div className="form-group">
-                <label>Description <span className="optional">(optional)</span></label>
+                <label>Task <span className="optional">(optional)</span></label>
                 <div className="description-input-wrapper">
                   <input 
                     ref={manualDescriptionRef}
@@ -864,7 +864,7 @@ export function TimeEntryList({ categories, onEntryChange, onCategoryChange, ref
               <input
                 type="text"
                 className="filter-input search-input"
-                placeholder="Search descriptions & categories..."
+                placeholder="Search tasks & categories..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -1090,7 +1090,7 @@ export function TimeEntryList({ categories, onEntryChange, onCategoryChange, ref
                               onChange={(e) => setEditDescription(e.target.value)}
                               onBlur={() => handleSave(entry.id)}
                               onKeyDown={(e) => handleKeyDown(e, entry.id)}
-                              placeholder="Add a description..."
+                              placeholder="Add a task name..."
                               autoFocus
                               onClick={(e) => e.stopPropagation()}
                             />

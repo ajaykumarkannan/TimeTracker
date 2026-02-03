@@ -891,7 +891,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
               </div>
 
               <div className="form-group form-group-description">
-                <label>Description <span className="optional">(optional)</span></label>
+                <label>Task <span className="optional">(optional)</span></label>
                 <div className="description-input-wrapper">
                   <input 
                     ref={descriptionInputRef}

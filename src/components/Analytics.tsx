@@ -45,14 +45,16 @@ export function Analytics() {
   const [categoryDrilldownPage, setCategoryDrilldownPage] = useState(1);
   const [categoryDrilldownLoading, setCategoryDrilldownLoading] = useState(false);
   
-  // All descriptions state (paginated)
+  // All tasks (descriptions) state (paginated)
   const [descriptions, setDescriptions] = useState<DescriptionsPaginated | null>(null);
   const [descriptionsPage, setDescriptionsPage] = useState(1);
   const [descriptionsPageSize, setDescriptionsPageSize] = useState(10);
   const [descriptionsLoading, setDescriptionsLoading] = useState(false);
   const [descriptionsSortBy, setDescriptionsSortBy] = useState<'time' | 'alpha' | 'count' | 'recent'>('time');
+  const [tasksSearchQuery, setTasksSearchQuery] = useState('');
+  const [tasksFilterCategory, setTasksFilterCategory] = useState<string>('');
   
-  // Merge descriptions state - track by "description|category" key
+  // Merge tasks state - track by "description|category" key
   const [selectedDescriptions, setSelectedDescriptions] = useState<Set<string>>(new Set());
   const [showMergeModal, setShowMergeModal] = useState(false);
   const [mergeTarget, setMergeTarget] = useState<string>('');
@@ -1049,7 +1051,7 @@ export function Analytics() {
             {categoryDrilldownLoading ? (
               <div className="drilldown-loading">Loading...</div>
             ) : categoryDrilldown.descriptions.length === 0 ? (
-              <div className="empty-state"><p>No descriptions for this category</p></div>
+              <div className="empty-state"><p>No tasks for this category</p></div>
             ) : (
               <>
                 <div className="descriptions-list">
@@ -1119,11 +1121,11 @@ export function Analytics() {
         )}
       </div>
 
-      {/* All descriptions (paginated) */}
+      {/* All tasks (paginated) */}
       {descriptions && descriptions.pagination.totalCount > 0 && (
         <div className="card">
           <div className="card-header">
-            <h2 className="card-title">All Descriptions</h2>
+            <h2 className="card-title">All Tasks</h2>
             <div className="descriptions-header-controls">
               {selectedDescriptions.size >= 2 && (
                 <button className="merge-btn" onClick={openMergeModal}>
@@ -1146,12 +1148,51 @@ export function Analytics() {
               <span className="descriptions-count">{descriptions.pagination.totalCount} total</span>
             </div>
           </div>
+          {/* Filter row */}
+          <div className="tasks-filter-row">
+            <input
+              type="text"
+              className="tasks-search-input"
+              placeholder="Filter tasks..."
+              value={tasksSearchQuery}
+              onChange={(e) => { setTasksSearchQuery(e.target.value); }}
+            />
+            <select
+              className="tasks-category-filter"
+              value={tasksFilterCategory}
+              onChange={(e) => { setTasksFilterCategory(e.target.value); }}
+            >
+              <option value="">All Categories</option>
+              {categories.map(cat => (
+                <option key={cat.id} value={cat.name}>{cat.name}</option>
+              ))}
+            </select>
+            {(tasksSearchQuery || tasksFilterCategory) && (
+              <button 
+                className="tasks-clear-filter" 
+                onClick={() => { setTasksSearchQuery(''); setTasksFilterCategory(''); }}
+              >
+                Clear
+              </button>
+            )}
+          </div>
           {descriptionsLoading ? (
             <div className="drilldown-loading">Loading...</div>
           ) : (
             <>
               <div className="top-tasks">
-                {descriptions.descriptions.map((item, i) => {
+                {descriptions.descriptions
+                  .filter(item => {
+                    // Apply search filter
+                    if (tasksSearchQuery) {
+                      const query = tasksSearchQuery.toLowerCase();
+                      if (!item.description.toLowerCase().includes(query)) return false;
+                    }
+                    // Apply category filter
+                    if (tasksFilterCategory && item.category_name !== tasksFilterCategory) return false;
+                    return true;
+                  })
+                  .map((item, i) => {
                   const selectionKey = makeSelectionKey(item.description, item.category_name);
                   const isEditing = editingDescription === item.description;
                   return (
@@ -1253,7 +1294,7 @@ export function Analytics() {
                           <button 
                             className="task-edit-trigger" 
                             onClick={() => startEditing(item.description, item.category_name)}
-                            title="Edit description"
+                            title="Edit task"
                           >
                             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
                               <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
@@ -1299,7 +1340,7 @@ export function Analytics() {
         </div>
       )}
 
-      {/* Merge descriptions modal */}
+      {/* Merge tasks modal */}
       {showMergeModal && (() => {
         const uniqueDescriptions = getSelectedDescriptionTexts();
         const uniqueCategories = getSelectedCategories();
@@ -1318,13 +1359,13 @@ export function Analytics() {
         return (
           <div className="modal-overlay" onClick={() => setShowMergeModal(false)}>
             <div className="merge-modal" onClick={e => e.stopPropagation()}>
-              <h3>Merge Descriptions</h3>
+              <h3>Merge Tasks</h3>
               <p className="merge-info">
-                Select which description to keep. All {selectedDescriptions.size} items will be merged into the selected one.
+                Select which task name to keep. All {selectedDescriptions.size} items will be merged into the selected one.
               </p>
               
               <div className="merge-section">
-                <h4 className="merge-section-title">Target Description</h4>
+                <h4 className="merge-section-title">Target Task</h4>
                 <div className="merge-options">
                   {uniqueDescriptions.map(desc => (
                     <label key={desc} className={`merge-option ${mergeTarget === desc ? 'selected' : ''}`}>
