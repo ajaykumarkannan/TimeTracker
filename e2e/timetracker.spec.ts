@@ -12,8 +12,8 @@ test.describe('Time Tracker E2E', () => {
     // Wait for landing page and click "Continue as Guest"
     await page.click('button:has-text("Continue as Guest")');
     
-    // Wait for main app to load
-    await expect(page.locator('.app-nav')).toBeVisible();
+    // Wait for main app to load - use desktop nav for desktop tests
+    await expect(page.locator('.desktop-nav')).toBeVisible();
   });
 
   test('complete workflow: create category, track time, view history', async ({ page }) => {

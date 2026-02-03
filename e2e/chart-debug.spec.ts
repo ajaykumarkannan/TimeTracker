@@ -8,7 +8,7 @@ test.describe('Analytics Daily Breakdown Chart', () => {
     
     // Enter as guest
     await page.click('button:has-text("Continue as Guest")');
-    await expect(page.locator('.app-nav')).toBeVisible();
+    await expect(page.locator('.desktop-nav')).toBeVisible();
     
     // Wait for the app to fully initialize and fetch categories
     await page.waitForTimeout(500);
@@ -74,7 +74,7 @@ test.describe('Analytics Daily Breakdown Chart', () => {
     
     // Reload to ensure data is fetched
     await page.reload();
-    await expect(page.locator('.app-nav')).toBeVisible();
+    await expect(page.locator('.desktop-nav')).toBeVisible();
   });
 
   test('displays stacked bar chart with category colors', async ({ page }) => {
