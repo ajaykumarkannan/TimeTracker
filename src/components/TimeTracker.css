@@ -782,3 +782,40 @@
     min-height: 48px;
   }
 }
+
+/* Compact quick-start and recent tasks on smaller phones */
+@media (max-width: 420px) {
+  .quick-start-label {
+    font-size: 0.6875rem;
+  }
+
+  .quick-start-buttons {
+    gap: 0.5rem;
+  }
+
+  .quick-start-btn {
+    padding: 0.375rem 0.5rem;
+    font-size: 0.85rem;
+    min-height: 36px;
+    max-width: none;
+  }
+
+  .task-description-text {
+    max-width: 80px;
+    font-size: 0.9rem;
+  }
+
+  .task-category-hint {
+    display: none;
+  }
+
+  .category-badge {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+  }
+
+  .new-category-form {
+    padding: 0.75rem;
+    gap: 0.375rem;
+  }
+}

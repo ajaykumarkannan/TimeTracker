@@ -158,6 +158,53 @@
   }
 }
 
+/* Tighter mobile styles to save vertical space */
+@media (max-width: 420px) {
+  /* Make the New Category form appear inline (one row) on very small screens */
+  .category-form {
+    grid-template-columns: 1fr auto auto;
+    gap: 0.5rem;
+    align-items: center;
+  }
+
+  /* Hide the labels to save vertical space but keep inputs accessible */
+  .category-form label {
+    display: none;
+  }
+
+  .category-form input[type="text"] {
+    height: 40px;
+    padding: 0.45rem 0.5rem;
+  }
+
+  .color-picker {
+    width: 36px;
+    height: 36px;
+    padding: 2px;
+  }
+
+  .btn-group .btn,
+  .btn-group .btn-primary,
+  .btn-group .btn-ghost {
+    height: 36px;
+    font-size: 0.9rem;
+    padding: 0 0.6rem;
+  }
+
+  .card {
+    padding: 0.75rem;
+  }
+
+  .category-item {
+    padding: 0.5rem;
+    gap: 0.5rem;
+  }
+
+  .category-name {
+    font-size: 0.875rem;
+  }
+}
+
 
 /* Modal styles */
 .modal-overlay {
