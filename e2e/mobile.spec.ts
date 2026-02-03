@@ -14,38 +14,56 @@ test.describe('Mobile UI', () => {
     // Wait for landing page and click "Continue as Guest"
     await page.click('button:has-text("Continue as Guest")');
     
-    // Wait for main app to load - use mobile nav which should be visible on mobile
-    await expect(page.locator('.mobile-nav')).toBeVisible();
+    // Wait for main app to load - hamburger button should be visible on mobile
+    await expect(page.locator('.hamburger-btn')).toBeVisible();
   });
 
-  test('mobile navigation dropdown works', async ({ page }) => {
-    // On mobile, the nav should be a dropdown trigger
-    const mobileNavTrigger = page.locator('.mobile-nav-trigger');
-    await expect(mobileNavTrigger).toBeVisible();
+  test('hamburger menu navigation works', async ({ page }) => {
+    // On mobile, the hamburger button should be visible
+    const hamburgerBtn = page.locator('.hamburger-btn');
+    await expect(hamburgerBtn).toBeVisible();
     
     // Desktop nav should be hidden
     const desktopNav = page.locator('.desktop-nav');
     await expect(desktopNav).not.toBeVisible();
     
-    // Click to open dropdown
-    await mobileNavTrigger.click();
+    // Click to open menu
+    await hamburgerBtn.click();
     
-    // Dropdown should appear with all tabs
-    const dropdown = page.locator('.mobile-nav-dropdown');
-    await expect(dropdown).toBeVisible();
-    await expect(dropdown.locator('text=Track')).toBeVisible();
-    await expect(dropdown.locator('text=Categories')).toBeVisible();
-    await expect(dropdown.locator('text=Analytics')).toBeVisible();
+    // Panel should appear with all tabs
+    const panel = page.locator('.mobile-nav-panel');
+    await expect(panel).toHaveClass(/open/);
+    await expect(panel.locator('text=Track')).toBeVisible();
+    await expect(panel.locator('text=Categories')).toBeVisible();
+    await expect(panel.locator('text=Analytics')).toBeVisible();
     
     // Click Categories
-    await dropdown.locator('text=Categories').click();
+    await panel.locator('text=Categories').click();
     
-    // Dropdown should close and nav trigger should show Categories
-    await expect(dropdown).not.toBeVisible();
-    await expect(mobileNavTrigger).toContainText('Categories');
+    // Panel should close
+    await expect(panel).not.toHaveClass(/open/);
     
     // Category manager should be visible
     await expect(page.locator('h2:has-text("New Category")')).toBeVisible();
+  });
+
+  test('hamburger button transforms to X when open', async ({ page }) => {
+    const hamburgerBtn = page.locator('.hamburger-btn');
+    
+    // Initially not open
+    await expect(hamburgerBtn).not.toHaveClass(/open/);
+    
+    // Click to open
+    await hamburgerBtn.click();
+    
+    // Should have open class (transforms to X)
+    await expect(hamburgerBtn).toHaveClass(/open/);
+    
+    // Click again to close
+    await hamburgerBtn.click();
+    
+    // Should not have open class
+    await expect(hamburgerBtn).not.toHaveClass(/open/);
   });
 
   test('timer is centered on mobile', async ({ page }) => {
@@ -94,9 +112,9 @@ test.describe('Mobile UI', () => {
 
   test('header hides on scroll down and shows on scroll up', async ({ page }) => {
     // Navigate to analytics which has more content to scroll
-    const mobileNavTrigger = page.locator('.mobile-nav-trigger');
-    await mobileNavTrigger.click();
-    await page.locator('.mobile-nav-dropdown').locator('text=Analytics').click();
+    const hamburgerBtn = page.locator('.hamburger-btn');
+    await hamburgerBtn.click();
+    await page.locator('.mobile-nav-panel').locator('text=Analytics').click();
     
     // Wait for analytics to load
     await expect(page.locator('.analytics')).toBeVisible();
@@ -121,9 +139,9 @@ test.describe('Mobile UI', () => {
 
   test('inputs do not trigger zoom on focus', async ({ page }) => {
     // Navigate to categories to test input
-    const mobileNavTrigger = page.locator('.mobile-nav-trigger');
-    await mobileNavTrigger.click();
-    await page.locator('.mobile-nav-dropdown').locator('text=Categories').click();
+    const hamburgerBtn = page.locator('.hamburger-btn');
+    await hamburgerBtn.click();
+    await page.locator('.mobile-nav-panel').locator('text=Categories').click();
     
     // Get initial viewport scale
     const initialScale = await page.evaluate(() => {
@@ -145,9 +163,9 @@ test.describe('Mobile UI', () => {
 
   test('analytics layout is responsive on mobile', async ({ page }) => {
     // Navigate to analytics
-    const mobileNavTrigger = page.locator('.mobile-nav-trigger');
-    await mobileNavTrigger.click();
-    await page.locator('.mobile-nav-dropdown').locator('text=Analytics').click();
+    const hamburgerBtn = page.locator('.hamburger-btn');
+    await hamburgerBtn.click();
+    await page.locator('.mobile-nav-panel').locator('text=Analytics').click();
     
     // Wait for analytics to load
     await expect(page.locator('.analytics')).toBeVisible();

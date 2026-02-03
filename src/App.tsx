@@ -146,8 +146,6 @@ function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLoggedIn: bo
     { id: 'analytics', label: 'Analytics', icon: <ChartIcon size={16} /> }
   ];
 
-  const currentTab = tabs.find(t => t.id === activeTab);
-
   return (
     <div className="app">
       <header className={`app-header ${headerHidden && isMobile ? 'header-hidden' : ''}`}>
@@ -256,19 +254,20 @@ function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLoggedIn: bo
         </div>
       </nav>
 
-      {/* Mobile navigation - dropdown menu */}
-      <nav className="app-nav mobile-nav" ref={mobileNavRef}>
+      {/* Mobile navigation - hamburger menu */}
+      <div className="mobile-nav" ref={mobileNavRef}>
         <button 
-          className="mobile-nav-trigger"
+          className={`hamburger-btn ${showMobileNav ? 'open' : ''}`}
           onClick={() => setShowMobileNav(!showMobileNav)}
           aria-expanded={showMobileNav}
+          aria-label="Navigation menu"
         >
-          <span className="nav-icon">{currentTab?.icon}</span>
-          <span className="nav-label">{currentTab?.label}</span>
-          <span className={`nav-chevron ${showMobileNav ? 'open' : ''}`}>▾</span>
+          <span className="hamburger-line"></span>
+          <span className="hamburger-line"></span>
+          <span className="hamburger-line"></span>
         </button>
-        {showMobileNav && (
-          <div className="mobile-nav-dropdown">
+        <div className={`mobile-nav-panel ${showMobileNav ? 'open' : ''}`}>
+          <div className="mobile-nav-content">
             {tabs.map(tab => (
               <button
                 key={tab.id}
@@ -280,8 +279,9 @@ function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLoggedIn: bo
               </button>
             ))}
           </div>
-        )}
-      </nav>
+        </div>
+        {showMobileNav && <div className="mobile-nav-overlay" onClick={() => setShowMobileNav(false)} />}
+      </div>
 
       <main className="app-main">
         {activeTab === 'tracker' && (
