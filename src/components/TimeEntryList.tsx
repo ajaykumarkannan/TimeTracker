@@ -73,8 +73,23 @@ export function TimeEntryList({ categories, onEntryChange, refreshKey }: Props) 
   const loadEntries = useCallback(async () => {
     setLoading(true);
     try {
-      const startDate = dateFrom ? `${dateFrom}T00:00:00.000Z` : undefined;
-      const endDate = dateTo ? `${dateTo}T23:59:59.999Z` : undefined;
+      // Convert local date strings to local timezone ISO strings
+      // This ensures the server filters based on the user's intended local dates
+      let startDate: string | undefined;
+      let endDate: string | undefined;
+      
+      if (dateFrom) {
+        const [year, month, day] = dateFrom.split('-').map(Number);
+        const localStart = new Date(year, month - 1, day, 0, 0, 0, 0);
+        startDate = localStart.toISOString();
+      }
+      
+      if (dateTo) {
+        const [year, month, day] = dateTo.split('-').map(Number);
+        const localEnd = new Date(year, month - 1, day, 23, 59, 59, 999);
+        endDate = localEnd.toISOString();
+      }
+      
       const data = await api.getTimeEntries(startDate, endDate);
       setEntries(data);
     } catch (error) {
