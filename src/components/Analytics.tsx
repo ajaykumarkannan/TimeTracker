@@ -15,13 +15,6 @@ type PeriodType = 'day' | 'week' | 'month' | 'quarter' | 'year' | 'all';
 
 const STORAGE_KEY = 'chronoflow-analytics-period';
 
-// Track drill-down navigation history
-type DrilldownState = {
-  period: Period;
-  offset: number;
-  customRange?: { start: string; end: string };
-};
-
 function getStoredPeriod(): Period {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -45,12 +38,6 @@ export function Analytics() {
   const [activeEntry, setActiveEntry] = useState<TimeEntry | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const previousMenuRef = useRef<HTMLDivElement>(null);
-  
-  // Custom date range for drill-down (overrides period/offset when set)
-  const [customRange, setCustomRange] = useState<{ start: string; end: string } | null>(null);
-  
-  // Drill-down navigation history
-  const [drilldownHistory, setDrilldownHistory] = useState<DrilldownState[]>([]);
   
   // Drill-down state
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -155,14 +142,6 @@ export function Analytics() {
   };
 
   const getDateRange = (p: Period, offset: number = 0): { start: Date; end: Date } => {
-    // If we have a custom range, use it
-    if (customRange) {
-      return {
-        start: new Date(customRange.start + 'T00:00:00'),
-        end: new Date(customRange.end + 'T23:59:59.999')
-      };
-    }
-    
     const now = new Date();
     
     // Handle "last X days" periods with optional day offset
@@ -306,8 +285,6 @@ export function Analytics() {
     setPeriod(newPeriod);
     setPeriodOffset(0);
     setShowPreviousMenu(false);
-    setCustomRange(null);
-    setDrilldownHistory([]);
     try { localStorage.setItem(STORAGE_KEY, newPeriod); } catch { /* ignore */ }
   };
 
@@ -316,13 +293,11 @@ export function Analytics() {
     setPeriodOffset(0);
     setDayOffset(0);
     setShowPreviousMenu(false);
-    setCustomRange(null);
-    setDrilldownHistory([]);
     try { localStorage.setItem(STORAGE_KEY, lastDays); } catch { /* ignore */ }
   };
 
   const isLastNDaysPeriod = period === 'last7' || period === 'last30' || period === 'last90';
-  const canNavigatePrevious = period !== 'all' && !customRange;
+  const canNavigatePrevious = period !== 'all';
   const canNavigateNext = canNavigatePrevious && (isLastNDaysPeriod ? dayOffset < 0 : periodOffset < 0);
 
   const navigatePeriod = (direction: -1 | 1) => {
@@ -356,8 +331,6 @@ export function Analytics() {
       
       setPeriod('day');
       setPeriodOffset(daysDiff);
-      setCustomRange(null);
-      setDrilldownHistory([]);
     } else if (aggregation === 'week') {
       // Drilling from month/quarter view into a specific week
       // Calculate week offset from current week
@@ -367,8 +340,6 @@ export function Analytics() {
       
       setPeriod('week');
       setPeriodOffset(weeksDiff);
-      setCustomRange(null);
-      setDrilldownHistory([]);
     } else if (aggregation === 'month') {
       // Drilling from year/all view into a specific month
       // Calculate month offset from current month
@@ -378,8 +349,6 @@ export function Analytics() {
       
       setPeriod('month');
       setPeriodOffset(monthsDiff);
-      setCustomRange(null);
-      setDrilldownHistory([]);
     }
   };
 
@@ -529,7 +498,7 @@ export function Analytics() {
     };
 
     loadAnalytics();
-  }, [period, effectiveOffset, customRange]);
+  }, [period, effectiveOffset]);
 
   // Load all descriptions (paginated)
   useEffect(() => {
@@ -791,16 +760,6 @@ export function Analytics() {
       return `${s.toLocaleDateString(undefined, opts)} - ${e.toLocaleDateString(undefined, opts)}`;
     };
 
-    // If we have a custom range (drill-down), show that
-    if (customRange) {
-      const s = new Date(customRange.start + 'T12:00:00');
-      const e = new Date(customRange.end + 'T12:00:00');
-      if (customRange.start === customRange.end) {
-        return s.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
-      }
-      return formatRange(s, e);
-    }
-
     switch (period) {
       case 'day':
         return start.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
@@ -851,12 +810,12 @@ export function Analytics() {
       <div className="analytics-header">
         <div className="period-selector-wrapper">
           <div className="period-selector">
-            <button className={period === 'day' && !customRange ? 'active' : ''} onClick={() => handlePeriodChange('day')}>Day</button>
-            <button className={period === 'week' && !customRange ? 'active' : ''} onClick={() => handlePeriodChange('week')}>Week</button>
-            <button className={period === 'month' && !customRange ? 'active' : ''} onClick={() => handlePeriodChange('month')}>Month</button>
-            <button className={period === 'quarter' && !customRange ? 'active' : ''} onClick={() => handlePeriodChange('quarter')}>Quarter</button>
-            <button className={period === 'year' && !customRange ? 'active' : ''} onClick={() => handlePeriodChange('year')}>Year</button>
-            <button className={period === 'all' && !customRange ? 'active' : ''} onClick={() => handlePeriodChange('all')}>All</button>
+            <button className={period === 'day' ? 'active' : ''} onClick={() => handlePeriodChange('day')}>Day</button>
+            <button className={period === 'week' ? 'active' : ''} onClick={() => handlePeriodChange('week')}>Week</button>
+            <button className={period === 'month' ? 'active' : ''} onClick={() => handlePeriodChange('month')}>Month</button>
+            <button className={period === 'quarter' ? 'active' : ''} onClick={() => handlePeriodChange('quarter')}>Quarter</button>
+            <button className={period === 'year' ? 'active' : ''} onClick={() => handlePeriodChange('year')}>Year</button>
+            <button className={period === 'all' ? 'active' : ''} onClick={() => handlePeriodChange('all')}>All</button>
             <div className="period-dropdown" ref={previousMenuRef}>
               <button 
                 className={`dropdown-trigger ${period === 'last7' || period === 'last30' || period === 'last90' ? 'active' : ''}`}
