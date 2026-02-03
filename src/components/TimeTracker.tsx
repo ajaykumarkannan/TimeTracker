@@ -65,6 +65,7 @@ interface Props {
   entries: TimeEntry[];
   onEntryChange: () => void;
   onCategoryChange: () => void;
+  isMobile?: boolean;
 }
 
 interface RecentTask {
@@ -75,7 +76,7 @@ interface RecentTask {
   count: number;
 }
 
-export function TimeTracker({ categories, activeEntry, entries, onEntryChange, onCategoryChange }: Props) {
+export function TimeTracker({ categories, activeEntry, entries, onEntryChange, onCategoryChange, isMobile = false }: Props) {
   const { resolvedTheme } = useTheme();
   const isDarkMode = resolvedTheme === 'dark';
 
@@ -978,8 +979,8 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
         </div>
       )}
 
-      {/* Floating pop-out button */}
-      {activeEntry && !showPopOut && (
+      {/* Floating pop-out button - hidden on mobile */}
+      {activeEntry && !showPopOut && !isMobile && (
         <button 
           className="floating-popout-btn"
           onClick={() => setShowPopOut(true)} 

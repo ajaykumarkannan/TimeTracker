@@ -15,6 +15,16 @@ export default defineConfig({
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
+      testIgnore: /mobile\.spec\.ts/,
+    },
+    {
+      name: 'mobile',
+      use: { 
+        ...devices['iPhone 13'],
+        // Override to use Chromium instead of WebKit for CI compatibility
+        browserName: 'chromium',
+      },
+      testMatch: /mobile\.spec\.ts/,
     },
   ],
   webServer: {
