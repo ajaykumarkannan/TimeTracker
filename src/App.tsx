@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from './contexts/AuthContext';
 import { TimezoneProvider, useTimezone } from './contexts/TimezoneContext';
+import { useTheme } from './contexts/ThemeContext';
 import { Landing } from './components/Landing';
 import { Login } from './components/Login';
 import { TimeTracker } from './components/TimeTracker';
@@ -17,9 +18,50 @@ import './App.css';
 
 type Tab = 'tracker' | 'categories' | 'analytics';
 
+// Hook to detect mobile devices
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false);
+  
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 640 || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent));
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+  
+  return isMobile;
+}
+
+// Hook for hide-on-scroll header
+function useHideOnScroll() {
+  const [hidden, setHidden] = useState(false);
+  const lastScrollY = useRef(0);
+  
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      const scrollingDown = currentScrollY > lastScrollY.current;
+      const scrolledPastThreshold = currentScrollY > 60;
+      
+      setHidden(scrollingDown && scrolledPastThreshold);
+      lastScrollY.current = currentScrollY;
+    };
+    
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+  
+  return hidden;
+}
+
 function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLoggedIn: boolean; onLogout: () => void; onConvertSuccess: () => void }) {
   const { user } = useAuth();
+  const { resolvedTheme } = useTheme();
   const { showTimezonePrompt, detectedTimezone, acceptDetectedTimezone, dismissTimezonePrompt, timezone } = useTimezone();
+  const isMobile = useIsMobile();
+  const headerHidden = useHideOnScroll();
   const [activeTab, setActiveTab] = useState<Tab>(() => {
     const saved = localStorage.getItem('chronoflow_tab');
     // Reset to tracker if saved tab was settings or help (now in menu)
@@ -33,17 +75,29 @@ function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLoggedIn: bo
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
+  const [showMobileNav, setShowMobileNav] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const mobileNavRef = useRef<HTMLDivElement>(null);
+
+  // Update theme-color meta tag when theme changes
+  useEffect(() => {
+    const themeColor = resolvedTheme === 'dark' ? '#18181b' : '#ffffff';
+    const metaTags = document.querySelectorAll('meta[name="theme-color"]');
+    metaTags.forEach(tag => tag.setAttribute('content', themeColor));
+  }, [resolvedTheme]);
 
   useEffect(() => {
     loadData();
   }, []);
 
-  // Close menu when clicking outside
+  // Close menus when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setShowSettingsMenu(false);
+      }
+      if (mobileNavRef.current && !mobileNavRef.current.contains(event.target as Node)) {
+        setShowMobileNav(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -53,6 +107,7 @@ function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLoggedIn: bo
   const handleTabChange = (tab: Tab) => {
     setActiveTab(tab);
     localStorage.setItem('chronoflow_tab', tab);
+    setShowMobileNav(false);
   };
 
   const loadData = async () => {
@@ -91,10 +146,16 @@ function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLoggedIn: bo
     { id: 'analytics', label: 'Analytics', icon: <ChartIcon size={16} /> }
   ];
 
+  const currentTab = tabs.find(t => t.id === activeTab);
+
   return (
     <div className="app">
-      <header className="app-header">
-        <div className="header-left"></div>
+      <header className={`app-header ${headerHidden && isMobile ? 'header-hidden' : ''}`}>
+        <div className="header-left">
+          {!isLoggedIn && (
+            <span className="mode-badge">Guest Mode</span>
+          )}
+        </div>
         <div className="header-center">
           <div className="logo">
             <svg viewBox="0 0 48 48" className="logo-icon">
@@ -107,9 +168,6 @@ function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLoggedIn: bo
           </div>
         </div>
         <div className="header-right">
-          {!isLoggedIn && (
-            <span className="mode-badge">Guest Mode</span>
-          )}
           <ThemeToggle />
           <div className="settings-menu-container" ref={menuRef}>
             <button 
@@ -182,7 +240,8 @@ function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLoggedIn: bo
         </div>
       )}
 
-      <nav className="app-nav">
+      {/* Desktop navigation */}
+      <nav className="app-nav desktop-nav">
         <div className="nav-content">
           {tabs.map(tab => (
             <button
@@ -197,6 +256,33 @@ function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLoggedIn: bo
         </div>
       </nav>
 
+      {/* Mobile navigation - dropdown menu */}
+      <nav className="app-nav mobile-nav" ref={mobileNavRef}>
+        <button 
+          className="mobile-nav-trigger"
+          onClick={() => setShowMobileNav(!showMobileNav)}
+          aria-expanded={showMobileNav}
+        >
+          <span className="nav-icon">{currentTab?.icon}</span>
+          <span className="nav-label">{currentTab?.label}</span>
+          <span className={`nav-chevron ${showMobileNav ? 'open' : ''}`}>▾</span>
+        </button>
+        {showMobileNav && (
+          <div className="mobile-nav-dropdown">
+            {tabs.map(tab => (
+              <button
+                key={tab.id}
+                className={`mobile-nav-item ${activeTab === tab.id ? 'active' : ''}`}
+                onClick={() => handleTabChange(tab.id)}
+              >
+                <span className="nav-icon">{tab.icon}</span>
+                <span className="nav-label">{tab.label}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </nav>
+
       <main className="app-main">
         {activeTab === 'tracker' && (
           <>
@@ -206,6 +292,7 @@ function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLoggedIn: bo
               entries={entries}
               onEntryChange={handleEntryChange}
               onCategoryChange={handleCategoryChange}
+              isMobile={isMobile}
             />
             <TimeEntryList
               categories={categories}

@@ -879,6 +879,46 @@
 
 /* Responsive */
 @media (max-width: 640px) {
+  .analytics-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+  
+  .period-selector-wrapper {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+  }
+  
+  .period-selector {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .period-selector button {
+    flex: 1;
+    padding: 0.5rem 0.5rem;
+    text-align: center;
+  }
+  
+  .period-nav {
+    justify-content: center;
+  }
+  
+  .export-dropdown {
+    width: 100%;
+  }
+  
+  .export-btn {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .summary-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
   .category-row {
     flex-direction: column;
     align-items: flex-start;
@@ -892,6 +932,62 @@
   .category-stats {
     width: 100%;
     justify-content: space-between;
+  }
+  
+  .drilldown-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+  
+  .drilldown-header .category-stats {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  
+  .descriptions-header-controls {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  
+  .task-row {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  
+  .task-name {
+    flex-basis: 100%;
+    order: 1;
+  }
+  
+  .task-checkbox {
+    order: 0;
+  }
+  
+  .task-rank {
+    order: 0;
+  }
+  
+  .task-category {
+    order: 2;
+  }
+  
+  .task-count {
+    order: 3;
+    margin-left: auto;
+  }
+  
+  .task-time {
+    order: 4;
+  }
+  
+  .pagination {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  
+  .page-size-select {
+    margin-left: 0;
   }
 }
 

@@ -677,14 +677,29 @@
     padding: 1.25rem;
   }
   
+  .active-tracker-container {
+    gap: 1rem;
+  }
+  
   .active-tracker {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: center;
+    text-align: center;
+  }
+  
+  .timer-display {
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  
+  .timer-info {
+    align-items: center;
   }
   
   .timer-actions {
     width: 100%;
-    justify-content: flex-start;
+    justify-content: center;
   }
   
   .form-row {
@@ -702,5 +717,19 @@
   .switch-category-select,
   .switch-description-input {
     width: 100%;
+  }
+  
+  /* Prevent iOS zoom on input focus */
+  .form-group input[type="text"],
+  .form-group select,
+  .switch-category-select,
+  .switch-description-input,
+  .task-prompt-input {
+    font-size: 16px;
+  }
+  
+  /* Hide floating pop-out button on mobile via CSS as backup */
+  .floating-popout-btn {
+    display: none;
   }
 }
