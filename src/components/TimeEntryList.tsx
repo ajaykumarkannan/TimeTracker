@@ -375,9 +375,28 @@ export function TimeEntryList({ categories, onEntryChange, refreshKey }: Props) 
         start_time: newStart,
         end_time: newEnd
       });
+      // Update local state to avoid a full reload
+      const category = categories.find(c => c.id === editCategory) || null;
+      setEntries(prev => prev.map(e => {
+        if (e.id !== entryId) return e;
+        const updated: TimeEntry = {
+          ...e,
+          category_id: editCategory,
+          category_name: category ? category.name : e.category_name,
+          category_color: category ? category.color : e.category_color,
+          description: editDescription || null,
+          start_time: newStart,
+          end_time: newEnd
+        };
+        // Recalculate duration_minutes if end_time present
+        if (updated.end_time) {
+          const durMs = new Date(updated.end_time).getTime() - new Date(updated.start_time).getTime();
+          updated.duration_minutes = Math.max(0, Math.round(durMs / 60000));
+        }
+        return updated;
+      }));
       setEditingId(null);
       setEditField(null);
-      handleEntryChangeInternal();
     } catch (error) {
       console.error('Failed to update entry:', error);
     }
