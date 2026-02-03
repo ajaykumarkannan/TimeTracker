@@ -318,7 +318,7 @@ export function Analytics() {
 
   // Handle drill-down into a specific time bucket (day, week, or month)
   // Instead of using custom ranges with back button, simply switch to the appropriate period
-  const handleChartDrilldown = (startDate: string, endDate: string) => {
+  const handleChartDrilldown = (startDate: string, _endDate: string) => {
     // Determine what period to drill down to based on current aggregation
     const aggregation = getAggregation(period);
     
