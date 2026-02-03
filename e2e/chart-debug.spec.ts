@@ -78,8 +78,8 @@ test.describe('Analytics Daily Breakdown Chart', () => {
   });
 
   test('displays stacked bar chart with category colors', async ({ page }) => {
-    // Navigate to Analytics
-    await page.click('text=Analytics');
+    // Navigate to Analytics using desktop nav button
+    await page.click('.desktop-nav button:has-text("Analytics")');
     await page.waitForSelector('.daily-chart');
     
     // Verify chart is visible
@@ -122,8 +122,8 @@ test.describe('Analytics Daily Breakdown Chart', () => {
   });
 
   test('shows legend with category colors', async ({ page }) => {
-    // Navigate to Analytics
-    await page.click('text=Analytics');
+    // Navigate to Analytics using desktop nav button
+    await page.click('.desktop-nav button:has-text("Analytics")');
     await page.waitForSelector('.daily-chart');
     
     // Legend shows when there's data with categories that have minutes > 0
@@ -137,8 +137,8 @@ test.describe('Analytics Daily Breakdown Chart', () => {
   });
 
   test('chart stays within container bounds', async ({ page }) => {
-    // Navigate to Analytics
-    await page.click('text=Analytics');
+    // Navigate to Analytics using desktop nav button
+    await page.click('.desktop-nav button:has-text("Analytics")');
     await page.waitForSelector('.daily-chart');
     
     // Get the card container and chart bounds

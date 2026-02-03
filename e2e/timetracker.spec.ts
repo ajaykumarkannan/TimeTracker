@@ -17,8 +17,8 @@ test.describe('Time Tracker E2E', () => {
   });
 
   test('complete workflow: create category, track time, view history', async ({ page }) => {
-    // Navigate to categories
-    await page.click('text=Categories');
+    // Navigate to categories using desktop nav button
+    await page.click('.desktop-nav button:has-text("Categories")');
     await expect(page.locator('h2:has-text("New Category")')).toBeVisible();
 
     // Create a new category
@@ -29,8 +29,8 @@ test.describe('Time Tracker E2E', () => {
     ]);
     await expect(page.locator('.category-name:has-text("Development")')).toBeVisible({ timeout: 10000 });
 
-    // Navigate back to tracker
-    await page.click('text=Track');
+    // Navigate back to tracker using desktop nav button
+    await page.click('.desktop-nav button:has-text("Track")');
 
     // Start tracking time via quick start category button
     await page.click('.quick-start-category:has-text("Development")');
@@ -55,7 +55,7 @@ test.describe('Time Tracker E2E', () => {
   });
 
   test('edit and delete category', async ({ page }) => {
-    await page.click('text=Categories');
+    await page.click('.desktop-nav button:has-text("Categories")');
 
     // Create category and wait for API response
     await page.fill('input[placeholder="Category name"]', 'TestCategory');

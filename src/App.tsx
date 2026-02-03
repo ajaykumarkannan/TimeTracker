@@ -149,10 +149,33 @@ function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLoggedIn: bo
   return (
     <div className="app">
       <header className={`app-header ${headerHidden && isMobile ? 'header-hidden' : ''}`}>
-        <div className="header-left">
-          {!isLoggedIn && (
-            <span className="mode-badge">Guest Mode</span>
-          )}
+        <div className="header-left" ref={mobileNavRef}>
+          {/* Mobile hamburger menu in header */}
+          <button 
+            className={`hamburger-btn ${showMobileNav ? 'open' : ''}`}
+            onClick={() => setShowMobileNav(!showMobileNav)}
+            aria-expanded={showMobileNav}
+            aria-label="Navigation menu"
+          >
+            <span className="hamburger-line"></span>
+            <span className="hamburger-line"></span>
+            <span className="hamburger-line"></span>
+          </button>
+          <div className={`mobile-nav-panel ${showMobileNav ? 'open' : ''}`}>
+            <div className="mobile-nav-content">
+              {tabs.map(tab => (
+                <button
+                  key={tab.id}
+                  className={`mobile-nav-item ${activeTab === tab.id ? 'active' : ''}`}
+                  onClick={() => handleTabChange(tab.id)}
+                >
+                  <span className="nav-icon">{tab.icon}</span>
+                  <span className="nav-label">{tab.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          {showMobileNav && <div className="mobile-nav-overlay" onClick={() => setShowMobileNav(false)} />}
         </div>
         <div className="header-center">
           <div className="logo">
@@ -178,10 +201,15 @@ function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLoggedIn: bo
             </button>
             {showSettingsMenu && (
               <div className="settings-dropdown">
-                {isLoggedIn && user && (
+                {isLoggedIn && user ? (
                   <div className="settings-dropdown-user">
                     <span className="settings-dropdown-name">{user.name}</span>
                     <span className="settings-dropdown-email">{user.email}</span>
+                  </div>
+                ) : (
+                  <div className="settings-dropdown-user settings-dropdown-guest">
+                    <span className="settings-dropdown-name">Guest Mode</span>
+                    <span className="settings-dropdown-email">Data stored locally</span>
                   </div>
                 )}
                 <button 
@@ -253,35 +281,6 @@ function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLoggedIn: bo
           ))}
         </div>
       </nav>
-
-      {/* Mobile navigation - hamburger menu */}
-      <div className="mobile-nav" ref={mobileNavRef}>
-        <button 
-          className={`hamburger-btn ${showMobileNav ? 'open' : ''}`}
-          onClick={() => setShowMobileNav(!showMobileNav)}
-          aria-expanded={showMobileNav}
-          aria-label="Navigation menu"
-        >
-          <span className="hamburger-line"></span>
-          <span className="hamburger-line"></span>
-          <span className="hamburger-line"></span>
-        </button>
-        <div className={`mobile-nav-panel ${showMobileNav ? 'open' : ''}`}>
-          <div className="mobile-nav-content">
-            {tabs.map(tab => (
-              <button
-                key={tab.id}
-                className={`mobile-nav-item ${activeTab === tab.id ? 'active' : ''}`}
-                onClick={() => handleTabChange(tab.id)}
-              >
-                <span className="nav-icon">{tab.icon}</span>
-                <span className="nav-label">{tab.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-        {showMobileNav && <div className="mobile-nav-overlay" onClick={() => setShowMobileNav(false)} />}
-      </div>
 
       <main className="app-main">
         {activeTab === 'tracker' && (
