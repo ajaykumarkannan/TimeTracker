@@ -349,10 +349,10 @@ router.get('/suggestions', (req: AuthRequest, res: Response) => {
   }
 });
 
-// Merge descriptions - update all entries with source descriptions to use target description
+// Merge descriptions - update all entries with source descriptions to use target description and optionally target category
 router.post('/merge-descriptions', (req: AuthRequest, res: Response) => {
   try {
-    const { sourceDescriptions, targetDescription } = req.body;
+    const { sourceDescriptions, targetDescription, targetCategoryName } = req.body;
     
     if (!Array.isArray(sourceDescriptions) || sourceDescriptions.length === 0) {
       return res.status(400).json({ error: 'sourceDescriptions must be a non-empty array' });
@@ -363,6 +363,7 @@ router.post('/merge-descriptions', (req: AuthRequest, res: Response) => {
     }
 
     const db = getDb();
+    const userId = req.userId as number;
     
     // Build placeholders for IN clause
     const placeholders = sourceDescriptions.map(() => '?').join(', ');
@@ -371,7 +372,7 @@ router.post('/merge-descriptions', (req: AuthRequest, res: Response) => {
     const countResult = db.exec(
       `SELECT COUNT(*) as count FROM time_entries 
        WHERE user_id = ? AND description IN (${placeholders})`,
-      [req.userId as number, ...sourceDescriptions]
+      [userId, ...sourceDescriptions]
     );
     const totalEntries = countResult.length > 0 ? countResult[0].values[0][0] as number : 0;
     
@@ -379,19 +380,40 @@ router.post('/merge-descriptions', (req: AuthRequest, res: Response) => {
       return res.status(404).json({ error: 'No entries found with the specified descriptions' });
     }
     
-    // Update all entries with source descriptions to use target description
-    db.run(
-      `UPDATE time_entries SET description = ? 
-       WHERE user_id = ? AND description IN (${placeholders})`,
-      [targetDescription.trim(), req.userId as number, ...sourceDescriptions]
-    );
+    // If target category is specified, look up its ID
+    let targetCategoryId: number | null = null;
+    if (targetCategoryName) {
+      const categoryResult = db.exec(
+        `SELECT id FROM categories WHERE user_id = ? AND name = ?`,
+        [userId, targetCategoryName]
+      );
+      if (categoryResult.length > 0 && categoryResult[0].values.length > 0) {
+        targetCategoryId = categoryResult[0].values[0][0] as number;
+      }
+    }
+    
+    // Update all entries with source descriptions to use target description (and optionally category)
+    if (targetCategoryId !== null) {
+      db.run(
+        `UPDATE time_entries SET description = ?, category_id = ? 
+         WHERE user_id = ? AND description IN (${placeholders})`,
+        [targetDescription.trim(), targetCategoryId, userId, ...sourceDescriptions]
+      );
+    } else {
+      db.run(
+        `UPDATE time_entries SET description = ? 
+         WHERE user_id = ? AND description IN (${placeholders})`,
+        [targetDescription.trim(), userId, ...sourceDescriptions]
+      );
+    }
     saveDatabase();
 
     logger.info('Descriptions merged', { 
       sourceDescriptions, 
-      targetDescription, 
+      targetDescription,
+      targetCategoryName,
       entriesUpdated: totalEntries, 
-      userId: req.userId as number 
+      userId
     });
 
     res.json({ 
@@ -402,6 +424,90 @@ router.post('/merge-descriptions', (req: AuthRequest, res: Response) => {
   } catch (error) {
     logger.error('Error merging descriptions', { error, userId: req.userId as number });
     res.status(500).json({ error: 'Failed to merge descriptions' });
+  }
+});
+
+// Update all entries with a specific description+category to new description and/or category
+router.post('/update-description-bulk', (req: AuthRequest, res: Response) => {
+  try {
+    const { oldDescription, oldCategoryName, newDescription, newCategoryName } = req.body;
+    
+    if (typeof oldDescription !== 'string' || !oldDescription.trim()) {
+      return res.status(400).json({ error: 'oldDescription must be a non-empty string' });
+    }
+    
+    if (typeof oldCategoryName !== 'string' || !oldCategoryName.trim()) {
+      return res.status(400).json({ error: 'oldCategoryName must be a non-empty string' });
+    }
+    
+    // At least one of newDescription or newCategoryName must be provided
+    if (!newDescription && !newCategoryName) {
+      return res.status(400).json({ error: 'At least one of newDescription or newCategoryName must be provided' });
+    }
+
+    const db = getDb();
+    const userId = req.userId as number;
+    
+    // Get the old category ID
+    const oldCategoryResult = db.exec(
+      `SELECT id FROM categories WHERE user_id = ? AND name = ?`,
+      [userId, oldCategoryName.trim()]
+    );
+    
+    if (oldCategoryResult.length === 0 || oldCategoryResult[0].values.length === 0) {
+      return res.status(404).json({ error: 'Old category not found' });
+    }
+    const oldCategoryId = oldCategoryResult[0].values[0][0] as number;
+    
+    // Count entries that will be updated
+    const countResult = db.exec(
+      `SELECT COUNT(*) as count FROM time_entries 
+       WHERE user_id = ? AND description = ? AND category_id = ?`,
+      [userId, oldDescription.trim(), oldCategoryId]
+    );
+    const totalEntries = countResult.length > 0 ? countResult[0].values[0][0] as number : 0;
+    
+    if (totalEntries === 0) {
+      return res.status(404).json({ error: 'No entries found with the specified description and category' });
+    }
+    
+    // Get new category ID if changing category
+    let newCategoryId: number | null = null;
+    if (newCategoryName) {
+      const newCategoryResult = db.exec(
+        `SELECT id FROM categories WHERE user_id = ? AND name = ?`,
+        [userId, newCategoryName.trim()]
+      );
+      if (newCategoryResult.length === 0 || newCategoryResult[0].values.length === 0) {
+        return res.status(404).json({ error: 'New category not found' });
+      }
+      newCategoryId = newCategoryResult[0].values[0][0] as number;
+    }
+    
+    // Build the update query based on what's being changed
+    const finalDescription = newDescription ? newDescription.trim() : oldDescription.trim();
+    const finalCategoryId = newCategoryId !== null ? newCategoryId : oldCategoryId;
+    
+    db.run(
+      `UPDATE time_entries SET description = ?, category_id = ? 
+       WHERE user_id = ? AND description = ? AND category_id = ?`,
+      [finalDescription, finalCategoryId, userId, oldDescription.trim(), oldCategoryId]
+    );
+    saveDatabase();
+
+    logger.info('Descriptions updated in bulk', { 
+      oldDescription, 
+      oldCategoryName,
+      newDescription: finalDescription,
+      newCategoryName: newCategoryName || oldCategoryName,
+      entriesUpdated: totalEntries, 
+      userId
+    });
+
+    res.json({ entriesUpdated: totalEntries });
+  } catch (error) {
+    logger.error('Error updating descriptions in bulk', { error, userId: req.userId as number });
+    res.status(500).json({ error: 'Failed to update descriptions' });
   }
 });
 

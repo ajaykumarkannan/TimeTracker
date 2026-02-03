@@ -51,10 +51,11 @@ export function Analytics() {
   const [descriptionsLoading, setDescriptionsLoading] = useState(false);
   const [descriptionsSortBy, setDescriptionsSortBy] = useState<'time' | 'alpha' | 'count' | 'recent'>('time');
   
-  // Merge descriptions state
+  // Merge descriptions state - track by "description|category" key
   const [selectedDescriptions, setSelectedDescriptions] = useState<Set<string>>(new Set());
   const [showMergeModal, setShowMergeModal] = useState(false);
   const [mergeTarget, setMergeTarget] = useState<string>('');
+  const [mergeCategoryTarget, setMergeCategoryTarget] = useState<string>('');
   const [merging, setMerging] = useState(false);
 
   // Close menus when clicking outside
@@ -266,14 +267,24 @@ export function Analytics() {
     setPeriodOffset(prev => prev + direction);
   };
 
-  // Merge descriptions handlers
-  const toggleDescriptionSelection = (description: string) => {
+  // Merge descriptions handlers - use "description|category" as key
+  const makeSelectionKey = (description: string, categoryName: string) => `${description}|${categoryName}`;
+  const parseSelectionKey = (key: string) => {
+    const lastPipe = key.lastIndexOf('|');
+    return {
+      description: key.substring(0, lastPipe),
+      categoryName: key.substring(lastPipe + 1)
+    };
+  };
+
+  const toggleDescriptionSelection = (description: string, categoryName: string) => {
+    const key = makeSelectionKey(description, categoryName);
     setSelectedDescriptions(prev => {
       const next = new Set(prev);
-      if (next.has(description)) {
-        next.delete(description);
+      if (next.has(key)) {
+        next.delete(key);
       } else {
-        next.add(description);
+        next.add(key);
       }
       return next;
     });
@@ -282,16 +293,43 @@ export function Analytics() {
   const openMergeModal = () => {
     if (selectedDescriptions.size < 2) return;
     // Default to the first selected description as target
-    setMergeTarget(Array.from(selectedDescriptions)[0]);
+    const firstKey = Array.from(selectedDescriptions)[0];
+    const { description, categoryName } = parseSelectionKey(firstKey);
+    setMergeTarget(description);
+    setMergeCategoryTarget(categoryName);
     setShowMergeModal(true);
+  };
+
+  // Get unique categories from selected descriptions
+  const getSelectedCategories = (): string[] => {
+    const categories = new Set<string>();
+    for (const key of selectedDescriptions) {
+      const { categoryName } = parseSelectionKey(key);
+      categories.add(categoryName);
+    }
+    return Array.from(categories);
+  };
+
+  // Get unique descriptions from selected items
+  const getSelectedDescriptionTexts = (): string[] => {
+    const descs = new Set<string>();
+    for (const key of selectedDescriptions) {
+      const { description } = parseSelectionKey(key);
+      descs.add(description);
+    }
+    return Array.from(descs);
   };
 
   const handleMerge = async () => {
     if (!mergeTarget || selectedDescriptions.size < 2) return;
     setMerging(true);
     try {
-      const sourceDescriptions = Array.from(selectedDescriptions);
-      await api.mergeDescriptions(sourceDescriptions, mergeTarget);
+      // Get unique description texts from selected items
+      const sourceDescriptions = getSelectedDescriptionTexts();
+      const selectedCategories = getSelectedCategories();
+      // Only pass category if there are multiple categories being merged
+      const targetCategory = selectedCategories.length > 1 ? mergeCategoryTarget : undefined;
+      await api.mergeDescriptions(sourceDescriptions, mergeTarget, targetCategory);
       // Clear selection and refresh data
       setSelectedDescriptions(new Set());
       setShowMergeModal(false);
@@ -905,21 +943,34 @@ export function Analytics() {
           ) : (
             <>
               <div className="top-tasks">
-                {descriptions.descriptions.map((item, i) => (
-                  <div key={i} className={`task-row ${selectedDescriptions.has(item.description) ? 'selected' : ''}`}>
-                    <label className="task-checkbox">
-                      <input
-                        type="checkbox"
-                        checked={selectedDescriptions.has(item.description)}
-                        onChange={() => toggleDescriptionSelection(item.description)}
-                      />
-                    </label>
-                    <span className="task-rank">#{(descriptionsPage - 1) * descriptionsPageSize + i + 1}</span>
-                    <span className="task-name">{item.description}</span>
-                    <span className="task-count">{item.count}×</span>
-                    <span className="task-time">{formatDuration(item.total_minutes)}</span>
-                  </div>
-                ))}
+                {descriptions.descriptions.map((item, i) => {
+                  const selectionKey = makeSelectionKey(item.description, item.category_name);
+                  return (
+                    <div key={`${item.description}-${item.category_name}-${i}`} className={`task-row ${selectedDescriptions.has(selectionKey) ? 'selected' : ''}`}>
+                      <label className="task-checkbox">
+                        <input
+                          type="checkbox"
+                          checked={selectedDescriptions.has(selectionKey)}
+                          onChange={() => toggleDescriptionSelection(item.description, item.category_name)}
+                        />
+                      </label>
+                      <span className="task-rank">#{(descriptionsPage - 1) * descriptionsPageSize + i + 1}</span>
+                      <span className="task-name">{item.description}</span>
+                      <span 
+                        className="task-category"
+                        style={{ 
+                          backgroundColor: `${item.category_color || 'var(--primary)'}20`,
+                          color: item.category_color || 'var(--primary)'
+                        }}
+                      >
+                        <span className="task-category-dot" style={{ backgroundColor: item.category_color || 'var(--primary)' }} />
+                        {item.category_name}
+                      </span>
+                      <span className="task-count">{item.count}×</span>
+                      <span className="task-time">{formatDuration(item.total_minutes)}</span>
+                    </div>
+                  );
+                })}
               </div>
               <div className="pagination">
                 <button 
@@ -955,38 +1006,91 @@ export function Analytics() {
       )}
 
       {/* Merge descriptions modal */}
-      {showMergeModal && (
-        <div className="modal-overlay" onClick={() => setShowMergeModal(false)}>
-          <div className="merge-modal" onClick={e => e.stopPropagation()}>
-            <h3>Merge Descriptions</h3>
-            <p className="merge-info">
-              Select which description to keep. All {selectedDescriptions.size} descriptions will be merged into the selected one.
-            </p>
-            <div className="merge-options">
-              {Array.from(selectedDescriptions).map(desc => (
-                <label key={desc} className={`merge-option ${mergeTarget === desc ? 'selected' : ''}`}>
-                  <input
-                    type="radio"
-                    name="mergeTarget"
-                    value={desc}
-                    checked={mergeTarget === desc}
-                    onChange={() => setMergeTarget(desc)}
-                  />
-                  <span className="merge-option-text">{desc}</span>
-                </label>
-              ))}
-            </div>
-            <div className="merge-actions">
-              <button className="btn btn-ghost" onClick={() => setShowMergeModal(false)} disabled={merging}>
-                Cancel
-              </button>
-              <button className="btn btn-primary" onClick={handleMerge} disabled={merging || !mergeTarget}>
-                {merging ? 'Merging...' : 'Merge'}
-              </button>
+      {showMergeModal && (() => {
+        const uniqueDescriptions = getSelectedDescriptionTexts();
+        const uniqueCategories = getSelectedCategories();
+        const hasMultipleCategories = uniqueCategories.length > 1;
+        
+        // Get category colors from descriptions data
+        const categoryColors: Record<string, string | null> = {};
+        if (descriptions) {
+          for (const item of descriptions.descriptions) {
+            if (uniqueCategories.includes(item.category_name)) {
+              categoryColors[item.category_name] = item.category_color;
+            }
+          }
+        }
+        
+        return (
+          <div className="modal-overlay" onClick={() => setShowMergeModal(false)}>
+            <div className="merge-modal" onClick={e => e.stopPropagation()}>
+              <h3>Merge Descriptions</h3>
+              <p className="merge-info">
+                Select which description to keep. All {selectedDescriptions.size} items will be merged into the selected one.
+              </p>
+              
+              <div className="merge-section">
+                <h4 className="merge-section-title">Target Description</h4>
+                <div className="merge-options">
+                  {uniqueDescriptions.map(desc => (
+                    <label key={desc} className={`merge-option ${mergeTarget === desc ? 'selected' : ''}`}>
+                      <input
+                        type="radio"
+                        name="mergeTarget"
+                        value={desc}
+                        checked={mergeTarget === desc}
+                        onChange={() => setMergeTarget(desc)}
+                      />
+                      <span className="merge-option-text">{desc}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              
+              {hasMultipleCategories && (
+                <div className="merge-section">
+                  <h4 className="merge-section-title">Target Category</h4>
+                  <p className="merge-info merge-category-hint">
+                    Selected items have different categories. Choose which category to use.
+                  </p>
+                  <div className="merge-options">
+                    {uniqueCategories.map(cat => (
+                      <label key={cat} className={`merge-option ${mergeCategoryTarget === cat ? 'selected' : ''}`}>
+                        <input
+                          type="radio"
+                          name="mergeCategoryTarget"
+                          value={cat}
+                          checked={mergeCategoryTarget === cat}
+                          onChange={() => setMergeCategoryTarget(cat)}
+                        />
+                        <span 
+                          className="merge-option-category"
+                          style={{ 
+                            backgroundColor: `${categoryColors[cat] || 'var(--primary)'}20`,
+                            color: categoryColors[cat] || 'var(--primary)'
+                          }}
+                        >
+                          <span className="merge-option-category-dot" style={{ backgroundColor: categoryColors[cat] || 'var(--primary)' }} />
+                          {cat}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              <div className="merge-actions">
+                <button className="btn btn-ghost" onClick={() => setShowMergeModal(false)} disabled={merging}>
+                  Cancel
+                </button>
+                <button className="btn btn-primary" onClick={handleMerge} disabled={merging || !mergeTarget || (hasMultipleCategories && !mergeCategoryTarget)}>
+                  {merging ? 'Merging...' : 'Merge'}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Insights */}
       {hasData && (
