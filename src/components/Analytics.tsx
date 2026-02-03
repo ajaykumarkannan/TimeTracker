@@ -11,14 +11,21 @@ type AggregatedTotal = {
   byCategory: Record<string, number>;
 };
 
-type PeriodType = 'week' | 'month' | 'quarter' | 'year' | 'all';
+type PeriodType = 'day' | 'week' | 'month' | 'quarter' | 'year' | 'all';
 
 const STORAGE_KEY = 'chronoflow-analytics-period';
+
+// Track drill-down navigation history
+type DrilldownState = {
+  period: Period;
+  offset: number;
+  customRange?: { start: string; end: string };
+};
 
 function getStoredPeriod(): Period {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored && ['week', 'month', 'quarter', 'year', 'all', 'last7', 'last30', 'last90'].includes(stored)) {
+    if (stored && ['day', 'week', 'month', 'quarter', 'year', 'all', 'last7', 'last30', 'last90'].includes(stored)) {
       return stored as Period;
     }
   } catch {
@@ -37,6 +44,12 @@ export function Analytics() {
   const [activeEntry, setActiveEntry] = useState<TimeEntry | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const previousMenuRef = useRef<HTMLDivElement>(null);
+  
+  // Custom date range for drill-down (overrides period/offset when set)
+  const [customRange, setCustomRange] = useState<{ start: string; end: string } | null>(null);
+  
+  // Drill-down navigation history
+  const [drilldownHistory, setDrilldownHistory] = useState<DrilldownState[]>([]);
   
   // Drill-down state
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -141,6 +154,14 @@ export function Analytics() {
   };
 
   const getDateRange = (p: Period, offset: number = 0): { start: Date; end: Date } => {
+    // If we have a custom range, use it
+    if (customRange) {
+      return {
+        start: new Date(customRange.start + 'T00:00:00'),
+        end: new Date(customRange.end + 'T23:59:59.999')
+      };
+    }
+    
     const now = new Date();
     
     // Handle "last X days" periods (no offset support)
@@ -168,6 +189,16 @@ export function Analytics() {
     let end: Date;
 
     switch (p) {
+      case 'day': {
+        // Single day view
+        const targetDay = new Date(now);
+        targetDay.setDate(targetDay.getDate() + offset);
+        start = new Date(targetDay);
+        start.setHours(0, 0, 0, 0);
+        end = new Date(targetDay);
+        end.setHours(23, 59, 59, 999);
+        break;
+      }
       case 'week': {
         // Current week: Monday to Sunday
         const weekStart = getWeekStart(now);
@@ -223,8 +254,10 @@ export function Analytics() {
   };
 
   // Determine aggregation level based on period
-  const getAggregation = (p: Period): 'day' | 'week' | 'month' => {
+  const getAggregation = (p: Period): 'hour' | 'day' | 'week' | 'month' => {
     switch (p) {
+      case 'day':
+        return 'hour';
       case 'week':
       case 'last7':
         return 'day';
@@ -270,6 +303,8 @@ export function Analytics() {
     setPeriod(newPeriod);
     setPeriodOffset(0);
     setShowPreviousMenu(false);
+    setCustomRange(null);
+    setDrilldownHistory([]);
     try { localStorage.setItem(STORAGE_KEY, newPeriod); } catch { /* ignore */ }
   };
 
@@ -277,15 +312,62 @@ export function Analytics() {
     setPeriod(lastDays);
     setPeriodOffset(0);
     setShowPreviousMenu(false);
+    setCustomRange(null);
+    setDrilldownHistory([]);
     try { localStorage.setItem(STORAGE_KEY, lastDays); } catch { /* ignore */ }
   };
 
-  const canNavigatePrevious = period !== 'all' && period !== 'last7' && period !== 'last30' && period !== 'last90';
+  const canNavigatePrevious = period !== 'all' && period !== 'last7' && period !== 'last30' && period !== 'last90' && !customRange;
   const canNavigateNext = canNavigatePrevious && periodOffset < 0;
 
   const navigatePeriod = (direction: -1 | 1) => {
     setPeriodOffset(prev => prev + direction);
   };
+
+  // Handle drill-down into a specific time bucket (day, week, or month)
+  const handleChartDrilldown = (startDate: string, endDate: string) => {
+    // Save current state to history
+    setDrilldownHistory(prev => [...prev, { period, offset: periodOffset, customRange: customRange || undefined }]);
+    
+    // Determine what period to drill down to based on current aggregation
+    const aggregation = getAggregation(period);
+    
+    if (aggregation === 'hour') {
+      // Already at day view, can't drill down further
+      return;
+    }
+    
+    if (aggregation === 'day') {
+      // Drilling from week view into a specific day
+      setCustomRange({ start: startDate, end: endDate });
+      setPeriod('day');
+      setPeriodOffset(0);
+    } else if (aggregation === 'week') {
+      // Drilling from month/quarter view into a specific week
+      setCustomRange({ start: startDate, end: endDate });
+      setPeriod('week');
+      setPeriodOffset(0);
+    } else if (aggregation === 'month') {
+      // Drilling from year/all view into a specific month
+      setCustomRange({ start: startDate, end: endDate });
+      setPeriod('month');
+      setPeriodOffset(0);
+    }
+  };
+
+  // Go back from drill-down
+  const handleDrilldownBack = () => {
+    if (drilldownHistory.length === 0) return;
+    
+    const prevState = drilldownHistory[drilldownHistory.length - 1];
+    setDrilldownHistory(prev => prev.slice(0, -1));
+    setPeriod(prevState.period);
+    setPeriodOffset(prevState.offset);
+    setCustomRange(prevState.customRange || null);
+  };
+
+  // Check if we're in a drill-down state
+  const isDrilledDown = drilldownHistory.length > 0 || customRange !== null;
 
   // Merge descriptions handlers - use "description|category" as key
   const makeSelectionKey = (description: string, categoryName: string) => `${description}|${categoryName}`;
@@ -430,7 +512,7 @@ export function Analytics() {
     };
 
     loadAnalytics();
-  }, [period, periodOffset]);
+  }, [period, periodOffset, customRange]);
 
   // Load all descriptions (paginated)
   useEffect(() => {
@@ -495,11 +577,24 @@ export function Analytics() {
     return filled;
   }, [data, period, periodOffset]);
 
-  // Aggregate daily data into weeks or months based on period
+  // Aggregate daily data into hours, weeks, or months based on period
   const aggregatedData = useMemo((): AggregatedTotal[] => {
     if (!data || filledDaily.length === 0) return [];
     
     const aggregation = getAggregation(period);
+    
+    if (aggregation === 'hour') {
+      // For day view, show hourly breakdown
+      // Since we don't have hourly data from the API, we'll show the single day
+      // In a real implementation, you'd want hourly data from the backend
+      return filledDaily.map(d => ({
+        label: formatShortDate(d.date),
+        startDate: d.date,
+        endDate: d.date,
+        minutes: d.minutes,
+        byCategory: d.byCategory
+      }));
+    }
     
     if (aggregation === 'day') {
       // No aggregation needed for week view
@@ -590,10 +685,17 @@ export function Analytics() {
   // Determine if chart needs scrolling based on period and item count
   const needsScrolling = useMemo(() => {
     const aggregation = getAggregation(period);
+    if (aggregation === 'hour') return false; // Day view (single day or few days) always fits
     if (aggregation === 'day') return false; // Week view (7 days) always fits
     if (aggregation === 'week') return aggregatedData.length > 6; // Month (5 weeks) fits, quarter (13+ weeks) scrolls
     return aggregatedData.length > 12; // Year (12 months) fits, all time may scroll
   }, [aggregatedData, period]);
+
+  // Check if drill-down is possible (not at the most granular level)
+  const canDrillDown = useMemo(() => {
+    const aggregation = getAggregation(period);
+    return aggregation !== 'hour';
+  }, [period]);
 
   // Ref for scrolling to end
   const chartRef = useRef<HTMLDivElement>(null);
@@ -650,6 +752,8 @@ export function Analytics() {
   const getChartTitle = () => {
     const aggregation = getAggregation(period);
     switch (aggregation) {
+      case 'hour':
+        return 'Day View';
       case 'day':
         return 'Daily Breakdown';
       case 'week':
@@ -669,7 +773,19 @@ export function Analytics() {
       return `${s.toLocaleDateString(undefined, opts)} - ${e.toLocaleDateString(undefined, opts)}`;
     };
 
+    // If we have a custom range (drill-down), show that
+    if (customRange) {
+      const s = new Date(customRange.start + 'T12:00:00');
+      const e = new Date(customRange.end + 'T12:00:00');
+      if (customRange.start === customRange.end) {
+        return s.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+      }
+      return formatRange(s, e);
+    }
+
     switch (period) {
+      case 'day':
+        return start.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
       case 'week':
         return formatRange(start, end);
       case 'month':
@@ -716,12 +832,21 @@ export function Analytics() {
       {/* Period selector */}
       <div className="analytics-header">
         <div className="period-selector-wrapper">
+          {isDrilledDown && (
+            <button className="drilldown-back-btn" onClick={handleDrilldownBack} title="Go back">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="15,18 9,12 15,6" />
+              </svg>
+              Back
+            </button>
+          )}
           <div className="period-selector">
-            <button className={period === 'week' ? 'active' : ''} onClick={() => handlePeriodChange('week')}>Week</button>
-            <button className={period === 'month' ? 'active' : ''} onClick={() => handlePeriodChange('month')}>Month</button>
-            <button className={period === 'quarter' ? 'active' : ''} onClick={() => handlePeriodChange('quarter')}>Quarter</button>
-            <button className={period === 'year' ? 'active' : ''} onClick={() => handlePeriodChange('year')}>Year</button>
-            <button className={period === 'all' ? 'active' : ''} onClick={() => handlePeriodChange('all')}>All</button>
+            <button className={period === 'day' && !customRange ? 'active' : ''} onClick={() => handlePeriodChange('day')}>Day</button>
+            <button className={period === 'week' && !customRange ? 'active' : ''} onClick={() => handlePeriodChange('week')}>Week</button>
+            <button className={period === 'month' && !customRange ? 'active' : ''} onClick={() => handlePeriodChange('month')}>Month</button>
+            <button className={period === 'quarter' && !customRange ? 'active' : ''} onClick={() => handlePeriodChange('quarter')}>Quarter</button>
+            <button className={period === 'year' && !customRange ? 'active' : ''} onClick={() => handlePeriodChange('year')}>Year</button>
+            <button className={period === 'all' && !customRange ? 'active' : ''} onClick={() => handlePeriodChange('all')}>All</button>
             <div className="period-dropdown" ref={previousMenuRef}>
               <button 
                 className={`dropdown-trigger ${period === 'last7' || period === 'last30' || period === 'last90' ? 'active' : ''}`}
@@ -820,7 +945,10 @@ export function Analytics() {
         <div className="card-header">
           <h2 className="card-title">{getChartTitle()}</h2>
           {hasData && (
-            <span className="chart-hint">{getChartHint()}</span>
+            <span className="chart-hint">
+              {getChartHint()}
+              {canDrillDown && <span className="chart-hint-action"> · Click to drill down</span>}
+            </span>
           )}
         </div>
         <div 
@@ -835,9 +963,18 @@ export function Analytics() {
             // Calculate flex ratio: bar takes up proportional space, spacer takes the rest
             const barRatio = bucket.minutes / maxMinutes;
             const spacerRatio = 1 - barRatio;
+            const isClickable = canDrillDown && hasMinutes;
             
             return (
-              <div key={bucket.startDate} className={`chart-bar-container ${isToday ? 'today' : ''} ${!hasMinutes ? 'empty' : ''}`} title={`${formatDateRange(bucket.startDate, bucket.endDate)}: ${formatDuration(bucket.minutes)}`}>
+              <div 
+                key={bucket.startDate} 
+                className={`chart-bar-container ${isToday ? 'today' : ''} ${!hasMinutes ? 'empty' : ''} ${isClickable ? 'clickable' : ''}`} 
+                title={`${formatDateRange(bucket.startDate, bucket.endDate)}: ${formatDuration(bucket.minutes)}${isClickable ? ' (click to drill down)' : ''}`}
+                onClick={isClickable ? () => handleChartDrilldown(bucket.startDate, bucket.endDate) : undefined}
+                role={isClickable ? 'button' : undefined}
+                tabIndex={isClickable ? 0 : undefined}
+                onKeyDown={isClickable ? (e) => { if (e.key === 'Enter' || e.key === ' ') handleChartDrilldown(bucket.startDate, bucket.endDate); } : undefined}
+              >
                 <div className="chart-bar-wrapper">
                   {/* Spacer pushes the bar stack to the bottom */}
                   <div style={{ flex: spacerRatio }} />

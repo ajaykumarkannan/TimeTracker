@@ -25,6 +25,38 @@
   to { transform: rotate(360deg); }
 }
 
+/* Drilldown back button */
+.drilldown-back-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md, 0.5rem);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.drilldown-back-btn:hover {
+  background: var(--bg-tertiary, var(--bg-secondary));
+  color: var(--text-primary);
+  border-color: var(--text-tertiary);
+}
+
+.drilldown-back-btn svg {
+  flex-shrink: 0;
+}
+
+/* Chart hint action text */
+.chart-hint-action {
+  color: var(--primary);
+  font-weight: 500;
+}
+
 /* Period selector */
 .analytics-header {
   display: flex;
@@ -410,12 +442,37 @@
   /* Fixed minimum width ensures readability, flex-shrink: 0 prevents squishing */
   flex: 0 0 auto;
   min-width: 3.5rem;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.chart-bar-container.clickable {
+  cursor: pointer;
+}
+
+.chart-bar-container.clickable:hover {
+  transform: translateY(-2px);
+}
+
+.chart-bar-container.clickable:hover .chart-bar-wrapper {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.chart-bar-container.clickable:focus {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm, 0.25rem);
 }
 
 /* Week view (7 days) - bars can expand to fill space */
 .daily-chart.view-day .chart-bar-container {
   flex: 1 1 3rem;
   min-width: 3rem;
+}
+
+/* Hour view (day view) - single or few bars */
+.daily-chart.view-hour .chart-bar-container {
+  flex: 1 1 4rem;
+  min-width: 4rem;
 }
 
 /* Week aggregation (month/quarter) - expand to fill, with minimum width */
