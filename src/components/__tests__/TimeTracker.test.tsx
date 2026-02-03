@@ -696,4 +696,570 @@ describe('TimeTracker', () => {
     // Should render without errors in mobile mode
     expect(screen.getByText('Category')).toBeInTheDocument();
   });
+
+  it('shows switch task categories when timer is active', async () => {
+    const activeEntry = {
+      id: 1,
+      category_id: 1,
+      category_name: 'Development',
+      category_color: '#007bff',
+      task_name: 'Current task',
+      start_time: new Date().toISOString(),
+      end_time: null,
+      duration_minutes: null,
+      created_at: '2024-01-01'
+    };
+
+    await renderWithTheme(
+      <TimeTracker 
+        categories={mockCategories} 
+        activeEntry={activeEntry}
+        entries={mockEntries}
+        onEntryChange={mockOnEntryChange}
+        onCategoryChange={mockOnCategoryChange}
+      />
+    );
+    
+    // Should show switch task section with "Switch to:" label
+    expect(screen.getByText('Switch to:')).toBeInTheDocument();
+    // Should show category buttons for switching (switch-category-btn class)
+    const switchBtns = document.querySelectorAll('.switch-category-btn');
+    expect(switchBtns.length).toBeGreaterThan(0);
+  });
+
+  it('opens switch task prompt when clicking category in switch section', async () => {
+    const activeEntry = {
+      id: 1,
+      category_id: 1,
+      category_name: 'Development',
+      category_color: '#007bff',
+      task_name: 'Current task',
+      start_time: new Date().toISOString(),
+      end_time: null,
+      duration_minutes: null,
+      created_at: '2024-01-01'
+    };
+
+    await renderWithTheme(
+      <TimeTracker 
+        categories={mockCategories} 
+        activeEntry={activeEntry}
+        entries={mockEntries}
+        onEntryChange={mockOnEntryChange}
+        onCategoryChange={mockOnCategoryChange}
+      />
+    );
+    
+    // Click on a switch category button
+    const switchBtns = document.querySelectorAll('.switch-category-btn');
+    if (switchBtns.length > 0) {
+      await act(async () => {
+        fireEvent.click(switchBtns[0]);
+      });
+      
+      // Should show switch task prompt modal
+      await waitFor(() => {
+        const modal = document.querySelector('.task-prompt-modal');
+        expect(modal).toBeInTheDocument();
+      });
+    }
+  });
+
+  it('switches task from prompt modal', async () => {
+    const activeEntry = {
+      id: 1,
+      category_id: 1,
+      category_name: 'Development',
+      category_color: '#007bff',
+      task_name: 'Current task',
+      start_time: new Date().toISOString(),
+      end_time: null,
+      duration_minutes: null,
+      created_at: '2024-01-01'
+    };
+
+    await renderWithTheme(
+      <TimeTracker 
+        categories={mockCategories} 
+        activeEntry={activeEntry}
+        entries={mockEntries}
+        onEntryChange={mockOnEntryChange}
+        onCategoryChange={mockOnCategoryChange}
+      />
+    );
+    
+    // Click on a switch category button
+    const switchBtns = document.querySelectorAll('.switch-category-btn');
+    if (switchBtns.length > 0) {
+      await act(async () => {
+        fireEvent.click(switchBtns[0]);
+      });
+      
+      // Wait for modal
+      await waitFor(() => {
+        expect(document.querySelector('.task-prompt-modal')).toBeInTheDocument();
+      });
+      
+      // Enter task name
+      const modalInput = document.querySelector('.task-prompt-input') as HTMLInputElement;
+      if (modalInput) {
+        await act(async () => {
+          fireEvent.change(modalInput, { target: { value: 'New task' } });
+        });
+        
+        // Click switch button
+        const switchBtn = screen.getByRole('button', { name: /switch/i });
+        await act(async () => {
+          fireEvent.click(switchBtn);
+        });
+        
+        await waitFor(() => {
+          expect(api.startEntry).toHaveBeenCalled();
+        });
+      }
+    }
+  });
+
+  it('closes switch task prompt when clicking overlay', async () => {
+    const activeEntry = {
+      id: 1,
+      category_id: 1,
+      category_name: 'Development',
+      category_color: '#007bff',
+      task_name: 'Current task',
+      start_time: new Date().toISOString(),
+      end_time: null,
+      duration_minutes: null,
+      created_at: '2024-01-01'
+    };
+
+    await renderWithTheme(
+      <TimeTracker 
+        categories={mockCategories} 
+        activeEntry={activeEntry}
+        entries={mockEntries}
+        onEntryChange={mockOnEntryChange}
+        onCategoryChange={mockOnCategoryChange}
+      />
+    );
+    
+    // Click on a switch category button
+    const switchBtns = document.querySelectorAll('.switch-category-btn');
+    if (switchBtns.length > 0) {
+      await act(async () => {
+        fireEvent.click(switchBtns[0]);
+      });
+      
+      // Wait for modal
+      await waitFor(() => {
+        expect(document.querySelector('.task-prompt-modal')).toBeInTheDocument();
+      });
+      
+      // Click overlay to close
+      const overlay = document.querySelector('.task-prompt-overlay');
+      if (overlay) {
+        await act(async () => {
+          fireEvent.click(overlay);
+        });
+        
+        await waitFor(() => {
+          expect(document.querySelector('.task-prompt-modal')).not.toBeInTheDocument();
+        });
+      }
+    }
+  });
+
+  it('handles new task form submission in switch section', async () => {
+    const activeEntry = {
+      id: 1,
+      category_id: 1,
+      category_name: 'Development',
+      category_color: '#007bff',
+      task_name: 'Current task',
+      start_time: new Date().toISOString(),
+      end_time: null,
+      duration_minutes: null,
+      created_at: '2024-01-01'
+    };
+
+    await renderWithTheme(
+      <TimeTracker 
+        categories={mockCategories} 
+        activeEntry={activeEntry}
+        entries={mockEntries}
+        onEntryChange={mockOnEntryChange}
+        onCategoryChange={mockOnCategoryChange}
+      />
+    );
+    
+    // Click + New task button
+    const newTaskBtn = screen.getByText('+ New task');
+    await act(async () => {
+      fireEvent.click(newTaskBtn);
+    });
+    
+    // Should show new task form
+    await waitFor(() => {
+      expect(screen.getByText('Category...')).toBeInTheDocument();
+    });
+    
+    // Select category from dropdown
+    const categorySelect = document.querySelector('.new-task-form select') as HTMLSelectElement;
+    if (categorySelect) {
+      await act(async () => {
+        fireEvent.change(categorySelect, { target: { value: '2' } });
+      });
+      
+      // Enter task description
+      const taskInput = document.querySelector('.new-task-form input[type="text"]') as HTMLInputElement;
+      if (taskInput) {
+        await act(async () => {
+          fireEvent.change(taskInput, { target: { value: 'New task description' } });
+        });
+      }
+      
+      // Click Start button
+      const startBtn = document.querySelector('.new-task-form .btn-success') as HTMLButtonElement;
+      if (startBtn) {
+        await act(async () => {
+          fireEvent.click(startBtn);
+        });
+        
+        await waitFor(() => {
+          expect(api.startEntry).toHaveBeenCalled();
+        });
+      }
+    }
+  });
+
+  it('cancels new category form with Escape key', async () => {
+    await renderWithTheme(
+      <TimeTracker 
+        categories={mockCategories} 
+        activeEntry={null}
+        entries={[]}
+        onEntryChange={mockOnEntryChange}
+        onCategoryChange={mockOnCategoryChange}
+      />
+    );
+    
+    // Select "+ New category" from dropdown
+    const select = screen.getByRole('combobox');
+    await act(async () => {
+      fireEvent.change(select, { target: { value: 'new' } });
+    });
+    
+    // Should show new category form
+    const nameInput = await screen.findByPlaceholderText('Category name');
+    
+    // Press Escape to cancel
+    await act(async () => {
+      fireEvent.keyDown(nameInput, { key: 'Escape' });
+    });
+    
+    // Form should be hidden
+    await waitFor(() => {
+      expect(screen.queryByPlaceholderText('Category name')).not.toBeInTheDocument();
+    });
+  });
+
+  it('submits new category form with Enter key', async () => {
+    await renderWithTheme(
+      <TimeTracker 
+        categories={mockCategories} 
+        activeEntry={null}
+        entries={[]}
+        onEntryChange={mockOnEntryChange}
+        onCategoryChange={mockOnCategoryChange}
+      />
+    );
+    
+    // Select "+ New category" from dropdown
+    const select = screen.getByRole('combobox');
+    await act(async () => {
+      fireEvent.change(select, { target: { value: 'new' } });
+    });
+    
+    // Enter category name
+    const nameInput = await screen.findByPlaceholderText('Category name');
+    await act(async () => {
+      fireEvent.change(nameInput, { target: { value: 'New Category' } });
+    });
+    
+    // Press Enter to submit
+    await act(async () => {
+      fireEvent.keyDown(nameInput, { key: 'Enter' });
+    });
+    
+    await waitFor(() => {
+      expect(api.createCategory).toHaveBeenCalledWith('New Category', expect.any(String));
+    });
+  });
+
+  it('handles start entry error gracefully', async () => {
+    vi.mocked(api.startEntry).mockRejectedValueOnce(new Error('Network error'));
+    
+    await renderWithTheme(
+      <TimeTracker 
+        categories={mockCategories} 
+        activeEntry={null}
+        entries={[]}
+        onEntryChange={mockOnEntryChange}
+        onCategoryChange={mockOnCategoryChange}
+      />
+    );
+    
+    // Select category
+    const select = screen.getByRole('combobox');
+    await act(async () => {
+      fireEvent.change(select, { target: { value: '1' } });
+    });
+    
+    // Click start
+    const startBtn = screen.getByRole('button', { name: /start/i });
+    await act(async () => {
+      fireEvent.click(startBtn);
+    });
+    
+    // Should have called API (error is logged but doesn't crash)
+    await waitFor(() => {
+      expect(api.startEntry).toHaveBeenCalled();
+    });
+  });
+
+  it('handles stop entry error gracefully', async () => {
+    vi.mocked(api.stopEntry).mockRejectedValueOnce(new Error('Network error'));
+    
+    const activeEntry = {
+      id: 1,
+      category_id: 1,
+      category_name: 'Development',
+      category_color: '#007bff',
+      task_name: null,
+      start_time: new Date().toISOString(),
+      end_time: null,
+      duration_minutes: null,
+      created_at: '2024-01-01'
+    };
+
+    await renderWithTheme(
+      <TimeTracker 
+        categories={mockCategories} 
+        activeEntry={activeEntry}
+        entries={mockEntries}
+        onEntryChange={mockOnEntryChange}
+        onCategoryChange={mockOnCategoryChange}
+      />
+    );
+    
+    // Click stop
+    const stopBtn = screen.getByRole('button', { name: /stop/i });
+    await act(async () => {
+      fireEvent.click(stopBtn);
+    });
+    
+    // Should have called API
+    await waitFor(() => {
+      expect(api.stopEntry).toHaveBeenCalled();
+    });
+  });
+
+  it('handles create category error gracefully', async () => {
+    vi.mocked(api.createCategory).mockRejectedValueOnce(new Error('Network error'));
+    
+    await renderWithTheme(
+      <TimeTracker 
+        categories={mockCategories} 
+        activeEntry={null}
+        entries={[]}
+        onEntryChange={mockOnEntryChange}
+        onCategoryChange={mockOnCategoryChange}
+      />
+    );
+    
+    // Select "+ New category" from dropdown
+    const select = screen.getByRole('combobox');
+    await act(async () => {
+      fireEvent.change(select, { target: { value: 'new' } });
+    });
+    
+    // Enter category name
+    const nameInput = await screen.findByPlaceholderText('Category name');
+    await act(async () => {
+      fireEvent.change(nameInput, { target: { value: 'Testing' } });
+    });
+    
+    // Click create
+    const createBtn = screen.getByRole('button', { name: /create/i });
+    await act(async () => {
+      fireEvent.click(createBtn);
+    });
+    
+    // Should have called API
+    await waitFor(() => {
+      expect(api.createCategory).toHaveBeenCalled();
+    });
+  });
+
+  it('shows pop-out button when timer is active on desktop', async () => {
+    const activeEntry = {
+      id: 1,
+      category_id: 1,
+      category_name: 'Development',
+      category_color: '#007bff',
+      task_name: null,
+      start_time: new Date().toISOString(),
+      end_time: null,
+      duration_minutes: null,
+      created_at: '2024-01-01'
+    };
+
+    await renderWithTheme(
+      <TimeTracker 
+        categories={mockCategories} 
+        activeEntry={activeEntry}
+        entries={mockEntries}
+        onEntryChange={mockOnEntryChange}
+        onCategoryChange={mockOnCategoryChange}
+        isMobile={false}
+      />
+    );
+    
+    // Should show pop-out button
+    const popoutBtn = document.querySelector('.floating-popout-btn');
+    expect(popoutBtn).toBeInTheDocument();
+  });
+
+  it('hides pop-out button on mobile', async () => {
+    const activeEntry = {
+      id: 1,
+      category_id: 1,
+      category_name: 'Development',
+      category_color: '#007bff',
+      task_name: null,
+      start_time: new Date().toISOString(),
+      end_time: null,
+      duration_minutes: null,
+      created_at: '2024-01-01'
+    };
+
+    await renderWithTheme(
+      <TimeTracker 
+        categories={mockCategories} 
+        activeEntry={activeEntry}
+        entries={mockEntries}
+        onEntryChange={mockOnEntryChange}
+        onCategoryChange={mockOnCategoryChange}
+        isMobile={true}
+      />
+    );
+    
+    // Should NOT show pop-out button on mobile
+    const popoutBtn = document.querySelector('.floating-popout-btn');
+    expect(popoutBtn).not.toBeInTheDocument();
+  });
+
+  it('opens pop-out timer when clicking pop-out button', async () => {
+    const activeEntry = {
+      id: 1,
+      category_id: 1,
+      category_name: 'Development',
+      category_color: '#007bff',
+      task_name: null,
+      start_time: new Date().toISOString(),
+      end_time: null,
+      duration_minutes: null,
+      created_at: '2024-01-01'
+    };
+
+    await renderWithTheme(
+      <TimeTracker 
+        categories={mockCategories} 
+        activeEntry={activeEntry}
+        entries={mockEntries}
+        onEntryChange={mockOnEntryChange}
+        onCategoryChange={mockOnCategoryChange}
+        isMobile={false}
+      />
+    );
+    
+    // Pop-out button should be visible and clickable
+    const popoutBtn = document.querySelector('.floating-popout-btn');
+    expect(popoutBtn).toBeInTheDocument();
+    expect(popoutBtn).toHaveAttribute('title', 'Pop out timer');
+    expect(popoutBtn).toHaveAttribute('aria-label', 'Pop out timer to separate window');
+    
+    // Clicking should not throw
+    await act(async () => {
+      fireEvent.click(popoutBtn!);
+    });
+  });
+
+  it('displays task name in active timer when present', async () => {
+    const activeEntry = {
+      id: 1,
+      category_id: 1,
+      category_name: 'Development',
+      category_color: '#007bff',
+      task_name: 'Working on feature X',
+      start_time: new Date().toISOString(),
+      end_time: null,
+      duration_minutes: null,
+      created_at: '2024-01-01'
+    };
+
+    await renderWithTheme(
+      <TimeTracker 
+        categories={mockCategories} 
+        activeEntry={activeEntry}
+        entries={mockEntries}
+        onEntryChange={mockOnEntryChange}
+        onCategoryChange={mockOnCategoryChange}
+      />
+    );
+    
+    // Should show task name
+    expect(screen.getByText('Working on feature X')).toBeInTheDocument();
+  });
+
+  it('handles suggestion click', async () => {
+    await renderWithTheme(
+      <TimeTracker 
+        categories={mockCategories} 
+        activeEntry={null}
+        entries={mockEntries}
+        onEntryChange={mockOnEntryChange}
+        onCategoryChange={mockOnCategoryChange}
+      />
+    );
+    
+    // Select a category first
+    const select = screen.getByRole('combobox');
+    await act(async () => {
+      fireEvent.change(select, { target: { value: '1' } });
+    });
+    
+    // Type in description to show suggestions
+    const descInput = screen.getByPlaceholderText(/what are you working on/i);
+    await act(async () => {
+      fireEvent.focus(descInput);
+      fireEvent.change(descInput, { target: { value: 'Bug' } });
+    });
+    
+    // Wait for suggestions
+    await waitFor(() => {
+      expect(screen.getByText('Bug fix')).toBeInTheDocument();
+    });
+    
+    // Click on suggestion button
+    const suggestionBtn = screen.getByText('Bug fix').closest('button');
+    expect(suggestionBtn).toBeInTheDocument();
+    
+    await act(async () => {
+      fireEvent.click(suggestionBtn!);
+    });
+    
+    // Suggestion click fills in the description (doesn't start entry)
+    expect(descInput).toHaveValue('Bug fix');
+  });
 });
