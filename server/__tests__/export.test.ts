@@ -87,7 +87,7 @@ beforeAll(async () => {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
       category_id INTEGER NOT NULL,
-      description TEXT,
+      task_name TEXT,
       start_time DATETIME NOT NULL,
       end_time DATETIME,
       duration_minutes INTEGER,
@@ -157,7 +157,7 @@ describe('CSV Export/Import', () => {
         [testUserId, 'Development', '#007bff']);
       const categoryId = db.exec('SELECT last_insert_rowid() as id')[0].values[0][0];
       
-      db.run(`INSERT INTO time_entries (user_id, category_id, description, start_time, end_time, duration_minutes) 
+      db.run(`INSERT INTO time_entries (user_id, category_id, task_name, start_time, end_time, duration_minutes) 
               VALUES (?, ?, ?, ?, ?, ?)`,
         [testUserId, categoryId, 'Working on feature', '2024-01-15T09:00:00Z', '2024-01-15T10:30:00Z', 90]);
 
@@ -167,7 +167,7 @@ describe('CSV Export/Import', () => {
       );
       
       const entriesResult = db.exec(`
-        SELECT c.name, c.color, te.description, te.start_time, te.end_time, te.duration_minutes
+        SELECT c.name, c.color, te.task_name, te.start_time, te.end_time, te.duration_minutes
         FROM time_entries te
         JOIN categories c ON te.category_id = c.id
         WHERE te.user_id = ?
@@ -183,13 +183,13 @@ describe('CSV Export/Import', () => {
   describe('Import Data', () => {
     it('imports time entries and creates missing categories', () => {
       // Simulate CSV import logic
-      const csvData = `Category,Color,Description,Start Time,End Time,Duration (minutes)
+      const csvData = `Category,Color,Task,Start Time,End Time,Duration (minutes)
 Development,#007bff,Working on feature,2024-01-15T09:00:00Z,2024-01-15T10:30:00Z,90`;
       
       const lines = csvData.split('\n').filter(line => line.trim());
       const dataRow = parseCSVLine(lines[1]);
       
-      const [categoryName, color, description, startTime, endTime] = dataRow;
+      const [categoryName, color, taskName, startTime, endTime] = dataRow;
       
       // Create category
       db.run('INSERT INTO categories (user_id, name, color) VALUES (?, ?, ?)',
@@ -201,9 +201,9 @@ Development,#007bff,Working on feature,2024-01-15T09:00:00Z,2024-01-15T10:30:00Z
       const endDate = new Date(endTime);
       const duration = Math.round((endDate.getTime() - startDate.getTime()) / 60000);
       
-      db.run(`INSERT INTO time_entries (user_id, category_id, description, start_time, end_time, duration_minutes) 
+      db.run(`INSERT INTO time_entries (user_id, category_id, task_name, start_time, end_time, duration_minutes) 
               VALUES (?, ?, ?, ?, ?, ?)`,
-        [testUserId, categoryId, description, startTime, endTime, duration]);
+        [testUserId, categoryId, taskName, startTime, endTime, duration]);
 
       // Verify
       const entries = db.exec(`SELECT * FROM time_entries WHERE user_id = ?`, [testUserId]);

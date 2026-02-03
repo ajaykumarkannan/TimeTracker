@@ -69,7 +69,7 @@ interface Props {
 }
 
 interface RecentTask {
-  description: string;
+  task_name: string;
   categoryId: number;
   categoryName: string;
   categoryColor: string | null;
@@ -100,7 +100,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   const [showPopOut, setShowPopOut] = useState(false);
   
   // Cached suggestions - fetched once, filtered locally
-  const [cachedSuggestions, setCachedSuggestions] = useState<{ description: string; categoryId: number; count: number; totalMinutes: number; lastUsed: string }[]>([]);
+  const [cachedSuggestions, setCachedSuggestions] = useState<{ task_name: string; categoryId: number; count: number; totalMinutes: number; lastUsed: string }[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
   const descriptionInputRef = useRef<HTMLInputElement>(null);
@@ -116,7 +116,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   useEffect(() => {
     const fetchAllSuggestions = async () => {
       try {
-        const results = await api.getDescriptionSuggestions(undefined, undefined);
+        const results = await api.getTaskNameSuggestions(undefined, undefined);
         setCachedSuggestions(results);
       } catch (error) {
         console.error('Failed to fetch suggestions:', error);
@@ -134,10 +134,10 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
       filtered = filtered.filter(s => s.categoryId === selectedCategory);
     }
     
-    // Fuzzy filter by description
+    // Fuzzy filter by task name
     if (description) {
       filtered = filtered
-        .map(s => ({ ...s, ...fuzzyMatch(description, s.description) }))
+        .map(s => ({ ...s, ...fuzzyMatch(description, s.task_name) }))
         .filter(s => s.match)
         .sort((a, b) => b.score - a.score || b.count - a.count);
     }
@@ -156,7 +156,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
     
     if (query) {
       filtered = filtered
-        .map(s => ({ ...s, ...fuzzyMatch(query, s.description) }))
+        .map(s => ({ ...s, ...fuzzyMatch(query, s.task_name) }))
         .filter(s => s.match)
         .sort((a, b) => b.score - a.score || b.count - a.count);
     } else {
@@ -210,8 +210,8 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleSuggestionSelect = (suggestion: { description: string; categoryId: number }) => {
-    setDescription(suggestion.description);
+  const handleSuggestionSelect = (suggestion: { task_name: string; categoryId: number }) => {
+    setDescription(suggestion.task_name);
     if (!selectedCategory) {
       setSelectedCategory(suggestion.categoryId);
     }
@@ -219,11 +219,11 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
     descriptionInputRef.current?.focus();
   };
   
-  const handleModalSuggestionSelect = (suggestion: { description: string }, isSwitch: boolean) => {
+  const handleModalSuggestionSelect = (suggestion: { task_name: string }, isSwitch: boolean) => {
     if (isSwitch) {
-      setSwitchTaskName(suggestion.description);
+      setSwitchTaskName(suggestion.task_name);
     } else {
-      setPromptedTaskName(suggestion.description);
+      setPromptedTaskName(suggestion.task_name);
     }
     setShowModalSuggestions(false);
     modalInputRef.current?.focus();
@@ -301,20 +301,20 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
     }
   };
 
-  // Get recent tasks from entries (unique description + category combinations)
+  // Get recent tasks from entries (unique task_name + category combinations)
   const recentTasks = useMemo((): RecentTask[] => {
     const taskMap = new Map<string, RecentTask>();
 
     entries
-      .filter((e): e is TimeEntry & { description: string } => Boolean(e.description && e.description.trim()))
+      .filter((e): e is TimeEntry & { task_name: string } => Boolean(e.task_name && e.task_name.trim()))
       .forEach(entry => {
-        const key = `${entry.category_id}:${entry.description}`;
+        const key = `${entry.category_id}:${entry.task_name}`;
         const existing = taskMap.get(key);
         if (existing) {
           existing.count++;
         } else {
           taskMap.set(key, {
-            description: entry.description,
+            task_name: entry.task_name,
             categoryId: entry.category_id,
             categoryName: entry.category_name,
             categoryColor: entry.category_color,
@@ -358,7 +358,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
 
   const handleQuickStartTask = async (task: RecentTask) => {
     try {
-      await api.startEntry(task.categoryId, task.description);
+      await api.startEntry(task.categoryId, task.task_name);
       onEntryChange();
     } catch (error) {
       console.error('Failed to start entry:', error);
@@ -411,7 +411,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   const handleResume = async () => {
     if (!pausedEntry) return;
     try {
-      await api.startEntry(pausedEntry.category_id, pausedEntry.description || undefined);
+      await api.startEntry(pausedEntry.category_id, pausedEntry.task_name || undefined);
       setPausedEntry(null);
       onEntryChange();
     } catch (error) {
@@ -503,7 +503,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                     </span>
                   );
                 })()}
-                {activeEntry.description && <span className="timer-description">{activeEntry.description}</span>}
+                {activeEntry.task_name && <span className="timer-description">{activeEntry.task_name}</span>}
               </div>
             </div>
             <div className="timer-actions">
@@ -561,12 +561,12 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                       <div className="description-suggestions modal-suggestions" ref={modalSuggestionsRef}>
                         {modalSuggestions.map((suggestion, idx) => (
                           <button
-                            key={`${suggestion.categoryId}-${suggestion.description}`}
+                            key={`${suggestion.categoryId}-${suggestion.task_name}`}
                             className={`suggestion-item ${idx === selectedModalSuggestionIndex ? 'selected' : ''}`}
                             onClick={() => handleModalSuggestionSelect(suggestion, true)}
                             onMouseEnter={() => setSelectedModalSuggestionIndex(idx)}
                           >
-                            <span className="suggestion-text">{suggestion.description}</span>
+                            <span className="suggestion-text">{suggestion.task_name}</span>
                             <span className="suggestion-count">×{suggestion.count}</span>
                           </button>
                         ))}
@@ -660,12 +660,12 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                         const colors = getCategoryColors(cat?.color || null);
                         return (
                           <button
-                            key={`${suggestion.categoryId}-${suggestion.description}`}
+                            key={`${suggestion.categoryId}-${suggestion.task_name}`}
                             className={`suggestion-item ${idx === selectedSuggestionIndex ? 'selected' : ''}`}
                             onClick={() => handleSuggestionSelect(suggestion)}
                             onMouseEnter={() => setSelectedSuggestionIndex(idx)}
                           >
-                            <span className="suggestion-text">{suggestion.description}</span>
+                            <span className="suggestion-text">{suggestion.task_name}</span>
                             <span className="suggestion-meta">
                               <span className="category-dot" style={{ backgroundColor: colors.dotColor }} />
                               <span className="suggestion-category">{cat?.name || 'Unknown'}</span>
@@ -693,11 +693,11 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                     <button
                       key={idx}
                       className="switch-task-btn"
-                      onClick={() => handleSwitchTask(task.categoryId, task.description)}
-                      title={`${task.categoryName}: ${task.description}`}
+                      onClick={() => handleSwitchTask(task.categoryId, task.task_name)}
+                      title={`${task.categoryName}: ${task.task_name}`}
                     >
                       <span className="category-dot" style={{ backgroundColor: colors.dotColor }} />
-                      <span className="switch-task-description">{task.description}</span>
+                      <span className="switch-task-description">{task.task_name}</span>
                     </button>
                   );
                 })}
@@ -738,7 +738,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                 </span>
               );
             })()}
-            {pausedEntry.description && <span className="timer-description">{pausedEntry.description}</span>}
+            {pausedEntry.task_name && <span className="timer-description">{pausedEntry.task_name}</span>}
           </div>
           <div className="timer-actions">
             <button className="btn btn-success" onClick={handleResume}>
@@ -792,12 +792,12 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                     <div className="description-suggestions modal-suggestions" ref={modalSuggestionsRef}>
                       {modalSuggestions.map((suggestion, idx) => (
                         <button
-                          key={`${suggestion.categoryId}-${suggestion.description}`}
+                          key={`${suggestion.categoryId}-${suggestion.task_name}`}
                           className={`suggestion-item ${idx === selectedModalSuggestionIndex ? 'selected' : ''}`}
                           onClick={() => handleModalSuggestionSelect(suggestion, false)}
                           onMouseEnter={() => setSelectedModalSuggestionIndex(idx)}
                         >
-                          <span className="suggestion-text">{suggestion.description}</span>
+                          <span className="suggestion-text">{suggestion.task_name}</span>
                           <span className="suggestion-count">×{suggestion.count}</span>
                         </button>
                       ))}
@@ -824,17 +824,17 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                 <div className="quick-start-group">
                   <span className="quick-start-label">Recent tasks</span>
                   <div className="quick-start-buttons">
-                    {recentTasks.map((task, idx) => {
+                      {recentTasks.map((task, idx) => {
                       const colors = getCategoryColors(task.categoryColor);
                       return (
                         <button
                           key={idx}
                           className="quick-start-btn quick-start-task"
                           onClick={() => handleQuickStartTask(task)}
-                          title={`${task.categoryName}: ${task.description}`}
+                          title={`${task.categoryName}: ${task.task_name}`}
                         >
                           <span className="category-dot" style={{ backgroundColor: colors.dotColor }} />
-                          <span className="task-description-text">{task.description}</span>
+                          <span className="task-description-text">{task.task_name}</span>
                           <span className="task-category-hint">{task.categoryName}</span>
                         </button>
                       );
@@ -912,12 +912,12 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                         const colors = getCategoryColors(cat?.color || null);
                         return (
                           <button
-                            key={`${suggestion.categoryId}-${suggestion.description}`}
+                            key={`${suggestion.categoryId}-${suggestion.task_name}`}
                             className={`suggestion-item ${idx === selectedSuggestionIndex ? 'selected' : ''}`}
                             onClick={() => handleSuggestionSelect(suggestion)}
                             onMouseEnter={() => setSelectedSuggestionIndex(idx)}
                           >
-                            <span className="suggestion-text">{suggestion.description}</span>
+                            <span className="suggestion-text">{suggestion.task_name}</span>
                             <span className="suggestion-meta">
                               <span className="category-dot" style={{ backgroundColor: colors.dotColor }} />
                               <span className="suggestion-category">{cat?.name || 'Unknown'}</span>

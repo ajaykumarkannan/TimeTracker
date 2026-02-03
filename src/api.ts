@@ -1,4 +1,4 @@
-import { Category, TimeEntry, AnalyticsData, AuthResponse, User, ColumnMapping, ImportEntry, CSVPreviewResponse, UserSettings, CategoryDrilldown, DescriptionsPaginated } from './types';
+import { Category, TimeEntry, AnalyticsData, AuthResponse, User, ColumnMapping, ImportEntry, CSVPreviewResponse, UserSettings, CategoryDrilldown, TaskNamesPaginated } from './types';
 
 const API_BASE = '/api';
 
@@ -260,7 +260,7 @@ export const api = {
     return res.json();
   },
 
-  async getDescriptionSuggestions(categoryId?: number, query?: string): Promise<{ description: string; categoryId: number; count: number; totalMinutes: number; lastUsed: string }[]> {
+  async getTaskNameSuggestions(categoryId?: number, query?: string): Promise<{ task_name: string; categoryId: number; count: number; totalMinutes: number; lastUsed: string }[]> {
     const params = new URLSearchParams();
     if (categoryId) params.set('categoryId', categoryId.toString());
     if (query) params.set('q', query);
@@ -270,26 +270,26 @@ export const api = {
     return res.json();
   },
 
-  async mergeDescriptions(sourceDescriptions: string[], targetDescription: string, targetCategoryName?: string): Promise<{ merged: number; entriesUpdated: number; targetDescription: string }> {
-    const res = await apiFetch(`${API_BASE}/time-entries/merge-descriptions`, {
+  async mergeTaskNames(sourceTaskNames: string[], targetTaskName: string, targetCategoryName?: string): Promise<{ merged: number; entriesUpdated: number; targetTaskName: string }> {
+    const res = await apiFetch(`${API_BASE}/time-entries/merge-task-names`, {
       method: 'POST',
-      body: JSON.stringify({ sourceDescriptions, targetDescription, targetCategoryName })
+      body: JSON.stringify({ sourceTaskNames, targetTaskName, targetCategoryName })
     });
     if (!res.ok) {
       const error = await res.json();
-      throw new Error(error.error || 'Failed to merge descriptions');
+      throw new Error(error.error || 'Failed to merge task names');
     }
     return res.json();
   },
 
-  async updateDescriptionBulk(oldDescription: string, oldCategoryName: string, newDescription?: string, newCategoryName?: string): Promise<{ entriesUpdated: number }> {
-    const res = await apiFetch(`${API_BASE}/time-entries/update-description-bulk`, {
+  async updateTaskNameBulk(oldTaskName: string, oldCategoryName: string, newTaskName?: string, newCategoryName?: string): Promise<{ entriesUpdated: number }> {
+    const res = await apiFetch(`${API_BASE}/time-entries/update-task-name-bulk`, {
       method: 'POST',
-      body: JSON.stringify({ oldDescription, oldCategoryName, newDescription, newCategoryName })
+      body: JSON.stringify({ oldTaskName, oldCategoryName, newTaskName, newCategoryName })
     });
     if (!res.ok) {
       const error = await res.json();
-      throw new Error(error.error || 'Failed to update descriptions');
+      throw new Error(error.error || 'Failed to update task names');
     }
     return res.json();
   },
@@ -300,10 +300,10 @@ export const api = {
     return res.json();
   },
 
-  async startEntry(category_id: number, description?: string): Promise<TimeEntry> {
+  async startEntry(category_id: number, task_name?: string): Promise<TimeEntry> {
     const res = await apiFetch(`${API_BASE}/time-entries/start`, {
       method: 'POST',
-      body: JSON.stringify({ category_id, description })
+      body: JSON.stringify({ category_id, task_name })
     });
     if (!res.ok) throw new Error('Failed to start entry');
     return res.json();
@@ -344,10 +344,10 @@ export const api = {
     return res.json();
   },
 
-  async createManualEntry(category_id: number, start_time: string, end_time: string, description?: string): Promise<TimeEntry> {
+  async createManualEntry(category_id: number, start_time: string, end_time: string, task_name?: string): Promise<TimeEntry> {
     const res = await apiFetch(`${API_BASE}/time-entries`, {
       method: 'POST',
-      body: JSON.stringify({ category_id, start_time, end_time, description })
+      body: JSON.stringify({ category_id, start_time, end_time, task_name })
     });
     if (!res.ok) throw new Error('Failed to create entry');
     return res.json();
@@ -373,7 +373,7 @@ export const api = {
     return res.json();
   },
 
-  async getDescriptions(start: string, end: string, page: number = 1, pageSize: number = 20, sortBy: 'time' | 'alpha' | 'count' | 'recent' = 'time'): Promise<DescriptionsPaginated> {
+  async getTaskNames(start: string, end: string, page: number = 1, pageSize: number = 20, sortBy: 'time' | 'alpha' | 'count' | 'recent' = 'time'): Promise<TaskNamesPaginated> {
     const params = new URLSearchParams({
       start,
       end,
@@ -381,19 +381,19 @@ export const api = {
       pageSize: pageSize.toString(),
       sortBy
     });
-    const res = await apiFetch(`${API_BASE}/analytics/descriptions?${params}`);
-    if (!res.ok) throw new Error('Failed to fetch descriptions');
+    const res = await apiFetch(`${API_BASE}/analytics/task-names?${params}`);
+    if (!res.ok) throw new Error('Failed to fetch task names');
     return res.json();
   },
 
-  async updateDescription(oldDescription: string, newDescription?: string, newCategoryId?: number): Promise<{ success: boolean; updatedCount: number; oldDescription: string; newDescription: string; newCategoryId?: number }> {
-    const res = await apiFetch(`${API_BASE}/analytics/descriptions`, {
+  async updateTaskName(oldTaskName: string, newTaskName?: string, newCategoryId?: number): Promise<{ success: boolean; updatedCount: number; oldTaskName: string; newTaskName: string; newCategoryId?: number }> {
+    const res = await apiFetch(`${API_BASE}/analytics/task-names`, {
       method: 'PUT',
-      body: JSON.stringify({ oldDescription, newDescription, newCategoryId })
+      body: JSON.stringify({ oldTaskName, newTaskName, newCategoryId })
     });
     if (!res.ok) {
       const error = await res.json();
-      throw new Error(error.error || 'Failed to update description');
+      throw new Error(error.error || 'Failed to update task name');
     }
     return res.json();
   },

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { api } from '../api';
-import { AnalyticsData, Period, DailyTotal, TimeEntry, CategoryDrilldown, DescriptionsPaginated, Category } from '../types';
+import { AnalyticsData, Period, DailyTotal, TimeEntry, CategoryDrilldown, TaskNamesPaginated, Category, TopTask } from '../types';
 import './Analytics.css';
 
 type AggregatedTotal = {
@@ -45,25 +45,25 @@ export function Analytics() {
   const [categoryDrilldownPage, setCategoryDrilldownPage] = useState(1);
   const [categoryDrilldownLoading, setCategoryDrilldownLoading] = useState(false);
   
-  // All tasks (descriptions) state (paginated)
-  const [descriptions, setDescriptions] = useState<DescriptionsPaginated | null>(null);
-  const [descriptionsPage, setDescriptionsPage] = useState(1);
-  const [descriptionsPageSize, setDescriptionsPageSize] = useState(10);
-  const [descriptionsLoading, setDescriptionsLoading] = useState(false);
-  const [descriptionsSortBy, setDescriptionsSortBy] = useState<'time' | 'alpha' | 'count' | 'recent'>('time');
+  // All tasks state (paginated)
+  const [taskNameData, setTaskNameData] = useState<TaskNamesPaginated | null>(null);
+  const [taskNamesPage, setTaskNamesPage] = useState(1);
+  const [taskNamesPageSize, setTaskNamesPageSize] = useState(10);
+  const [taskNamesLoading, setTaskNamesLoading] = useState(false);
+  const [taskNamesSortBy, setTaskNamesSortBy] = useState<'time' | 'alpha' | 'count' | 'recent'>('time');
   const [tasksSearchQuery, setTasksSearchQuery] = useState('');
   const [tasksFilterCategory, setTasksFilterCategory] = useState<string>('');
   
-  // Merge tasks state - track by "description|category" key
-  const [selectedDescriptions, setSelectedDescriptions] = useState<Set<string>>(new Set());
+  // Merge tasks state - track by "task_name|category" key
+  const [selectedTaskNames, setSelectedTaskNames] = useState<Set<string>>(new Set());
   const [showMergeModal, setShowMergeModal] = useState(false);
   const [mergeTarget, setMergeTarget] = useState<string>('');
   const [mergeCategoryTarget, setMergeCategoryTarget] = useState<string>('');
   const [merging, setMerging] = useState(false);
 
   // Inline editing state
-  const [editingDescription, setEditingDescription] = useState<string | null>(null);
-  const [editDescriptionValue, setEditDescriptionValue] = useState('');
+  const [editingTaskName, setEditingTaskName] = useState<string | null>(null);
+  const [editTaskNameValue, setEditTaskNameValue] = useState('');
   const [editCategoryId, setEditCategoryId] = useState<number | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [saving, setSaving] = useState(false);
@@ -360,19 +360,19 @@ export function Analytics() {
     }
   };
 
-  // Merge descriptions handlers - use "description|category" as key
-  const makeSelectionKey = (description: string, categoryName: string) => `${description}|${categoryName}`;
+  // Merge task names handlers - use "task_name|category" as key
+  const makeSelectionKey = (taskName: string, categoryName: string) => `${taskName}|${categoryName}`;
   const parseSelectionKey = (key: string) => {
     const lastPipe = key.lastIndexOf('|');
     return {
-      description: key.substring(0, lastPipe),
+      taskName: key.substring(0, lastPipe),
       categoryName: key.substring(lastPipe + 1)
     };
   };
 
-  const toggleDescriptionSelection = (description: string, categoryName: string) => {
-    const key = makeSelectionKey(description, categoryName);
-    setSelectedDescriptions(prev => {
+  const toggleTaskNameSelection = (taskName: string, categoryName: string) => {
+    const key = makeSelectionKey(taskName, categoryName);
+    setSelectedTaskNames(prev => {
       const next = new Set(prev);
       if (next.has(key)) {
         next.delete(key);
@@ -384,69 +384,69 @@ export function Analytics() {
   };
 
   const openMergeModal = () => {
-    if (selectedDescriptions.size < 2) return;
-    // Default to the first selected description as target
-    const firstKey = Array.from(selectedDescriptions)[0];
-    const { description, categoryName } = parseSelectionKey(firstKey);
-    setMergeTarget(description);
+    if (selectedTaskNames.size < 2) return;
+    // Default to the first selected task name as target
+    const firstKey = Array.from(selectedTaskNames)[0];
+    const { taskName, categoryName } = parseSelectionKey(firstKey);
+    setMergeTarget(taskName);
     setMergeCategoryTarget(categoryName);
     setShowMergeModal(true);
   };
 
-  // Get unique categories from selected descriptions
+  // Get unique categories from selected task names
   const getSelectedCategories = (): string[] => {
-    const categories = new Set<string>();
-    for (const key of selectedDescriptions) {
+    const cats = new Set<string>();
+    for (const key of selectedTaskNames) {
       const { categoryName } = parseSelectionKey(key);
-      categories.add(categoryName);
+      cats.add(categoryName);
     }
-    return Array.from(categories);
+    return Array.from(cats);
   };
 
-  // Get unique descriptions from selected items
-  const getSelectedDescriptionTexts = (): string[] => {
-    const descs = new Set<string>();
-    for (const key of selectedDescriptions) {
-      const { description } = parseSelectionKey(key);
-      descs.add(description);
+  // Get unique task names from selected items
+  const getSelectedTaskNameTexts = (): string[] => {
+    const names = new Set<string>();
+    for (const key of selectedTaskNames) {
+      const { taskName } = parseSelectionKey(key);
+      names.add(taskName);
     }
-    return Array.from(descs);
+    return Array.from(names);
   };
 
   const handleMerge = async () => {
-    if (!mergeTarget || selectedDescriptions.size < 2) return;
+    if (!mergeTarget || selectedTaskNames.size < 2) return;
     setMerging(true);
     try {
-      // Get unique description texts from selected items
-      const sourceDescriptions = getSelectedDescriptionTexts();
+      // Get unique task name texts from selected items
+      const sourceTaskNames = getSelectedTaskNameTexts();
       const selectedCategories = getSelectedCategories();
       // Only pass category if there are multiple categories being merged
       const targetCategory = selectedCategories.length > 1 ? mergeCategoryTarget : undefined;
-      await api.mergeDescriptions(sourceDescriptions, mergeTarget, targetCategory);
+      await api.mergeTaskNames(sourceTaskNames, mergeTarget, targetCategory);
       // Clear selection and refresh data
-      setSelectedDescriptions(new Set());
+      setSelectedTaskNames(new Set());
       setShowMergeModal(false);
       // Trigger data refresh
       const { start, end } = getDateRange(period, effectiveOffset);
-      const result = await api.getDescriptions(start.toISOString(), end.toISOString(), descriptionsPage, descriptionsPageSize, descriptionsSortBy);
-      setDescriptions(result);
+      const result = await api.getTaskNames(start.toISOString(), end.toISOString(), taskNamesPage, taskNamesPageSize, taskNamesSortBy);
+      setTaskNameData(result);
     } catch (error) {
-      console.error('Failed to merge descriptions:', error);
+      console.error('Failed to merge task names:', error);
     }
     setMerging(false);
   };
 
   // Inline editing handlers
-  const startEditing = (description: string, categoryName: string) => {
-    setEditingDescription(description);
-    setEditDescriptionValue(description);
+  const startEditing = (taskName: string, categoryName: string) => {
+    setEditingTaskName(taskName);
+    setEditTaskNameValue(taskName);
     const cat = categories.find(c => c.name === categoryName);
     setEditCategoryId(cat?.id || null);
   };
 
   const cancelEditing = () => {
-    setEditingDescription(null);
-    setEditDescriptionValue('');
+    setEditingTaskName(null);
+    setEditTaskNameValue('');
     setEditCategoryId(null);
     setShowNewCategoryInline(false);
     setNewCategoryName('');
@@ -479,35 +479,35 @@ export function Analytics() {
   };
 
   const saveEditing = async () => {
-    if (!editingDescription) return;
+    if (!editingTaskName) return;
     
-    const hasDescriptionChange = editDescriptionValue !== editingDescription;
-    const originalCat = descriptions?.descriptions.find(d => d.description === editingDescription);
+    const hasTaskNameChange = editTaskNameValue !== editingTaskName;
+    const originalCat = taskNameData?.taskNames.find((d: TopTask) => d.task_name === editingTaskName);
     const originalCatId = categories.find(c => c.name === originalCat?.category_name)?.id;
     const hasCategoryChange = editCategoryId !== null && editCategoryId !== originalCatId;
     
-    if (!hasDescriptionChange && !hasCategoryChange) {
+    if (!hasTaskNameChange && !hasCategoryChange) {
       cancelEditing();
       return;
     }
 
     setSaving(true);
     try {
-      await api.updateDescription(
-        editingDescription,
-        hasDescriptionChange ? editDescriptionValue : undefined,
+      await api.updateTaskName(
+        editingTaskName,
+        hasTaskNameChange ? editTaskNameValue : undefined,
         hasCategoryChange && editCategoryId !== null ? editCategoryId : undefined
       );
-      // Refresh descriptions
+      // Refresh task names
       const { start, end } = getDateRange(period, effectiveOffset);
-      const result = await api.getDescriptions(start.toISOString(), end.toISOString(), descriptionsPage, descriptionsPageSize, descriptionsSortBy);
-      setDescriptions(result);
+      const result = await api.getTaskNames(start.toISOString(), end.toISOString(), taskNamesPage, taskNamesPageSize, taskNamesSortBy);
+      setTaskNameData(result);
       // Also refresh analytics data to update category totals
       const analytics = await api.getAnalytics(start.toISOString(), end.toISOString());
       setData(analytics);
       cancelEditing();
     } catch (error) {
-      console.error('Failed to update description:', error);
+      console.error('Failed to update task name:', error);
     }
     setSaving(false);
   };
@@ -526,7 +526,7 @@ export function Analytics() {
         setSelectedCategory(null);
         setCategoryDrilldown(null);
         setCategoryDrilldownPage(1);
-        setDescriptionsPage(1);
+        setTaskNamesPage(1);
       } catch (error) {
         console.error('Failed to load analytics:', error);
       }
@@ -536,23 +536,23 @@ export function Analytics() {
     loadAnalytics();
   }, [period, effectiveOffset]);
 
-  // Load all descriptions (paginated)
+  // Load all task names (paginated)
   useEffect(() => {
-    const loadDescriptions = async () => {
+    const loadTaskNames = async () => {
       if (!data) return;
-      setDescriptionsLoading(true);
+      setTaskNamesLoading(true);
       try {
         const { start, end } = getDateRange(period, effectiveOffset);
-        const result = await api.getDescriptions(start.toISOString(), end.toISOString(), descriptionsPage, descriptionsPageSize, descriptionsSortBy);
-        setDescriptions(result);
+        const result = await api.getTaskNames(start.toISOString(), end.toISOString(), taskNamesPage, taskNamesPageSize, taskNamesSortBy);
+        setTaskNameData(result);
       } catch (error) {
-        console.error('Failed to load descriptions:', error);
+        console.error('Failed to load task names:', error);
       }
-      setDescriptionsLoading(false);
+      setTaskNamesLoading(false);
     };
 
-    loadDescriptions();
-  }, [data, descriptionsPage, descriptionsPageSize, descriptionsSortBy, period, effectiveOffset]);
+    loadTaskNames();
+  }, [data, taskNamesPage, taskNamesPageSize, taskNamesSortBy, period, effectiveOffset]);
 
   // Load category drilldown when a category is selected
   useEffect(() => {
@@ -914,7 +914,7 @@ export function Analytics() {
               <span className="category-dot" style={{ backgroundColor: activeEntry.category_color || 'var(--primary)' }} />
               {activeEntry.category_name}
             </span>
-            {activeEntry.description && <span className="active-task-description">{activeEntry.description}</span>}
+            {activeEntry.task_name && <span className="active-task-description">{activeEntry.task_name}</span>}
           </div>
           <div className="active-task-timer">{formatElapsed(elapsed)}</div>
         </div>
@@ -1050,14 +1050,14 @@ export function Analytics() {
             </div>
             {categoryDrilldownLoading ? (
               <div className="drilldown-loading">Loading...</div>
-            ) : categoryDrilldown.descriptions.length === 0 ? (
+            ) : categoryDrilldown.taskNames.length === 0 ? (
               <div className="empty-state"><p>No tasks for this category</p></div>
             ) : (
               <>
                 <div className="descriptions-list">
-                  {categoryDrilldown.descriptions.map((item, i) => (
+                  {categoryDrilldown.taskNames.map((item, i) => (
                     <div key={i} className="task-row">
-                      <span className="task-name">{item.description}</span>
+                      <span className="task-name">{item.task_name}</span>
                       <span className="task-count">{item.count}×</span>
                       <span className="task-time">{formatDuration(item.total_minutes)}</span>
                     </div>
@@ -1122,30 +1122,30 @@ export function Analytics() {
       </div>
 
       {/* All tasks (paginated) */}
-      {descriptions && descriptions.pagination.totalCount > 0 && (
+      {taskNameData && taskNameData.pagination.totalCount > 0 && (
         <div className="card">
           <div className="card-header">
             <h2 className="card-title">All Tasks</h2>
             <div className="descriptions-header-controls">
-              {selectedDescriptions.size >= 2 && (
+              {selectedTaskNames.size >= 2 && (
                 <button className="merge-btn" onClick={openMergeModal}>
-                  Merge {selectedDescriptions.size} selected
+                  Merge {selectedTaskNames.size} selected
                 </button>
               )}
-              {selectedDescriptions.size > 0 && selectedDescriptions.size < 2 && (
+              {selectedTaskNames.size > 0 && selectedTaskNames.size < 2 && (
                 <span className="merge-hint">Select 2+ to merge</span>
               )}
               <select 
                 className="sort-select"
-                value={descriptionsSortBy}
-                onChange={(e) => { setDescriptionsSortBy(e.target.value as 'time' | 'alpha' | 'count' | 'recent'); setDescriptionsPage(1); }}
+                value={taskNamesSortBy}
+                onChange={(e) => { setTaskNamesSortBy(e.target.value as 'time' | 'alpha' | 'count' | 'recent'); setTaskNamesPage(1); }}
               >
                 <option value="time">Sort by Time</option>
                 <option value="alpha">Sort A-Z</option>
                 <option value="count">Sort by Instances</option>
                 <option value="recent">Sort by Recent</option>
               </select>
-              <span className="descriptions-count">{descriptions.pagination.totalCount} total</span>
+              <span className="descriptions-count">{taskNameData.pagination.totalCount} total</span>
             </div>
           </div>
           {/* Filter row */}
@@ -1176,43 +1176,43 @@ export function Analytics() {
               </button>
             )}
           </div>
-          {descriptionsLoading ? (
+          {taskNamesLoading ? (
             <div className="drilldown-loading">Loading...</div>
           ) : (
             <>
               <div className="top-tasks">
-                {descriptions.descriptions
-                  .filter(item => {
+                {taskNameData.taskNames
+                  .filter((item: TopTask) => {
                     // Apply search filter
                     if (tasksSearchQuery) {
                       const query = tasksSearchQuery.toLowerCase();
-                      if (!item.description.toLowerCase().includes(query)) return false;
+                      if (!item.task_name.toLowerCase().includes(query)) return false;
                     }
                     // Apply category filter
                     if (tasksFilterCategory && item.category_name !== tasksFilterCategory) return false;
                     return true;
                   })
-                  .map((item, i) => {
-                  const selectionKey = makeSelectionKey(item.description, item.category_name);
-                  const isEditing = editingDescription === item.description;
+                  .map((item: TopTask, i: number) => {
+                  const selectionKey = makeSelectionKey(item.task_name, item.category_name || '');
+                  const isEditing = editingTaskName === item.task_name;
                   return (
-                    <div key={`${item.description}-${item.category_name}-${i}`} className={`task-row ${selectedDescriptions.has(selectionKey) ? 'selected' : ''} ${isEditing ? 'editing' : ''}`}>
+                    <div key={`${item.task_name}-${item.category_name}-${i}`} className={`task-row ${selectedTaskNames.has(selectionKey) ? 'selected' : ''} ${isEditing ? 'editing' : ''}`}>
                       <label className="task-checkbox">
                         <input
                           type="checkbox"
-                          checked={selectedDescriptions.has(selectionKey)}
-                          onChange={() => toggleDescriptionSelection(item.description, item.category_name)}
+                          checked={selectedTaskNames.has(selectionKey)}
+                          onChange={() => toggleTaskNameSelection(item.task_name, item.category_name || '')}
                           disabled={isEditing}
                         />
                       </label>
-                      <span className="task-rank">#{(descriptionsPage - 1) * descriptionsPageSize + i + 1}</span>
+                      <span className="task-rank">#{(taskNamesPage - 1) * taskNamesPageSize + i + 1}</span>
                       {isEditing ? (
                         <>
                           <input
                             type="text"
                             className="task-name-input"
-                            value={editDescriptionValue}
-                            onChange={(e) => setEditDescriptionValue(e.target.value)}
+                            value={editTaskNameValue}
+                            onChange={(e) => setEditTaskNameValue(e.target.value)}
                             autoFocus
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') saveEditing();
@@ -1278,7 +1278,7 @@ export function Analytics() {
                         </>
                       ) : (
                         <>
-                          <span className="task-name">{item.description}</span>
+                          <span className="task-name">{item.task_name}</span>
                           <span 
                             className="task-category"
                             style={{ 
@@ -1293,7 +1293,7 @@ export function Analytics() {
                           <span className="task-time">{formatDuration(item.total_minutes)}</span>
                           <button 
                             className="task-edit-trigger" 
-                            onClick={() => startEditing(item.description, item.category_name)}
+                            onClick={() => startEditing(item.task_name, item.category_name || '')}
                             title="Edit task"
                           >
                             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
@@ -1310,25 +1310,25 @@ export function Analytics() {
               <div className="pagination">
                 <button 
                   className="pagination-btn" 
-                  disabled={descriptionsPage === 1}
-                  onClick={() => setDescriptionsPage(p => p - 1)}
+                  disabled={taskNamesPage === 1}
+                  onClick={() => setTaskNamesPage(p => p - 1)}
                 >
                   Previous
                 </button>
                 <span className="pagination-info">
-                  Page {descriptions.pagination.page} of {descriptions.pagination.totalPages}
+                  Page {taskNameData.pagination.page} of {taskNameData.pagination.totalPages}
                 </span>
                 <button 
                   className="pagination-btn" 
-                  disabled={descriptionsPage >= descriptions.pagination.totalPages}
-                  onClick={() => setDescriptionsPage(p => p + 1)}
+                  disabled={taskNamesPage >= taskNameData.pagination.totalPages}
+                  onClick={() => setTaskNamesPage(p => p + 1)}
                 >
                   Next
                 </button>
                 <select 
                   className="page-size-select"
-                  value={descriptionsPageSize}
-                  onChange={(e) => { setDescriptionsPageSize(Number(e.target.value)); setDescriptionsPage(1); }}
+                  value={taskNamesPageSize}
+                  onChange={(e) => { setTaskNamesPageSize(Number(e.target.value)); setTaskNamesPage(1); }}
                 >
                   <option value={10}>10 per page</option>
                   <option value={20}>20 per page</option>
@@ -1342,15 +1342,15 @@ export function Analytics() {
 
       {/* Merge tasks modal */}
       {showMergeModal && (() => {
-        const uniqueDescriptions = getSelectedDescriptionTexts();
+        const uniqueTaskNames = getSelectedTaskNameTexts();
         const uniqueCategories = getSelectedCategories();
         const hasMultipleCategories = uniqueCategories.length > 1;
         
-        // Get category colors from descriptions data
-        const categoryColors: Record<string, string | null> = {};
-        if (descriptions) {
-          for (const item of descriptions.descriptions) {
-            if (uniqueCategories.includes(item.category_name)) {
+        // Get category colors from task name data
+        const categoryColors: Record<string, string | null | undefined> = {};
+        if (taskNameData) {
+          for (const item of taskNameData.taskNames) {
+            if (item.category_name && uniqueCategories.includes(item.category_name)) {
               categoryColors[item.category_name] = item.category_color;
             }
           }
@@ -1361,22 +1361,22 @@ export function Analytics() {
             <div className="merge-modal" onClick={e => e.stopPropagation()}>
               <h3>Merge Tasks</h3>
               <p className="merge-info">
-                Select which task name to keep. All {selectedDescriptions.size} items will be merged into the selected one.
+                Select which task name to keep. All {selectedTaskNames.size} items will be merged into the selected one.
               </p>
               
               <div className="merge-section">
                 <h4 className="merge-section-title">Target Task</h4>
                 <div className="merge-options">
-                  {uniqueDescriptions.map(desc => (
-                    <label key={desc} className={`merge-option ${mergeTarget === desc ? 'selected' : ''}`}>
+                  {uniqueTaskNames.map(name => (
+                    <label key={name} className={`merge-option ${mergeTarget === name ? 'selected' : ''}`}>
                       <input
                         type="radio"
                         name="mergeTarget"
-                        value={desc}
-                        checked={mergeTarget === desc}
-                        onChange={() => setMergeTarget(desc)}
+                        value={name}
+                        checked={mergeTarget === name}
+                        onChange={() => setMergeTarget(name)}
                       />
-                      <span className="merge-option-text">{desc}</span>
+                      <span className="merge-option-text">{name}</span>
                     </label>
                   ))}
                 </div>

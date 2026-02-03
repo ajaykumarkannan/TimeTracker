@@ -184,6 +184,58 @@ const migrations: Migration[] = [
       db.run(`CREATE INDEX IF NOT EXISTS idx_time_entries_user_description ON time_entries(user_id, description)`);
     }
   },
+  {
+    version: 6,
+    name: 'rename_description_to_task_name',
+    up: (db) => {
+      // Check current column names
+      const tableInfo = db.exec(`PRAGMA table_info(time_entries)`);
+      const columns = tableInfo[0]?.values.map(row => row[1] as string) || [];
+      
+      if (columns.includes('task_name')) {
+        // Already migrated
+        return;
+      }
+      
+      if (!columns.includes('description')) {
+        // Column doesn't exist - something is wrong
+        return;
+      }
+
+      // Rename description column to task_name using table recreation
+      db.run(`
+        CREATE TABLE time_entries_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL,
+          category_id INTEGER NOT NULL,
+          task_name TEXT,
+          start_time DATETIME NOT NULL,
+          end_time DATETIME,
+          duration_minutes INTEGER,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+          FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE
+        )
+      `);
+      
+      db.run(`
+        INSERT INTO time_entries_new (id, user_id, category_id, task_name, start_time, end_time, duration_minutes, created_at)
+        SELECT id, user_id, category_id, description, start_time, end_time, duration_minutes, created_at
+        FROM time_entries
+      `);
+      
+      db.run(`DROP TABLE time_entries`);
+      db.run(`ALTER TABLE time_entries_new RENAME TO time_entries`);
+      
+      // Recreate indexes
+      db.run(`CREATE INDEX IF NOT EXISTS idx_time_entries_user ON time_entries(user_id)`);
+      db.run(`CREATE INDEX IF NOT EXISTS idx_time_entries_start ON time_entries(start_time)`);
+      db.run(`CREATE INDEX IF NOT EXISTS idx_time_entries_user_start ON time_entries(user_id, start_time DESC)`);
+      db.run(`CREATE INDEX IF NOT EXISTS idx_time_entries_user_end ON time_entries(user_id, end_time)`);
+      db.run(`CREATE INDEX IF NOT EXISTS idx_time_entries_user_category ON time_entries(user_id, category_id)`);
+      db.run(`CREATE INDEX IF NOT EXISTS idx_time_entries_user_task_name ON time_entries(user_id, task_name)`);
+    }
+  },
 ];
 
 export function runMigrations(db: SqlJsDatabase): void {

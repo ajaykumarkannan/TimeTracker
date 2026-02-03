@@ -92,20 +92,20 @@ export function validateCategoryId(value: unknown, paramName: string = 'category
 }
 
 /**
- * Validates a description string (optional)
+ * Validates a task name string (optional)
  */
-export function validateDescription(value: unknown): string | null {
+export function validateTaskName(value: unknown): string | null {
   if (value === undefined || value === null || value === '') {
     return null;
   }
   
   if (typeof value !== 'string') {
-    throw new Error('description must be a string');
+    throw new Error('task_name must be a string');
   }
   
-  // Limit description length
+  // Limit task name length
   if (value.length > 500) {
-    throw new Error('description must be 500 characters or less');
+    throw new Error('task_name must be 500 characters or less');
   }
   
   return value.trim();

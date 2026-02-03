@@ -103,8 +103,8 @@ export function TimeEntryList({ categories, onEntryChange, onCategoryChange, ref
   const [dismissedMerges, setDismissedMerges] = useState<Set<string>>(new Set());
   const [dismissedShortEntries, setDismissedShortEntries] = useState<Set<number>>(new Set());
   
-  // Description suggestions for manual entry
-  const [cachedSuggestions, setCachedSuggestions] = useState<{ description: string; categoryId: number; count: number; totalMinutes: number; lastUsed: string }[]>([]);
+  // Task name suggestions for manual entry
+  const [cachedSuggestions, setCachedSuggestions] = useState<{ task_name: string; categoryId: number; count: number; totalMinutes: number; lastUsed: string }[]>([]);
   const [showManualSuggestions, setShowManualSuggestions] = useState(false);
   const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
   const manualDescriptionRef = useRef<HTMLInputElement>(null);
@@ -114,7 +114,7 @@ export function TimeEntryList({ categories, onEntryChange, onCategoryChange, ref
   useEffect(() => {
     const fetchSuggestions = async () => {
       try {
-        const results = await api.getDescriptionSuggestions(undefined, undefined);
+        const results = await api.getTaskNameSuggestions(undefined, undefined);
         setCachedSuggestions(results);
       } catch (error) {
         console.error('Failed to fetch suggestions:', error);
@@ -123,7 +123,7 @@ export function TimeEntryList({ categories, onEntryChange, onCategoryChange, ref
     fetchSuggestions();
   }, [entries.length]); // Refetch when entries change
 
-  // Filter suggestions based on description input
+  // Filter suggestions based on task name input
   const manualSuggestions = useMemo(() => {
     let filtered = cachedSuggestions;
     
@@ -132,10 +132,10 @@ export function TimeEntryList({ categories, onEntryChange, onCategoryChange, ref
       filtered = filtered.filter(s => s.categoryId === manualCategory);
     }
     
-    // Fuzzy filter by description
+    // Fuzzy filter by task name
     if (manualDescription) {
       filtered = filtered
-        .map(s => ({ ...s, ...fuzzyMatch(manualDescription, s.description) }))
+        .map(s => ({ ...s, ...fuzzyMatch(manualDescription, s.task_name) }))
         .filter(s => s.match)
         .sort((a, b) => b.score - a.score || b.count - a.count);
     } else {
@@ -231,14 +231,14 @@ export function TimeEntryList({ categories, onEntryChange, onCategoryChange, ref
       const current = sorted[i];
       const group: (TimeEntry & { end_time: string })[] = [current];
       
-      // Look for consecutive entries with same category and note
+      // Look for consecutive entries with same category and task name
       let j = i + 1;
       while (j < sorted.length) {
         const next = sorted[j];
         const prev = group[group.length - 1];
         
-        // Check if same category and description
-        if (next.category_id !== current.category_id || next.description !== current.description) break;
+        // Check if same category and task_name
+        if (next.category_id !== current.category_id || next.task_name !== current.task_name) break;
         
         // Check if back-to-back (within 1 minute gap)
         const prevEnd = new Date(prev.end_time).getTime();
@@ -257,7 +257,7 @@ export function TimeEntryList({ categories, onEntryChange, onCategoryChange, ref
           candidates.push({
             entries: group,
             categoryName: current.category_name,
-            description: current.description
+            description: current.task_name
           });
         }
       }
@@ -324,12 +324,12 @@ export function TimeEntryList({ categories, onEntryChange, onCategoryChange, ref
   // Filter entries based on search, category, and date range
   const filteredEntries = useMemo(() => {
     return entries.filter(entry => {
-      // Search filter (description and category name)
+      // Search filter (task name and category name)
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
-        const matchesDescription = entry.description?.toLowerCase().includes(query);
+        const matchesTaskName = entry.task_name?.toLowerCase().includes(query);
         const matchesCategory = entry.category_name.toLowerCase().includes(query);
-        if (!matchesDescription && !matchesCategory) return false;
+        if (!matchesTaskName && !matchesCategory) return false;
       }
       
       // Category filter
@@ -411,7 +411,7 @@ export function TimeEntryList({ categories, onEntryChange, onCategoryChange, ref
     setEditingId(entry.id);
     setEditField(field);
     setEditCategory(entry.category_id);
-    setEditDescription(entry.description || '');
+    setEditDescription(entry.task_name || '');
     setEditStartTime(formatDateTimeLocal(entry.start_time));
     setEditEndTime(entry.end_time ? formatDateTimeLocal(entry.end_time) : '');
   };
@@ -438,8 +438,8 @@ export function TimeEntryList({ categories, onEntryChange, onCategoryChange, ref
     setSelectedSuggestionIndex(-1);
   };
 
-  const handleManualSuggestionSelect = (suggestion: { description: string; categoryId: number }) => {
-    setManualDescription(suggestion.description);
+  const handleManualSuggestionSelect = (suggestion: { task_name: string; categoryId: number }) => {
+    setManualDescription(suggestion.task_name);
     // Auto-select category based on suggestion's past history
     if (!manualCategory || manualCategory !== suggestion.categoryId) {
       setManualCategory(suggestion.categoryId);
@@ -519,7 +519,7 @@ export function TimeEntryList({ categories, onEntryChange, onCategoryChange, ref
     try {
       await api.updateEntry(entryId, {
         category_id: editCategory,
-        description: editDescription || null,
+        task_name: editDescription || null,
         start_time: newStart,
         end_time: newEnd
       });
@@ -532,7 +532,7 @@ export function TimeEntryList({ categories, onEntryChange, onCategoryChange, ref
           category_id: editCategory,
           category_name: category ? category.name : e.category_name,
           category_color: category ? category.color : e.category_color,
-          description: editDescription || null,
+          task_name: editDescription || null,
           start_time: newStart,
           end_time: newEnd
         };
@@ -625,7 +625,7 @@ export function TimeEntryList({ categories, onEntryChange, onCategoryChange, ref
       // Update the first entry to span the entire range
       await api.updateEntry(first.id, {
         category_id: first.category_id,
-        description: first.description,
+        task_name: first.task_name,
         start_time: first.start_time,
         end_time: last.end_time
       });
@@ -777,13 +777,13 @@ export function TimeEntryList({ categories, onEntryChange, onCategoryChange, ref
                         const cat = categories.find(c => c.id === suggestion.categoryId);
                         return (
                           <button
-                            key={`${suggestion.categoryId}-${suggestion.description}`}
+                            key={`${suggestion.categoryId}-${suggestion.task_name}`}
                             className={`suggestion-item ${idx === selectedSuggestionIndex ? 'selected' : ''}`}
                             onClick={() => handleManualSuggestionSelect(suggestion)}
                             onMouseEnter={() => setSelectedSuggestionIndex(idx)}
                             type="button"
                           >
-                            <span className="suggestion-text">{suggestion.description}</span>
+                            <span className="suggestion-text">{suggestion.task_name}</span>
                             <span className="suggestion-meta">
                               <span 
                                 className="category-dot" 
@@ -951,7 +951,7 @@ export function TimeEntryList({ categories, onEntryChange, onCategoryChange, ref
                 <span className="cleanup-item-icon">⏱️</span>
                 <span className="cleanup-item-text">
                   Short entry: "{entry.category_name}"
-                  {entry.description && <span className="cleanup-description"> ({entry.description})</span>}
+                  {entry.task_name && <span className="cleanup-description"> ({entry.task_name})</span>}
                   <span className="cleanup-duration"> — {durationSeconds}s</span>
                 </span>
               </div>
@@ -1099,7 +1099,7 @@ export function TimeEntryList({ categories, onEntryChange, onCategoryChange, ref
                               className="entry-description editable"
                               onDoubleClick={(e) => { e.stopPropagation(); startEdit(entry, 'description'); }}
                             >
-                              {entry.description || '—'}
+                              {entry.task_name || '—'}
                             </span>
                           )}
                         </div>
