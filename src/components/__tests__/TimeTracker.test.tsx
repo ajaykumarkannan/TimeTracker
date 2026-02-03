@@ -16,6 +16,23 @@ vi.mock('../../api', () => ({
   }
 }));
 
+// Store PopOutTimer callbacks for testing
+let popOutTimerCallbacks: { onStop?: () => void; onPause?: () => void; onClose?: () => void } = {};
+
+// Mock PopOutTimer to capture callbacks
+vi.mock('../PopOutTimer', () => ({
+  PopOutTimer: ({ onStop, onPause, onClose }: { onStop: () => void; onPause: () => void; onClose: () => void }) => {
+    popOutTimerCallbacks = { onStop, onPause, onClose };
+    return (
+      <div data-testid="mock-popout-timer" className="popout-timer">
+        <button data-testid="popout-stop" onClick={onStop}>Stop</button>
+        <button data-testid="popout-pause" onClick={onPause}>Pause</button>
+        <button data-testid="popout-close" onClick={onClose}>Close</button>
+      </div>
+    );
+  }
+}));
+
 import { api } from '../../api';
 
 // Helper to render with ThemeProvider and wait for effects
@@ -2714,6 +2731,371 @@ describe('PopOutTimer callbacks', () => {
         expect(document.querySelector('.popout-timer')).not.toBeInTheDocument();
       });
     }
+  });
+});
+
+describe('Modal keyboard navigation edge cases', () => {
+  const mockCategories = [
+    { id: 1, name: 'Development', color: '#007bff', created_at: '2024-01-01' },
+    { id: 2, name: 'Meetings', color: '#28a745', created_at: '2024-01-01' }
+  ];
+
+  const mockOnEntryChange = vi.fn();
+  const mockOnCategoryChange = vi.fn();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('handles ArrowDown at end of suggestion list', async () => {
+    vi.mocked(api.getTaskNameSuggestions).mockResolvedValue([
+      { task_name: 'Task 1', categoryId: 1, count: 5, totalMinutes: 120, lastUsed: '2024-01-01' },
+      { task_name: 'Task 2', categoryId: 1, count: 3, totalMinutes: 60, lastUsed: '2024-01-01' },
+    ]);
+    
+    await renderWithTheme(
+      <TimeTracker 
+        categories={mockCategories} 
+        activeEntry={null}
+        entries={[]}
+        onEntryChange={mockOnEntryChange}
+        onCategoryChange={mockOnCategoryChange}
+      />
+    );
+    
+    const select = screen.getByRole('combobox');
+    await act(async () => {
+      fireEvent.change(select, { target: { value: '1' } });
+    });
+    
+    const descInput = screen.getByPlaceholderText(/what are you working on/i);
+    await act(async () => {
+      fireEvent.focus(descInput);
+      fireEvent.change(descInput, { target: { value: 'Task' } });
+    });
+    
+    await waitFor(() => {
+      expect(screen.getByText('Task 1')).toBeInTheDocument();
+    });
+    
+    // Press ArrowDown multiple times to go past the end
+    await act(async () => {
+      fireEvent.keyDown(descInput, { key: 'ArrowDown' });
+    });
+    await act(async () => {
+      fireEvent.keyDown(descInput, { key: 'ArrowDown' });
+    });
+    await act(async () => {
+      fireEvent.keyDown(descInput, { key: 'ArrowDown' }); // Should stay at last item
+    });
+    
+    // Should still show suggestions
+    expect(screen.getByText('Task 1')).toBeInTheDocument();
+    expect(screen.getByText('Task 2')).toBeInTheDocument();
+  });
+
+  it('handles ArrowUp at beginning of suggestion list', async () => {
+    vi.mocked(api.getTaskNameSuggestions).mockResolvedValue([
+      { task_name: 'Task 1', categoryId: 1, count: 5, totalMinutes: 120, lastUsed: '2024-01-01' },
+      { task_name: 'Task 2', categoryId: 1, count: 3, totalMinutes: 60, lastUsed: '2024-01-01' },
+    ]);
+    
+    await renderWithTheme(
+      <TimeTracker 
+        categories={mockCategories} 
+        activeEntry={null}
+        entries={[]}
+        onEntryChange={mockOnEntryChange}
+        onCategoryChange={mockOnCategoryChange}
+      />
+    );
+    
+    const select = screen.getByRole('combobox');
+    await act(async () => {
+      fireEvent.change(select, { target: { value: '1' } });
+    });
+    
+    const descInput = screen.getByPlaceholderText(/what are you working on/i);
+    await act(async () => {
+      fireEvent.focus(descInput);
+      fireEvent.change(descInput, { target: { value: 'Task' } });
+    });
+    
+    await waitFor(() => {
+      expect(screen.getByText('Task 1')).toBeInTheDocument();
+    });
+    
+    // Press ArrowUp without selecting anything first - should stay at -1
+    await act(async () => {
+      fireEvent.keyDown(descInput, { key: 'ArrowUp' });
+    });
+    
+    // Should still show suggestions
+    expect(screen.getByText('Task 1')).toBeInTheDocument();
+  });
+});
+
+
+// Additional tests for fuzzyMatch and PopOutTimer callbacks
+describe('fuzzyMatch function coverage', () => {
+  const mockCategories = [
+    { id: 1, name: 'Development', color: '#007bff', created_at: '2024-01-01' },
+    { id: 2, name: 'Meetings', color: '#28a745', created_at: '2024-01-01' }
+  ];
+
+  const mockEntries = [
+    {
+      id: 1,
+      category_id: 1,
+      category_name: 'Development',
+      category_color: '#007bff',
+      task_name: 'Previous task',
+      start_time: '2024-01-01T10:00:00Z',
+      end_time: '2024-01-01T11:00:00Z',
+      duration_minutes: 60,
+      created_at: '2024-01-01'
+    }
+  ];
+
+  const mockOnEntryChange = vi.fn();
+  const mockOnCategoryChange = vi.fn();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('handles fuzzy match with query that does not match', async () => {
+    vi.mocked(api.getTaskNameSuggestions).mockResolvedValue([
+      { task_name: 'Bug fix', categoryId: 1, count: 5, totalMinutes: 120, lastUsed: '2024-01-01' },
+      { task_name: 'Code review', categoryId: 1, count: 3, totalMinutes: 60, lastUsed: '2024-01-01' },
+    ]);
+
+    await renderWithTheme(
+      <TimeTracker 
+        categories={mockCategories} 
+        activeEntry={null}
+        entries={mockEntries}
+        onEntryChange={mockOnEntryChange}
+        onCategoryChange={mockOnCategoryChange}
+      />
+    );
+    
+    const select = screen.getByRole('combobox');
+    await act(async () => {
+      fireEvent.change(select, { target: { value: '1' } });
+    });
+    
+    const descInput = screen.getByPlaceholderText(/what are you working on/i);
+    await act(async () => {
+      fireEvent.focus(descInput);
+      // Type something that won't match any suggestions
+      fireEvent.change(descInput, { target: { value: 'xyz123' } });
+    });
+    
+    // Wait a bit for filtering to happen
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    });
+    
+    // No suggestions should match
+    expect(screen.queryByText('Bug fix')).not.toBeInTheDocument();
+  });
+
+  it('handles fuzzy match with partial non-consecutive characters that do not match', async () => {
+    vi.mocked(api.getTaskNameSuggestions).mockResolvedValue([
+      { task_name: 'Feature development', categoryId: 1, count: 5, totalMinutes: 120, lastUsed: '2024-01-01' },
+    ]);
+
+    await renderWithTheme(
+      <TimeTracker 
+        categories={mockCategories} 
+        activeEntry={null}
+        entries={mockEntries}
+        onEntryChange={mockOnEntryChange}
+        onCategoryChange={mockOnCategoryChange}
+      />
+    );
+    
+    const select = screen.getByRole('combobox');
+    await act(async () => {
+      fireEvent.change(select, { target: { value: '1' } });
+    });
+    
+    const descInput = screen.getByPlaceholderText(/what are you working on/i);
+    await act(async () => {
+      fireEvent.focus(descInput);
+      // Type characters that appear in wrong order - should not match
+      fireEvent.change(descInput, { target: { value: 'tnempoleved' } }); // reversed
+    });
+    
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    });
+    
+    // Should not show the suggestion
+    expect(screen.queryByText('Feature development')).not.toBeInTheDocument();
+  });
+});
+
+describe('PopOutTimer callbacks with mock', () => {
+  const mockCategories = [
+    { id: 1, name: 'Development', color: '#007bff', created_at: '2024-01-01' },
+    { id: 2, name: 'Meetings', color: '#28a745', created_at: '2024-01-01' }
+  ];
+
+  const mockEntries = [
+    {
+      id: 1,
+      category_id: 1,
+      category_name: 'Development',
+      category_color: '#007bff',
+      task_name: 'Previous task',
+      start_time: '2024-01-01T10:00:00Z',
+      end_time: '2024-01-01T11:00:00Z',
+      duration_minutes: 60,
+      created_at: '2024-01-01'
+    }
+  ];
+
+  const mockOnEntryChange = vi.fn();
+  const mockOnCategoryChange = vi.fn();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    popOutTimerCallbacks = {};
+  });
+
+  it('handles PopOutTimer onStop callback', async () => {
+    const activeEntry = {
+      id: 1,
+      category_id: 1,
+      category_name: 'Development',
+      category_color: '#007bff',
+      task_name: 'Working',
+      start_time: new Date().toISOString(),
+      end_time: null,
+      duration_minutes: null,
+      created_at: '2024-01-01'
+    };
+
+    await renderWithTheme(
+      <TimeTracker 
+        categories={mockCategories} 
+        activeEntry={activeEntry}
+        entries={mockEntries}
+        onEntryChange={mockOnEntryChange}
+        onCategoryChange={mockOnCategoryChange}
+        isMobile={false}
+      />
+    );
+    
+    // Click pop-out button to show PopOutTimer
+    const popoutBtn = document.querySelector('.floating-popout-btn');
+    expect(popoutBtn).toBeInTheDocument();
+    
+    await act(async () => {
+      fireEvent.click(popoutBtn!);
+    });
+    
+    // PopOutTimer should be rendered with mock
+    const mockPopout = screen.getByTestId('mock-popout-timer');
+    expect(mockPopout).toBeInTheDocument();
+    
+    // Click the stop button in the mock PopOutTimer
+    const stopBtn = screen.getByTestId('popout-stop');
+    await act(async () => {
+      fireEvent.click(stopBtn);
+    });
+    
+    await waitFor(() => {
+      expect(api.stopEntry).toHaveBeenCalled();
+    });
+  });
+
+  it('handles PopOutTimer onPause callback', async () => {
+    const activeEntry = {
+      id: 1,
+      category_id: 1,
+      category_name: 'Development',
+      category_color: '#007bff',
+      task_name: 'Working',
+      start_time: new Date().toISOString(),
+      end_time: null,
+      duration_minutes: null,
+      created_at: '2024-01-01'
+    };
+
+    await renderWithTheme(
+      <TimeTracker 
+        categories={mockCategories} 
+        activeEntry={activeEntry}
+        entries={mockEntries}
+        onEntryChange={mockOnEntryChange}
+        onCategoryChange={mockOnCategoryChange}
+        isMobile={false}
+      />
+    );
+    
+    // Click pop-out button
+    const popoutBtn = document.querySelector('.floating-popout-btn');
+    await act(async () => {
+      fireEvent.click(popoutBtn!);
+    });
+    
+    // Click the pause button in the mock PopOutTimer
+    const pauseBtn = screen.getByTestId('popout-pause');
+    await act(async () => {
+      fireEvent.click(pauseBtn);
+    });
+    
+    await waitFor(() => {
+      expect(api.stopEntry).toHaveBeenCalled();
+    });
+  });
+
+  it('handles PopOutTimer onClose callback', async () => {
+    const activeEntry = {
+      id: 1,
+      category_id: 1,
+      category_name: 'Development',
+      category_color: '#007bff',
+      task_name: 'Working',
+      start_time: new Date().toISOString(),
+      end_time: null,
+      duration_minutes: null,
+      created_at: '2024-01-01'
+    };
+
+    await renderWithTheme(
+      <TimeTracker 
+        categories={mockCategories} 
+        activeEntry={activeEntry}
+        entries={mockEntries}
+        onEntryChange={mockOnEntryChange}
+        onCategoryChange={mockOnCategoryChange}
+        isMobile={false}
+      />
+    );
+    
+    // Click pop-out button
+    const popoutBtn = document.querySelector('.floating-popout-btn');
+    await act(async () => {
+      fireEvent.click(popoutBtn!);
+    });
+    
+    // Verify PopOutTimer is shown
+    expect(screen.getByTestId('mock-popout-timer')).toBeInTheDocument();
+    
+    // Click the close button in the mock PopOutTimer
+    const closeBtn = screen.getByTestId('popout-close');
+    await act(async () => {
+      fireEvent.click(closeBtn);
+    });
+    
+    // PopOutTimer should be closed (showPopOut set to false)
+    await waitFor(() => {
+      expect(screen.queryByTestId('mock-popout-timer')).not.toBeInTheDocument();
+    });
   });
 });
 
