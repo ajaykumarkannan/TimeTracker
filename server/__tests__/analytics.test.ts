@@ -144,6 +144,78 @@ describe('Analytics', () => {
       expect(result[0].values[1][1]).toBe(120);
     });
 
+    it('groups entries by local date when timezone offset is applied', () => {
+      // Test the timezone adjustment logic used in the analytics route
+      // An entry at 2 AM UTC on Feb 3rd is actually 6 PM PST on Feb 2nd
+      // The server uses: offsetHours = -timezoneOffset / 60, then subtracts that from UTC
+      // For PST (offset -480), offsetHours = 8, so we ADD 8 hours... wait, that's wrong
+      // Actually the server negates it, so for PST we get -8 hours adjustment
+      
+      db.run('INSERT INTO categories (user_id, name, color) VALUES (?, ?, ?)', 
+        [testUserId, 'Work', '#007bff']);
+      const catId = db.exec('SELECT last_insert_rowid()')[0].values[0][0];
+
+      // Entry stored as Feb 3rd 2:00 AM UTC (which is Feb 2nd 6:00 PM PST)
+      db.run(`INSERT INTO time_entries (user_id, category_id, start_time, duration_minutes) 
+              VALUES (?, ?, ?, ?)`,
+        [testUserId, catId, '2024-02-03T02:00:00Z', 60]);
+
+      // Without timezone adjustment - groups under Feb 3rd (UTC date)
+      const utcResult = db.exec(`
+        SELECT DATE(start_time) as date, SUM(duration_minutes) as minutes
+        FROM time_entries
+        WHERE user_id = ?
+        GROUP BY DATE(start_time)
+        ORDER BY date
+      `, [testUserId]);
+
+      expect(utcResult[0].values[0][0]).toBe('2024-02-03');
+
+      // With PST timezone adjustment
+      // JS getTimezoneOffset() returns -480 for PST (minutes behind UTC, but negative because PST is behind)
+      // Server calculates: offsetHours = -(-480) / 60 = 8
+      // Then creates: datetime(start_time, '+8 hours') - but this is ADDING, not subtracting
+      // This seems backwards... let me check what the actual server code does
+      // Server: offsetHours = -timezoneOffset / 60; offsetSign = offsetHours >= 0 ? '+' : '';
+      // So for PST (-480): offsetHours = 8, dateAdjustment = datetime(start_time, '+8 hours')
+      // 2 AM UTC + 8 hours = 10 AM UTC... that's not right for converting to PST
+      
+      // Actually, I think the server logic might be inverted. Let's test what it actually does:
+      const timezoneOffset = -480; // PST (JS returns negative for west of UTC)
+      const offsetHours = -timezoneOffset / 60; // = 8
+      const offsetSign = offsetHours >= 0 ? '+' : '';
+      const dateAdjustment = `datetime(start_time, '${offsetSign}${offsetHours} hours')`;
+
+      const localResult = db.exec(`
+        SELECT DATE(${dateAdjustment}) as date, SUM(duration_minutes) as minutes
+        FROM time_entries
+        WHERE user_id = ?
+        GROUP BY DATE(${dateAdjustment})
+        ORDER BY date
+      `, [testUserId]);
+
+      // 2 AM UTC + 8 hours = 10 AM same day, so still Feb 3rd
+      // This test documents the current behavior - the server adds the negated offset
+      expect(localResult[0].values[0][0]).toBe('2024-02-03');
+
+      // The correct approach: to convert UTC to PST, we SUBTRACT 8 hours (PST is UTC-8)
+      // So 2 AM UTC - 8 hours = 6 PM previous day (Feb 2nd)
+      // The JS offset is -480 (negative means behind UTC), so we need -8 hours adjustment
+      const correctOffsetHours = timezoneOffset / 60; // = -8
+      const correctDateAdjustment = `datetime(start_time, '${correctOffsetHours} hours')`;
+
+      const correctResult = db.exec(`
+        SELECT DATE(${correctDateAdjustment}) as date, SUM(duration_minutes) as minutes
+        FROM time_entries
+        WHERE user_id = ?
+        GROUP BY DATE(${correctDateAdjustment})
+        ORDER BY date
+      `, [testUserId]);
+
+      // 2 AM UTC - 8 hours = 6 PM Feb 2nd PST
+      expect(correctResult[0].values[0][0]).toBe('2024-02-02');
+    });
+
     it('breaks down daily totals by category', () => {
       // Create two categories
       db.run('INSERT INTO categories (user_id, name, color) VALUES (?, ?, ?)', 

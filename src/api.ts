@@ -292,7 +292,8 @@ export const api = {
 
   // Analytics
   async getAnalytics(start: string, end: string): Promise<AnalyticsData> {
-    const res = await apiFetch(`${API_BASE}/analytics?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`);
+    const timezoneOffset = new Date().getTimezoneOffset();
+    const res = await apiFetch(`${API_BASE}/analytics?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}&timezoneOffset=${timezoneOffset}`);
     if (!res.ok) throw new Error('Failed to fetch analytics');
     return res.json();
   },

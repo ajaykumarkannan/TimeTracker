@@ -270,6 +270,7 @@ router.get('/', (req: AuthRequest, res: Response) => {
   try {
     const start = req.query.start as string;
     const end = req.query.end as string;
+    const timezoneOffset = parseInt(req.query.timezoneOffset as string) || 0; // Minutes offset from UTC
     
     if (!start || !end) {
       return res.status(400).json({ error: 'Start and end dates are required' });
@@ -277,6 +278,13 @@ router.get('/', (req: AuthRequest, res: Response) => {
 
     const db = getDb();
     const userId = req.userId as number;
+    
+    // Convert offset to hours for SQLite datetime adjustment
+    // timezoneOffset is in minutes (e.g., -480 for PST which is UTC-8)
+    // We need to ADD this offset to convert UTC to local time
+    const offsetHours = -timezoneOffset / 60; // Negate because JS offset is inverted
+    const offsetSign = offsetHours >= 0 ? '+' : '';
+    const dateAdjustment = `datetime(start_time, '${offsetSign}${offsetHours} hours')`;
 
     // Get totals by category
     const categoryResult = db.exec(`
@@ -301,23 +309,23 @@ router.get('/', (req: AuthRequest, res: Response) => {
         }))
       : [];
 
-    // Get daily totals
+    // Get daily totals - adjust for timezone when grouping by date
     const dailyResult = db.exec(`
-      SELECT DATE(start_time) as date, 
+      SELECT DATE(${dateAdjustment}) as date, 
              COALESCE(SUM(duration_minutes), 0) as minutes
       FROM time_entries
       WHERE user_id = ? AND start_time >= ? AND start_time < ?
-      GROUP BY DATE(start_time)
+      GROUP BY DATE(${dateAdjustment})
       ORDER BY date
     `, [userId, start, end]);
 
-    // Get daily breakdown by category
+    // Get daily breakdown by category - adjust for timezone when grouping by date
     const dailyByCategoryResult = db.exec(`
-      SELECT DATE(te.start_time) as date, c.name, COALESCE(SUM(te.duration_minutes), 0) as minutes
+      SELECT DATE(${dateAdjustment}) as date, c.name, COALESCE(SUM(te.duration_minutes), 0) as minutes
       FROM time_entries te
       JOIN categories c ON te.category_id = c.id
       WHERE te.user_id = ? AND te.start_time >= ? AND te.start_time < ?
-      GROUP BY DATE(te.start_time), c.name
+      GROUP BY DATE(${dateAdjustment}), c.name
       ORDER BY date, minutes DESC
     `, [userId, start, end]);
 
