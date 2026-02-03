@@ -102,12 +102,25 @@ test.describe('Mobile UI', () => {
     await page.click('button:has-text("Stop")');
   });
 
-  test('guest mode badge is on the left', async ({ page }) => {
-    // Guest mode badge should be visible in header-left
+  test('guest mode shown in settings dropdown', async ({ page }) => {
+    // Open settings menu
+    const settingsBtn = page.locator('.settings-menu-btn');
+    await settingsBtn.click();
+    
+    // Guest mode should be shown in the dropdown
+    const dropdown = page.locator('.settings-dropdown');
+    await expect(dropdown).toBeVisible();
+    
+    const guestSection = dropdown.locator('.settings-dropdown-guest');
+    await expect(guestSection).toBeVisible();
+    await expect(guestSection.locator('.settings-dropdown-name')).toContainText('Guest Mode');
+  });
+
+  test('hamburger menu is in header on mobile', async ({ page }) => {
+    // Hamburger should be in header-left
     const headerLeft = page.locator('.header-left');
-    const modeBadge = headerLeft.locator('.mode-badge');
-    await expect(modeBadge).toBeVisible();
-    await expect(modeBadge).toContainText('Guest Mode');
+    const hamburgerBtn = headerLeft.locator('.hamburger-btn');
+    await expect(hamburgerBtn).toBeVisible();
   });
 
   test('header hides on scroll down and shows on scroll up', async ({ page }) => {
