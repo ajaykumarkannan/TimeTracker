@@ -15,13 +15,6 @@ type PeriodType = 'day' | 'week' | 'month' | 'quarter' | 'year' | 'all';
 
 const STORAGE_KEY = 'chronoflow-analytics-period';
 
-// Track drill-down navigation history
-type DrilldownState = {
-  period: Period;
-  offset: number;
-  customRange?: { start: string; end: string };
-};
-
 function getStoredPeriod(): Period {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -45,12 +38,6 @@ export function Analytics() {
   const [activeEntry, setActiveEntry] = useState<TimeEntry | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const previousMenuRef = useRef<HTMLDivElement>(null);
-  
-  // Custom date range for drill-down (overrides period/offset when set)
-  const [customRange, setCustomRange] = useState<{ start: string; end: string } | null>(null);
-  
-  // Drill-down navigation history
-  const [drilldownHistory, setDrilldownHistory] = useState<DrilldownState[]>([]);
   
   // Drill-down state
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -78,6 +65,12 @@ export function Analytics() {
   const [editCategoryId, setEditCategoryId] = useState<number | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [saving, setSaving] = useState(false);
+  
+  // Inline new category state for Analytics
+  const [showNewCategoryInline, setShowNewCategoryInline] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [newCategoryColor, setNewCategoryColor] = useState('#6366f1');
+  const [creatingCategory, setCreatingCategory] = useState(false);
 
   // Load categories for inline editing dropdown
   useEffect(() => {
@@ -155,14 +148,6 @@ export function Analytics() {
   };
 
   const getDateRange = (p: Period, offset: number = 0): { start: Date; end: Date } => {
-    // If we have a custom range, use it
-    if (customRange) {
-      return {
-        start: new Date(customRange.start + 'T00:00:00'),
-        end: new Date(customRange.end + 'T23:59:59.999')
-      };
-    }
-    
     const now = new Date();
     
     // Handle "last X days" periods with optional day offset
@@ -306,8 +291,6 @@ export function Analytics() {
     setPeriod(newPeriod);
     setPeriodOffset(0);
     setShowPreviousMenu(false);
-    setCustomRange(null);
-    setDrilldownHistory([]);
     try { localStorage.setItem(STORAGE_KEY, newPeriod); } catch { /* ignore */ }
   };
 
@@ -316,13 +299,11 @@ export function Analytics() {
     setPeriodOffset(0);
     setDayOffset(0);
     setShowPreviousMenu(false);
-    setCustomRange(null);
-    setDrilldownHistory([]);
     try { localStorage.setItem(STORAGE_KEY, lastDays); } catch { /* ignore */ }
   };
 
   const isLastNDaysPeriod = period === 'last7' || period === 'last30' || period === 'last90';
-  const canNavigatePrevious = period !== 'all' && !customRange;
+  const canNavigatePrevious = period !== 'all';
   const canNavigateNext = canNavigatePrevious && (isLastNDaysPeriod ? dayOffset < 0 : periodOffset < 0);
 
   const navigatePeriod = (direction: -1 | 1) => {
@@ -334,10 +315,8 @@ export function Analytics() {
   };
 
   // Handle drill-down into a specific time bucket (day, week, or month)
-  const handleChartDrilldown = (startDate: string, endDate: string) => {
-    // Save current state to history
-    setDrilldownHistory(prev => [...prev, { period, offset: periodOffset, customRange: customRange || undefined }]);
-    
+  // Instead of using custom ranges with back button, simply switch to the appropriate period
+  const handleChartDrilldown = (startDate: string, _endDate: string) => {
     // Determine what period to drill down to based on current aggregation
     const aggregation = getAggregation(period);
     
@@ -346,37 +325,38 @@ export function Analytics() {
       return;
     }
     
+    const targetDate = new Date(startDate + 'T12:00:00');
+    const now = new Date();
+    
     if (aggregation === 'day') {
       // Drilling from week view into a specific day
-      setCustomRange({ start: startDate, end: endDate });
+      // Calculate offset from today
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const target = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
+      const daysDiff = Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      
       setPeriod('day');
-      setPeriodOffset(0);
+      setPeriodOffset(daysDiff);
     } else if (aggregation === 'week') {
       // Drilling from month/quarter view into a specific week
-      setCustomRange({ start: startDate, end: endDate });
+      // Calculate week offset from current week
+      const currentWeekStart = getWeekStart(now);
+      const targetWeekStart = getWeekStart(targetDate);
+      const weeksDiff = Math.round((targetWeekStart.getTime() - currentWeekStart.getTime()) / (1000 * 60 * 60 * 24 * 7));
+      
       setPeriod('week');
-      setPeriodOffset(0);
+      setPeriodOffset(weeksDiff);
     } else if (aggregation === 'month') {
       // Drilling from year/all view into a specific month
-      setCustomRange({ start: startDate, end: endDate });
+      // Calculate month offset from current month
+      const currentMonth = now.getFullYear() * 12 + now.getMonth();
+      const targetMonth = targetDate.getFullYear() * 12 + targetDate.getMonth();
+      const monthsDiff = targetMonth - currentMonth;
+      
       setPeriod('month');
-      setPeriodOffset(0);
+      setPeriodOffset(monthsDiff);
     }
   };
-
-  // Go back from drill-down
-  const handleDrilldownBack = () => {
-    if (drilldownHistory.length === 0) return;
-    
-    const prevState = drilldownHistory[drilldownHistory.length - 1];
-    setDrilldownHistory(prev => prev.slice(0, -1));
-    setPeriod(prevState.period);
-    setPeriodOffset(prevState.offset);
-    setCustomRange(prevState.customRange || null);
-  };
-
-  // Check if we're in a drill-down state
-  const isDrilledDown = drilldownHistory.length > 0 || customRange !== null;
 
   // Merge descriptions handlers - use "description|category" as key
   const makeSelectionKey = (description: string, categoryName: string) => `${description}|${categoryName}`;
@@ -466,6 +446,34 @@ export function Analytics() {
     setEditingDescription(null);
     setEditDescriptionValue('');
     setEditCategoryId(null);
+    setShowNewCategoryInline(false);
+    setNewCategoryName('');
+    setNewCategoryColor('#6366f1');
+  };
+
+  const handleCreateCategoryInline = async () => {
+    if (!newCategoryName.trim()) return;
+    setCreatingCategory(true);
+    try {
+      const newCat = await api.createCategory(newCategoryName.trim(), newCategoryColor);
+      setCategories(prev => [...prev, newCat]);
+      setEditCategoryId(newCat.id);
+      setShowNewCategoryInline(false);
+      setNewCategoryName('');
+      setNewCategoryColor('#6366f1');
+    } catch (error) {
+      console.error('Failed to create category:', error);
+    }
+    setCreatingCategory(false);
+  };
+
+  const handleCategorySelectChange = (value: string) => {
+    if (value === 'new') {
+      setShowNewCategoryInline(true);
+    } else {
+      setEditCategoryId(Number(value));
+      setShowNewCategoryInline(false);
+    }
   };
 
   const saveEditing = async () => {
@@ -524,7 +532,7 @@ export function Analytics() {
     };
 
     loadAnalytics();
-  }, [period, effectiveOffset, customRange]);
+  }, [period, effectiveOffset]);
 
   // Load all descriptions (paginated)
   useEffect(() => {
@@ -786,16 +794,6 @@ export function Analytics() {
       return `${s.toLocaleDateString(undefined, opts)} - ${e.toLocaleDateString(undefined, opts)}`;
     };
 
-    // If we have a custom range (drill-down), show that
-    if (customRange) {
-      const s = new Date(customRange.start + 'T12:00:00');
-      const e = new Date(customRange.end + 'T12:00:00');
-      if (customRange.start === customRange.end) {
-        return s.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
-      }
-      return formatRange(s, e);
-    }
-
     switch (period) {
       case 'day':
         return start.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
@@ -845,21 +843,13 @@ export function Analytics() {
       {/* Period selector */}
       <div className="analytics-header">
         <div className="period-selector-wrapper">
-          {isDrilledDown && (
-            <button className="drilldown-back-btn" onClick={handleDrilldownBack} title="Go back">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="15,18 9,12 15,6" />
-              </svg>
-              Back
-            </button>
-          )}
           <div className="period-selector">
-            <button className={period === 'day' && !customRange ? 'active' : ''} onClick={() => handlePeriodChange('day')}>Day</button>
-            <button className={period === 'week' && !customRange ? 'active' : ''} onClick={() => handlePeriodChange('week')}>Week</button>
-            <button className={period === 'month' && !customRange ? 'active' : ''} onClick={() => handlePeriodChange('month')}>Month</button>
-            <button className={period === 'quarter' && !customRange ? 'active' : ''} onClick={() => handlePeriodChange('quarter')}>Quarter</button>
-            <button className={period === 'year' && !customRange ? 'active' : ''} onClick={() => handlePeriodChange('year')}>Year</button>
-            <button className={period === 'all' && !customRange ? 'active' : ''} onClick={() => handlePeriodChange('all')}>All</button>
+            <button className={period === 'day' ? 'active' : ''} onClick={() => handlePeriodChange('day')}>Day</button>
+            <button className={period === 'week' ? 'active' : ''} onClick={() => handlePeriodChange('week')}>Week</button>
+            <button className={period === 'month' ? 'active' : ''} onClick={() => handlePeriodChange('month')}>Month</button>
+            <button className={period === 'quarter' ? 'active' : ''} onClick={() => handlePeriodChange('quarter')}>Quarter</button>
+            <button className={period === 'year' ? 'active' : ''} onClick={() => handlePeriodChange('year')}>Year</button>
+            <button className={period === 'all' ? 'active' : ''} onClick={() => handlePeriodChange('all')}>All</button>
             <div className="period-dropdown" ref={previousMenuRef}>
               <button 
                 className={`dropdown-trigger ${period === 'last7' || period === 'last30' || period === 'last90' ? 'active' : ''}`}
@@ -1188,15 +1178,54 @@ export function Analytics() {
                               if (e.key === 'Escape') cancelEditing();
                             }}
                           />
-                          <select
-                            className="task-category-select"
-                            value={editCategoryId || ''}
-                            onChange={(e) => setEditCategoryId(Number(e.target.value))}
-                          >
-                            {categories.map(cat => (
-                              <option key={cat.id} value={cat.id}>{cat.name}</option>
-                            ))}
-                          </select>
+                          {showNewCategoryInline ? (
+                            <div className="inline-new-category">
+                              <input
+                                type="text"
+                                className="task-name-input"
+                                value={newCategoryName}
+                                onChange={(e) => setNewCategoryName(e.target.value)}
+                                placeholder="Category name"
+                                autoFocus
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleCreateCategoryInline();
+                                  if (e.key === 'Escape') { setShowNewCategoryInline(false); setNewCategoryName(''); }
+                                }}
+                              />
+                              <input
+                                type="color"
+                                className="inline-color-picker"
+                                value={newCategoryColor}
+                                onChange={(e) => setNewCategoryColor(e.target.value)}
+                              />
+                              <button 
+                                className="task-edit-btn save" 
+                                onClick={handleCreateCategoryInline}
+                                disabled={creatingCategory || !newCategoryName.trim()}
+                                title="Create"
+                              >
+                                ✓
+                              </button>
+                              <button 
+                                className="task-edit-btn cancel" 
+                                onClick={() => { setShowNewCategoryInline(false); setNewCategoryName(''); }}
+                                title="Cancel"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          ) : (
+                            <select
+                              className="task-category-select"
+                              value={editCategoryId || ''}
+                              onChange={(e) => handleCategorySelectChange(e.target.value)}
+                            >
+                              {categories.map(cat => (
+                                <option key={cat.id} value={cat.id}>{cat.name}</option>
+                              ))}
+                              <option value="new">+ Add Category</option>
+                            </select>
+                          )}
                           <div className="task-edit-actions">
                             <button className="task-edit-btn save" onClick={saveEditing} disabled={saving} title="Save">
                               {saving ? '...' : '✓'}
