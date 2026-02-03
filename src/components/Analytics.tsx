@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { api } from '../api';
-import { AnalyticsData, Period, DailyTotal, TimeEntry, CategoryDrilldown, DescriptionsPaginated } from '../types';
+import { AnalyticsData, Period, DailyTotal, TimeEntry, CategoryDrilldown, DescriptionsPaginated, Category } from '../types';
 import './Analytics.css';
 
 type AggregatedTotal = {
@@ -57,6 +57,26 @@ export function Analytics() {
   const [mergeTarget, setMergeTarget] = useState<string>('');
   const [mergeCategoryTarget, setMergeCategoryTarget] = useState<string>('');
   const [merging, setMerging] = useState(false);
+
+  // Inline editing state
+  const [editingDescription, setEditingDescription] = useState<string | null>(null);
+  const [editDescriptionValue, setEditDescriptionValue] = useState('');
+  const [editCategoryId, setEditCategoryId] = useState<number | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [saving, setSaving] = useState(false);
+
+  // Load categories for inline editing dropdown
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const cats = await api.getCategories();
+        setCategories(cats);
+      } catch (error) {
+        console.error('Failed to load categories:', error);
+      }
+    };
+    loadCategories();
+  }, []);
 
   // Close menus when clicking outside
   useEffect(() => {
@@ -341,6 +361,54 @@ export function Analytics() {
       console.error('Failed to merge descriptions:', error);
     }
     setMerging(false);
+  };
+
+  // Inline editing handlers
+  const startEditing = (description: string, categoryName: string) => {
+    setEditingDescription(description);
+    setEditDescriptionValue(description);
+    const cat = categories.find(c => c.name === categoryName);
+    setEditCategoryId(cat?.id || null);
+  };
+
+  const cancelEditing = () => {
+    setEditingDescription(null);
+    setEditDescriptionValue('');
+    setEditCategoryId(null);
+  };
+
+  const saveEditing = async () => {
+    if (!editingDescription) return;
+    
+    const hasDescriptionChange = editDescriptionValue !== editingDescription;
+    const originalCat = descriptions?.descriptions.find(d => d.description === editingDescription);
+    const originalCatId = categories.find(c => c.name === originalCat?.category_name)?.id;
+    const hasCategoryChange = editCategoryId !== null && editCategoryId !== originalCatId;
+    
+    if (!hasDescriptionChange && !hasCategoryChange) {
+      cancelEditing();
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await api.updateDescription(
+        editingDescription,
+        hasDescriptionChange ? editDescriptionValue : undefined,
+        hasCategoryChange ? editCategoryId! : undefined
+      );
+      // Refresh descriptions
+      const { start, end } = getDateRange(period, periodOffset);
+      const result = await api.getDescriptions(start.toISOString(), end.toISOString(), descriptionsPage, descriptionsPageSize, descriptionsSortBy);
+      setDescriptions(result);
+      // Also refresh analytics data to update category totals
+      const analytics = await api.getAnalytics(start.toISOString(), end.toISOString());
+      setData(analytics);
+      cancelEditing();
+    } catch (error) {
+      console.error('Failed to update description:', error);
+    }
+    setSaving(false);
   };
 
   useEffect(() => {
@@ -945,29 +1013,76 @@ export function Analytics() {
               <div className="top-tasks">
                 {descriptions.descriptions.map((item, i) => {
                   const selectionKey = makeSelectionKey(item.description, item.category_name);
+                  const isEditing = editingDescription === item.description;
                   return (
-                    <div key={`${item.description}-${item.category_name}-${i}`} className={`task-row ${selectedDescriptions.has(selectionKey) ? 'selected' : ''}`}>
+                    <div key={`${item.description}-${item.category_name}-${i}`} className={`task-row ${selectedDescriptions.has(selectionKey) ? 'selected' : ''} ${isEditing ? 'editing' : ''}`}>
                       <label className="task-checkbox">
                         <input
                           type="checkbox"
                           checked={selectedDescriptions.has(selectionKey)}
                           onChange={() => toggleDescriptionSelection(item.description, item.category_name)}
+                          disabled={isEditing}
                         />
                       </label>
                       <span className="task-rank">#{(descriptionsPage - 1) * descriptionsPageSize + i + 1}</span>
-                      <span className="task-name">{item.description}</span>
-                      <span 
-                        className="task-category"
-                        style={{ 
-                          backgroundColor: `${item.category_color || 'var(--primary)'}20`,
-                          color: item.category_color || 'var(--primary)'
-                        }}
-                      >
-                        <span className="task-category-dot" style={{ backgroundColor: item.category_color || 'var(--primary)' }} />
-                        {item.category_name}
-                      </span>
-                      <span className="task-count">{item.count}×</span>
-                      <span className="task-time">{formatDuration(item.total_minutes)}</span>
+                      {isEditing ? (
+                        <>
+                          <input
+                            type="text"
+                            className="task-name-input"
+                            value={editDescriptionValue}
+                            onChange={(e) => setEditDescriptionValue(e.target.value)}
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') saveEditing();
+                              if (e.key === 'Escape') cancelEditing();
+                            }}
+                          />
+                          <select
+                            className="task-category-select"
+                            value={editCategoryId || ''}
+                            onChange={(e) => setEditCategoryId(Number(e.target.value))}
+                          >
+                            {categories.map(cat => (
+                              <option key={cat.id} value={cat.id}>{cat.name}</option>
+                            ))}
+                          </select>
+                          <div className="task-edit-actions">
+                            <button className="task-edit-btn save" onClick={saveEditing} disabled={saving} title="Save">
+                              {saving ? '...' : '✓'}
+                            </button>
+                            <button className="task-edit-btn cancel" onClick={cancelEditing} disabled={saving} title="Cancel">
+                              ✕
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <span className="task-name">{item.description}</span>
+                          <span 
+                            className="task-category"
+                            style={{ 
+                              backgroundColor: `${item.category_color || 'var(--primary)'}20`,
+                              color: item.category_color || 'var(--primary)'
+                            }}
+                          >
+                            <span className="task-category-dot" style={{ backgroundColor: item.category_color || 'var(--primary)' }} />
+                            {item.category_name}
+                          </span>
+                          <span className="task-count">{item.count}×</span>
+                          <span className="task-time">{formatDuration(item.total_minutes)}</span>
+                          <button 
+                            className="task-edit-trigger" 
+                            onClick={() => startEditing(item.description, item.category_name)}
+                            title="Edit description"
+                          >
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                            </svg>
+                          </button>
+                        </>
+                      )}
                     </div>
                   );
                 })}

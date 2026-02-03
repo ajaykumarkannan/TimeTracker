@@ -7,6 +7,86 @@ const router = Router();
 
 router.use(flexAuthMiddleware);
 
+// Update a description (rename and/or change category for all entries with that description)
+router.put('/descriptions', (req: AuthRequest, res: Response) => {
+  try {
+    const { oldDescription, newDescription, newCategoryId } = req.body;
+    
+    if (!oldDescription) {
+      return res.status(400).json({ error: 'oldDescription is required' });
+    }
+    
+    if (!newDescription && newCategoryId === undefined) {
+      return res.status(400).json({ error: 'Either newDescription or newCategoryId is required' });
+    }
+
+    const db = getDb();
+    const userId = req.userId as number;
+
+    // Verify category exists if changing category
+    if (newCategoryId !== undefined) {
+      const categoryCheck = db.exec(
+        'SELECT id FROM categories WHERE id = ? AND user_id = ?',
+        [newCategoryId, userId]
+      );
+      if (categoryCheck.length === 0 || categoryCheck[0].values.length === 0) {
+        return res.status(404).json({ error: 'Category not found' });
+      }
+    }
+
+    // Build the update query dynamically
+    const updates: string[] = [];
+    const params: (string | number)[] = [];
+    
+    if (newDescription) {
+      updates.push('description = ?');
+      params.push(newDescription);
+    }
+    
+    if (newCategoryId !== undefined) {
+      updates.push('category_id = ?');
+      params.push(newCategoryId);
+    }
+    
+    params.push(oldDescription, userId);
+
+    const updateQuery = `
+      UPDATE time_entries 
+      SET ${updates.join(', ')}
+      WHERE description = ? AND user_id = ?
+    `;
+    
+    db.run(updateQuery, params);
+    
+    // Get count of updated entries
+    const countResult = db.exec(
+      'SELECT changes() as count'
+    );
+    const updatedCount = countResult.length > 0 && countResult[0].values.length > 0
+      ? countResult[0].values[0][0] as number
+      : 0;
+
+    logger.info('Description updated', { 
+      userId, 
+      oldDescription, 
+      newDescription, 
+      newCategoryId,
+      updatedCount 
+    });
+
+    res.json({ 
+      success: true, 
+      updatedCount,
+      oldDescription,
+      newDescription: newDescription || oldDescription,
+      newCategoryId
+    });
+  } catch (error) {
+    logger.error('Error updating description', { error, userId: req.userId });
+    res.status(500).json({ error: 'Failed to update description' });
+  }
+});
+
 // Get all descriptions (paginated) for a date range
 router.get('/descriptions', (req: AuthRequest, res: Response) => {
   try {

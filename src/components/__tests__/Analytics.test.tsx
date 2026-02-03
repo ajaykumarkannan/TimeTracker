@@ -11,7 +11,8 @@ vi.mock('../../api', () => ({
     exportCSV: vi.fn(),
     getActiveEntry: vi.fn(),
     getDescriptions: vi.fn(),
-    getCategoryDrilldown: vi.fn()
+    getCategoryDrilldown: vi.fn(),
+    getCategories: vi.fn()
   }
 }));
 
@@ -50,6 +51,11 @@ describe('Analytics', () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     (api.getAnalytics as ReturnType<typeof vi.fn>).mockResolvedValue(mockAnalyticsData);
     (api.getActiveEntry as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (api.getCategories as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { id: 1, name: 'Meetings', color: '#6366f1', created_at: '2026-01-01' },
+      { id: 2, name: 'Deep Work', color: '#10b981', created_at: '2026-01-01' },
+      { id: 3, name: 'Email', color: '#f59e0b', created_at: '2026-01-01' }
+    ]);
     (api.getDescriptions as ReturnType<typeof vi.fn>).mockResolvedValue({
       descriptions: [],
       pagination: { page: 1, pageSize: 20, totalCount: 0, totalPages: 0 }
