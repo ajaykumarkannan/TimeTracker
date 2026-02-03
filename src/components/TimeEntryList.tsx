@@ -34,6 +34,7 @@ function fuzzyMatch(query: string, target: string): { match: boolean; score: num
 interface Props {
   categories: Category[];
   onEntryChange: () => void;
+  onCategoryChange: () => void;
   refreshKey?: number;
 }
 
@@ -50,7 +51,7 @@ interface ShortEntry {
   durationSeconds: number;
 }
 
-export function TimeEntryList({ categories, onEntryChange, refreshKey }: Props) {
+export function TimeEntryList({ categories, onEntryChange, onCategoryChange, refreshKey }: Props) {
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<number | null>(null);
@@ -60,6 +61,12 @@ export function TimeEntryList({ categories, onEntryChange, refreshKey }: Props) 
   const [editDescription, setEditDescription] = useState<string>('');
   const [editStartTime, setEditStartTime] = useState<string>('');
   const [editEndTime, setEditEndTime] = useState<string>('');
+  
+  // Inline new category form state
+  const [showNewCategory, setShowNewCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [newCategoryColor, setNewCategoryColor] = useState('#6366f1');
+  const [creatingCategory, setCreatingCategory] = useState(false);
   
   // Filter state
   const [searchQuery, setSearchQuery] = useState('');
@@ -548,6 +555,35 @@ export function TimeEntryList({ categories, onEntryChange, refreshKey }: Props) 
   const handleCancel = () => {
     setEditingId(null);
     setEditField(null);
+    setShowNewCategory(false);
+    setNewCategoryName('');
+    setNewCategoryColor('#6366f1');
+  };
+
+  const handleCreateCategory = async () => {
+    if (!newCategoryName.trim()) return;
+    setCreatingCategory(true);
+    try {
+      const newCategory = await api.createCategory(newCategoryName.trim(), newCategoryColor);
+      setEditCategory(newCategory.id);
+      setShowNewCategory(false);
+      setNewCategoryName('');
+      setNewCategoryColor('#6366f1');
+      onCategoryChange();
+    } catch (error) {
+      console.error('Failed to create category:', error);
+    }
+    setCreatingCategory(false);
+  };
+
+  const handleCategorySelectChange = (e: React.ChangeEvent<HTMLSelectElement>, entryId: number) => {
+    const value = e.target.value;
+    if (value === 'new') {
+      setShowNewCategory(true);
+    } else {
+      setEditCategory(Number(value));
+      setShowNewCategory(false);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent, entryId: number) => {
@@ -984,19 +1020,60 @@ export function TimeEntryList({ categories, onEntryChange, refreshKey }: Props) 
                       <div className="entry-content">
                         <div className="entry-main">
                           {isEditing && editField === 'category' ? (
-                            <select
-                              className="inline-edit-select"
-                              value={editCategory}
-                              onChange={(e) => setEditCategory(Number(e.target.value))}
-                              onBlur={() => handleSave(entry.id)}
-                              onKeyDown={(e) => handleKeyDown(e, entry.id)}
-                              autoFocus
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              {categories.map(cat => (
-                                <option key={cat.id} value={cat.id}>{cat.name}</option>
-                              ))}
-                            </select>
+                            showNewCategory ? (
+                              <div className="inline-new-category" onClick={(e) => e.stopPropagation()}>
+                                <input
+                                  type="text"
+                                  className="inline-edit-input"
+                                  value={newCategoryName}
+                                  onChange={(e) => setNewCategoryName(e.target.value)}
+                                  placeholder="Category name"
+                                  autoFocus
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') handleCreateCategory();
+                                    if (e.key === 'Escape') { setShowNewCategory(false); setNewCategoryName(''); }
+                                  }}
+                                />
+                                <input
+                                  type="color"
+                                  className="inline-color-picker"
+                                  value={newCategoryColor}
+                                  onChange={(e) => setNewCategoryColor(e.target.value)}
+                                />
+                                <button 
+                                  type="button" 
+                                  className="inline-edit-save-btn" 
+                                  onClick={handleCreateCategory}
+                                  disabled={creatingCategory || !newCategoryName.trim()}
+                                  title="Create"
+                                >
+                                  ✓
+                                </button>
+                                <button 
+                                  type="button" 
+                                  className="inline-edit-cancel-btn" 
+                                  onClick={() => { setShowNewCategory(false); setNewCategoryName(''); }}
+                                  title="Cancel"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            ) : (
+                              <select
+                                className="inline-edit-select"
+                                value={editCategory}
+                                onChange={(e) => handleCategorySelectChange(e, entry.id)}
+                                onBlur={() => !showNewCategory && handleSave(entry.id)}
+                                onKeyDown={(e) => handleKeyDown(e, entry.id)}
+                                autoFocus
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                {categories.map(cat => (
+                                  <option key={cat.id} value={cat.id}>{cat.name}</option>
+                                ))}
+                                <option value="new">+ Add Category</option>
+                              </select>
+                            )
                           ) : (
                             <span 
                               className="entry-category editable"

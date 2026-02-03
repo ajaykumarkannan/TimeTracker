@@ -65,6 +65,12 @@ export function Analytics() {
   const [editCategoryId, setEditCategoryId] = useState<number | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [saving, setSaving] = useState(false);
+  
+  // Inline new category state for Analytics
+  const [showNewCategoryInline, setShowNewCategoryInline] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [newCategoryColor, setNewCategoryColor] = useState('#6366f1');
+  const [creatingCategory, setCreatingCategory] = useState(false);
 
   // Load categories for inline editing dropdown
   useEffect(() => {
@@ -440,6 +446,34 @@ export function Analytics() {
     setEditingDescription(null);
     setEditDescriptionValue('');
     setEditCategoryId(null);
+    setShowNewCategoryInline(false);
+    setNewCategoryName('');
+    setNewCategoryColor('#6366f1');
+  };
+
+  const handleCreateCategoryInline = async () => {
+    if (!newCategoryName.trim()) return;
+    setCreatingCategory(true);
+    try {
+      const newCat = await api.createCategory(newCategoryName.trim(), newCategoryColor);
+      setCategories(prev => [...prev, newCat]);
+      setEditCategoryId(newCat.id);
+      setShowNewCategoryInline(false);
+      setNewCategoryName('');
+      setNewCategoryColor('#6366f1');
+    } catch (error) {
+      console.error('Failed to create category:', error);
+    }
+    setCreatingCategory(false);
+  };
+
+  const handleCategorySelectChange = (value: string) => {
+    if (value === 'new') {
+      setShowNewCategoryInline(true);
+    } else {
+      setEditCategoryId(Number(value));
+      setShowNewCategoryInline(false);
+    }
   };
 
   const saveEditing = async () => {
@@ -1144,15 +1178,54 @@ export function Analytics() {
                               if (e.key === 'Escape') cancelEditing();
                             }}
                           />
-                          <select
-                            className="task-category-select"
-                            value={editCategoryId || ''}
-                            onChange={(e) => setEditCategoryId(Number(e.target.value))}
-                          >
-                            {categories.map(cat => (
-                              <option key={cat.id} value={cat.id}>{cat.name}</option>
-                            ))}
-                          </select>
+                          {showNewCategoryInline ? (
+                            <div className="inline-new-category">
+                              <input
+                                type="text"
+                                className="task-name-input"
+                                value={newCategoryName}
+                                onChange={(e) => setNewCategoryName(e.target.value)}
+                                placeholder="Category name"
+                                autoFocus
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleCreateCategoryInline();
+                                  if (e.key === 'Escape') { setShowNewCategoryInline(false); setNewCategoryName(''); }
+                                }}
+                              />
+                              <input
+                                type="color"
+                                className="inline-color-picker"
+                                value={newCategoryColor}
+                                onChange={(e) => setNewCategoryColor(e.target.value)}
+                              />
+                              <button 
+                                className="task-edit-btn save" 
+                                onClick={handleCreateCategoryInline}
+                                disabled={creatingCategory || !newCategoryName.trim()}
+                                title="Create"
+                              >
+                                ✓
+                              </button>
+                              <button 
+                                className="task-edit-btn cancel" 
+                                onClick={() => { setShowNewCategoryInline(false); setNewCategoryName(''); }}
+                                title="Cancel"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          ) : (
+                            <select
+                              className="task-category-select"
+                              value={editCategoryId || ''}
+                              onChange={(e) => handleCategorySelectChange(e.target.value)}
+                            >
+                              {categories.map(cat => (
+                                <option key={cat.id} value={cat.id}>{cat.name}</option>
+                              ))}
+                              <option value="new">+ Add Category</option>
+                            </select>
+                          )}
                           <div className="task-edit-actions">
                             <button className="task-edit-btn save" onClick={saveEditing} disabled={saving} title="Save">
                               {saving ? '...' : '✓'}

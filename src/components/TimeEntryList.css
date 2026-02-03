@@ -607,6 +607,32 @@
   font-weight: 500;
 }
 
+/* Inline new category form */
+.inline-new-category {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.inline-color-picker {
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  background: none;
+}
+
+.inline-color-picker::-webkit-color-swatch-wrapper {
+  padding: 2px;
+}
+
+.inline-color-picker::-webkit-color-swatch {
+  border-radius: 2px;
+  border: none;
+}
+
 .inline-edit-input {
   flex: 1;
   min-width: 6.25rem;
