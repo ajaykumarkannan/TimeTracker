@@ -44,7 +44,7 @@ beforeAll(async () => {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
       category_id INTEGER NOT NULL,
-      description TEXT,
+      task_name TEXT,
       start_time DATETIME NOT NULL,
       end_time DATETIME,
       duration_minutes INTEGER,
@@ -70,7 +70,7 @@ beforeEach(() => {
 describe('Time Entries Database', () => {
   it('creates a time entry', () => {
     const now = new Date().toISOString();
-    db.run('INSERT INTO time_entries (user_id, category_id, description, start_time) VALUES (?, ?, ?, ?)',
+    db.run('INSERT INTO time_entries (user_id, category_id, task_name, start_time) VALUES (?, ?, ?, ?)',
       [testUserId, categoryId, 'Working on feature', now]);
     
     const lastId = db.exec('SELECT last_insert_rowid() as id')[0].values[0][0];
@@ -84,7 +84,7 @@ describe('Time Entries Database', () => {
     expect(entry).toMatchObject({
       user_id: testUserId,
       category_id: categoryId,
-      description: 'Working on feature'
+      task_name: 'Working on feature'
     });
   });
 
@@ -162,24 +162,24 @@ describe('Time Entries Database', () => {
     expect(hasRow).toBe(false);
   });
 
-  it('retrieves description suggestions grouped by count', () => {
+  it('retrieves task name suggestions grouped by count', () => {
     const time1 = new Date(Date.now() - 7200000).toISOString();
     const time2 = new Date(Date.now() - 3600000).toISOString();
     const time3 = new Date().toISOString();
     
-    // Add entries with same description multiple times
-    db.run('INSERT INTO time_entries (user_id, category_id, description, start_time, end_time, duration_minutes) VALUES (?, ?, ?, ?, ?, ?)',
+    // Add entries with same task name multiple times
+    db.run('INSERT INTO time_entries (user_id, category_id, task_name, start_time, end_time, duration_minutes) VALUES (?, ?, ?, ?, ?, ?)',
       [testUserId, categoryId, 'Code review', time1, time2, 60]);
-    db.run('INSERT INTO time_entries (user_id, category_id, description, start_time, end_time, duration_minutes) VALUES (?, ?, ?, ?, ?, ?)',
+    db.run('INSERT INTO time_entries (user_id, category_id, task_name, start_time, end_time, duration_minutes) VALUES (?, ?, ?, ?, ?, ?)',
       [testUserId, categoryId, 'Code review', time2, time3, 60]);
-    db.run('INSERT INTO time_entries (user_id, category_id, description, start_time, end_time, duration_minutes) VALUES (?, ?, ?, ?, ?, ?)',
+    db.run('INSERT INTO time_entries (user_id, category_id, task_name, start_time, end_time, duration_minutes) VALUES (?, ?, ?, ?, ?, ?)',
       [testUserId, categoryId, 'Bug fix', time1, time2, 30]);
     
     const result = db.exec(`
-      SELECT description, category_id, COUNT(*) as count, SUM(duration_minutes) as total_minutes
+      SELECT task_name, category_id, COUNT(*) as count, SUM(duration_minutes) as total_minutes
       FROM time_entries
-      WHERE user_id = ? AND description IS NOT NULL AND description != ''
-      GROUP BY description, category_id
+      WHERE user_id = ? AND task_name IS NOT NULL AND task_name != ''
+      GROUP BY task_name, category_id
       ORDER BY count DESC
     `, [testUserId]);
     
@@ -200,17 +200,17 @@ describe('Time Entries Database', () => {
     const time1 = new Date(Date.now() - 7200000).toISOString();
     const time2 = new Date(Date.now() - 3600000).toISOString();
     
-    db.run('INSERT INTO time_entries (user_id, category_id, description, start_time, end_time, duration_minutes) VALUES (?, ?, ?, ?, ?, ?)',
+    db.run('INSERT INTO time_entries (user_id, category_id, task_name, start_time, end_time, duration_minutes) VALUES (?, ?, ?, ?, ?, ?)',
       [testUserId, categoryId, 'Code review', time1, time2, 60]);
-    db.run('INSERT INTO time_entries (user_id, category_id, description, start_time, end_time, duration_minutes) VALUES (?, ?, ?, ?, ?, ?)',
+    db.run('INSERT INTO time_entries (user_id, category_id, task_name, start_time, end_time, duration_minutes) VALUES (?, ?, ?, ?, ?, ?)',
       [testUserId, categoryId, 'Bug fix', time1, time2, 30]);
     
     const query = 'code';
     const result = db.exec(`
-      SELECT description, category_id, COUNT(*) as count
+      SELECT task_name, category_id, COUNT(*) as count
       FROM time_entries
-      WHERE user_id = ? AND description IS NOT NULL AND description != '' AND LOWER(description) LIKE ?
-      GROUP BY description, category_id
+      WHERE user_id = ? AND task_name IS NOT NULL AND task_name != '' AND LOWER(task_name) LIKE ?
+      GROUP BY task_name, category_id
       ORDER BY count DESC
     `, [testUserId, `%${query}%`]);
     

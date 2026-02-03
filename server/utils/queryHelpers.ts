@@ -11,7 +11,7 @@ import { TimeEntry } from '../database';
  */
 export const TIME_ENTRIES_WITH_CATEGORIES_QUERY = `
   SELECT te.id, te.user_id, te.category_id, c.name as category_name, c.color as category_color,
-         te.description, te.start_time, te.end_time, te.duration_minutes, te.created_at
+         te.task_name, te.start_time, te.end_time, te.duration_minutes, te.created_at
   FROM time_entries te
   JOIN categories c ON te.category_id = c.id
 `;
@@ -27,7 +27,7 @@ export function rowToTimeEntry(row: unknown[]): TimeEntry & { category_name: str
     category_id: row[2] as number,
     category_name: row[3] as string,
     category_color: row[4] as string | null,
-    description: row[5] as string | null,
+    task_name: row[5] as string | null,
     start_time: row[6] as string,
     end_time: row[7] as string | null,
     duration_minutes: row[8] as number | null,

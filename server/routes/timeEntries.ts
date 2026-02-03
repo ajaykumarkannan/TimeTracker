@@ -12,7 +12,7 @@ import {
   validateDateParam,
   validatePositiveInt,
   validateCategoryId,
-  validateDescription,
+  validateTaskName,
   isValidISODate
 } from '../utils/validation';
 
@@ -86,11 +86,11 @@ router.get('/active', (req: AuthRequest, res: Response) => {
 router.post('/start', (req: AuthRequest, res: Response) => {
   try {
     let categoryId: number;
-    let desc: string | null;
+    let taskName: string | null;
     
     try {
       categoryId = validateCategoryId(req.body.category_id);
-      desc = validateDescription(req.body.description);
+      taskName = validateTaskName(req.body.task_name);
     } catch (err) {
       return res.status(400).json({ error: (err as Error).message });
     }
@@ -126,8 +126,8 @@ router.post('/start', (req: AuthRequest, res: Response) => {
 
     const startTime = new Date().toISOString();
     db.run(
-      `INSERT INTO time_entries (user_id, category_id, description, start_time) VALUES (?, ?, ?, ?)`,
-      [req.userId as number, categoryId, desc, startTime]
+      `INSERT INTO time_entries (user_id, category_id, task_name, start_time) VALUES (?, ?, ?, ?)`,
+      [req.userId as number, categoryId, taskName, startTime]
     );
     saveDatabase();
 
@@ -190,7 +190,7 @@ router.post('/:id/stop', (req: AuthRequest, res: Response) => {
 router.put('/:id', (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { category_id, description, start_time, end_time } = req.body;
+    const { category_id, task_name, start_time, end_time } = req.body;
     const db = getDb();
 
     const existing = db.exec(
@@ -223,12 +223,12 @@ router.put('/:id', (req: AuthRequest, res: Response) => {
     db.run(
       `UPDATE time_entries 
        SET category_id = COALESCE(?, category_id), 
-           description = ?, 
+           task_name = ?, 
            start_time = COALESCE(?, start_time),
            end_time = ?,
            duration_minutes = ?
        WHERE id = ?`,
-      [category_id || null, description, start_time || null, newEnd, duration, id]
+      [category_id || null, task_name, start_time || null, newEnd, duration, id]
     );
     saveDatabase();
 
@@ -249,13 +249,13 @@ router.put('/:id', (req: AuthRequest, res: Response) => {
 router.post('/', (req: AuthRequest, res: Response) => {
   try {
     let categoryId: number;
-    let desc: string | null;
+    let taskName: string | null;
     let startTime: string;
     let endTime: string;
     
     try {
       categoryId = validateCategoryId(req.body.category_id);
-      desc = validateDescription(req.body.description);
+      taskName = validateTaskName(req.body.task_name);
       
       if (!req.body.start_time || !isValidISODate(req.body.start_time)) {
         throw new Error('start_time must be a valid ISO 8601 date');
@@ -289,8 +289,8 @@ router.post('/', (req: AuthRequest, res: Response) => {
     }
 
     db.run(
-      `INSERT INTO time_entries (user_id, category_id, description, start_time, end_time, duration_minutes) VALUES (?, ?, ?, ?, ?, ?)`,
-      [req.userId as number, categoryId, desc, startTime, endTime, duration]
+      `INSERT INTO time_entries (user_id, category_id, task_name, start_time, end_time, duration_minutes) VALUES (?, ?, ?, ?, ?, ?)`,
+      [req.userId as number, categoryId, taskName, startTime, endTime, duration]
     );
     saveDatabase();
 
@@ -338,7 +338,7 @@ router.delete('/:id', (req: AuthRequest, res: Response) => {
   }
 });
 
-// Get description suggestions based on history
+// Get task name suggestions based on history
 router.get('/suggestions', (req: AuthRequest, res: Response) => {
   try {
     const db = getDb();
@@ -347,9 +347,9 @@ router.get('/suggestions', (req: AuthRequest, res: Response) => {
     const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
 
     let sql = `
-      SELECT description, category_id, COUNT(*) as count, SUM(duration_minutes) as total_minutes, MAX(start_time) as last_used
+      SELECT task_name, category_id, COUNT(*) as count, SUM(duration_minutes) as total_minutes, MAX(start_time) as last_used
       FROM time_entries
-      WHERE user_id = ? AND description IS NOT NULL AND description != ''
+      WHERE user_id = ? AND task_name IS NOT NULL AND task_name != ''
     `;
     const params: (number | string)[] = [req.userId as number];
 
@@ -359,18 +359,18 @@ router.get('/suggestions', (req: AuthRequest, res: Response) => {
     }
 
     if (query) {
-      sql += ` AND LOWER(description) LIKE ?`;
+      sql += ` AND LOWER(task_name) LIKE ?`;
       params.push(`%${query}%`);
     }
 
-    sql += ` GROUP BY description, category_id ORDER BY count DESC, total_minutes DESC LIMIT ?`;
+    sql += ` GROUP BY task_name, category_id ORDER BY count DESC, total_minutes DESC LIMIT ?`;
     params.push(limit);
 
     const result = db.exec(sql, params);
 
     const suggestions = result.length > 0
       ? result[0].values.map(row => ({
-          description: row[0] as string,
+          task_name: row[0] as string,
           categoryId: row[1] as number,
           count: row[2] as number,
           totalMinutes: row[3] as number,
@@ -380,40 +380,40 @@ router.get('/suggestions', (req: AuthRequest, res: Response) => {
 
     res.json(suggestions);
   } catch (error) {
-    logger.error('Error fetching description suggestions', { error, userId: req.userId as number });
+    logger.error('Error fetching task name suggestions', { error, userId: req.userId as number });
     res.status(500).json({ error: 'Failed to fetch suggestions' });
   }
 });
 
-// Merge descriptions - update all entries with source descriptions to use target description and optionally target category
-router.post('/merge-descriptions', (req: AuthRequest, res: Response) => {
+// Merge task names - update all entries with source task names to use target task name and optionally target category
+router.post('/merge-task-names', (req: AuthRequest, res: Response) => {
   try {
-    const { sourceDescriptions, targetDescription, targetCategoryName } = req.body;
+    const { sourceTaskNames, targetTaskName, targetCategoryName } = req.body;
     
-    if (!Array.isArray(sourceDescriptions) || sourceDescriptions.length === 0) {
-      return res.status(400).json({ error: 'sourceDescriptions must be a non-empty array' });
+    if (!Array.isArray(sourceTaskNames) || sourceTaskNames.length === 0) {
+      return res.status(400).json({ error: 'sourceTaskNames must be a non-empty array' });
     }
     
-    if (typeof targetDescription !== 'string' || !targetDescription.trim()) {
-      return res.status(400).json({ error: 'targetDescription must be a non-empty string' });
+    if (typeof targetTaskName !== 'string' || !targetTaskName.trim()) {
+      return res.status(400).json({ error: 'targetTaskName must be a non-empty string' });
     }
 
     const db = getDb();
     const userId = req.userId as number;
     
     // Build placeholders for IN clause
-    const placeholders = sourceDescriptions.map(() => '?').join(', ');
+    const placeholders = sourceTaskNames.map(() => '?').join(', ');
     
     // Count entries that will be updated
     const countResult = db.exec(
       `SELECT COUNT(*) as count FROM time_entries 
-       WHERE user_id = ? AND description IN (${placeholders})`,
-      [userId, ...sourceDescriptions]
+       WHERE user_id = ? AND task_name IN (${placeholders})`,
+      [userId, ...sourceTaskNames]
     );
     const totalEntries = countResult.length > 0 ? countResult[0].values[0][0] as number : 0;
     
     if (totalEntries === 0) {
-      return res.status(404).json({ error: 'No entries found with the specified descriptions' });
+      return res.status(404).json({ error: 'No entries found with the specified task names' });
     }
     
     // If target category is specified, look up its ID
@@ -428,57 +428,57 @@ router.post('/merge-descriptions', (req: AuthRequest, res: Response) => {
       }
     }
     
-    // Update all entries with source descriptions to use target description (and optionally category)
+    // Update all entries with source task names to use target task name (and optionally category)
     if (targetCategoryId !== null) {
       db.run(
-        `UPDATE time_entries SET description = ?, category_id = ? 
-         WHERE user_id = ? AND description IN (${placeholders})`,
-        [targetDescription.trim(), targetCategoryId, userId, ...sourceDescriptions]
+        `UPDATE time_entries SET task_name = ?, category_id = ? 
+         WHERE user_id = ? AND task_name IN (${placeholders})`,
+        [targetTaskName.trim(), targetCategoryId, userId, ...sourceTaskNames]
       );
     } else {
       db.run(
-        `UPDATE time_entries SET description = ? 
-         WHERE user_id = ? AND description IN (${placeholders})`,
-        [targetDescription.trim(), userId, ...sourceDescriptions]
+        `UPDATE time_entries SET task_name = ? 
+         WHERE user_id = ? AND task_name IN (${placeholders})`,
+        [targetTaskName.trim(), userId, ...sourceTaskNames]
       );
     }
     saveDatabase();
 
-    logger.info('Descriptions merged', { 
-      sourceDescriptions, 
-      targetDescription,
+    logger.info('Task names merged', { 
+      sourceTaskNames, 
+      targetTaskName,
       targetCategoryName,
       entriesUpdated: totalEntries, 
       userId
     });
 
     res.json({ 
-      merged: sourceDescriptions.length, 
+      merged: sourceTaskNames.length, 
       entriesUpdated: totalEntries,
-      targetDescription: targetDescription.trim()
+      targetTaskName: targetTaskName.trim()
     });
   } catch (error) {
-    logger.error('Error merging descriptions', { error, userId: req.userId as number });
-    res.status(500).json({ error: 'Failed to merge descriptions' });
+    logger.error('Error merging task names', { error, userId: req.userId as number });
+    res.status(500).json({ error: 'Failed to merge task names' });
   }
 });
 
-// Update all entries with a specific description+category to new description and/or category
-router.post('/update-description-bulk', (req: AuthRequest, res: Response) => {
+// Update all entries with a specific task_name+category to new task_name and/or category
+router.post('/update-task-name-bulk', (req: AuthRequest, res: Response) => {
   try {
-    const { oldDescription, oldCategoryName, newDescription, newCategoryName } = req.body;
+    const { oldTaskName, oldCategoryName, newTaskName, newCategoryName } = req.body;
     
-    if (typeof oldDescription !== 'string' || !oldDescription.trim()) {
-      return res.status(400).json({ error: 'oldDescription must be a non-empty string' });
+    if (typeof oldTaskName !== 'string' || !oldTaskName.trim()) {
+      return res.status(400).json({ error: 'oldTaskName must be a non-empty string' });
     }
     
     if (typeof oldCategoryName !== 'string' || !oldCategoryName.trim()) {
       return res.status(400).json({ error: 'oldCategoryName must be a non-empty string' });
     }
     
-    // At least one of newDescription or newCategoryName must be provided
-    if (!newDescription && !newCategoryName) {
-      return res.status(400).json({ error: 'At least one of newDescription or newCategoryName must be provided' });
+    // At least one of newTaskName or newCategoryName must be provided
+    if (!newTaskName && !newCategoryName) {
+      return res.status(400).json({ error: 'At least one of newTaskName or newCategoryName must be provided' });
     }
 
     const db = getDb();
@@ -498,13 +498,13 @@ router.post('/update-description-bulk', (req: AuthRequest, res: Response) => {
     // Count entries that will be updated
     const countResult = db.exec(
       `SELECT COUNT(*) as count FROM time_entries 
-       WHERE user_id = ? AND description = ? AND category_id = ?`,
-      [userId, oldDescription.trim(), oldCategoryId]
+       WHERE user_id = ? AND task_name = ? AND category_id = ?`,
+      [userId, oldTaskName.trim(), oldCategoryId]
     );
     const totalEntries = countResult.length > 0 ? countResult[0].values[0][0] as number : 0;
     
     if (totalEntries === 0) {
-      return res.status(404).json({ error: 'No entries found with the specified description and category' });
+      return res.status(404).json({ error: 'No entries found with the specified task name and category' });
     }
     
     // Get new category ID if changing category
@@ -521,20 +521,20 @@ router.post('/update-description-bulk', (req: AuthRequest, res: Response) => {
     }
     
     // Build the update query based on what's being changed
-    const finalDescription = newDescription ? newDescription.trim() : oldDescription.trim();
+    const finalTaskName = newTaskName ? newTaskName.trim() : oldTaskName.trim();
     const finalCategoryId = newCategoryId !== null ? newCategoryId : oldCategoryId;
     
     db.run(
-      `UPDATE time_entries SET description = ?, category_id = ? 
-       WHERE user_id = ? AND description = ? AND category_id = ?`,
-      [finalDescription, finalCategoryId, userId, oldDescription.trim(), oldCategoryId]
+      `UPDATE time_entries SET task_name = ?, category_id = ? 
+       WHERE user_id = ? AND task_name = ? AND category_id = ?`,
+      [finalTaskName, finalCategoryId, userId, oldTaskName.trim(), oldCategoryId]
     );
     saveDatabase();
 
-    logger.info('Descriptions updated in bulk', { 
-      oldDescription, 
+    logger.info('Task names updated in bulk', { 
+      oldTaskName, 
       oldCategoryName,
-      newDescription: finalDescription,
+      newTaskName: finalTaskName,
       newCategoryName: newCategoryName || oldCategoryName,
       entriesUpdated: totalEntries, 
       userId
@@ -542,8 +542,8 @@ router.post('/update-description-bulk', (req: AuthRequest, res: Response) => {
 
     res.json({ entriesUpdated: totalEntries });
   } catch (error) {
-    logger.error('Error updating descriptions in bulk', { error, userId: req.userId as number });
-    res.status(500).json({ error: 'Failed to update descriptions' });
+    logger.error('Error updating task names in bulk', { error, userId: req.userId as number });
+    res.status(500).json({ error: 'Failed to update task names' });
   }
 });
 

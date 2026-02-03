@@ -10,7 +10,7 @@ vi.mock('../../api', () => ({
     exportData: vi.fn(),
     exportCSV: vi.fn(),
     getActiveEntry: vi.fn(),
-    getDescriptions: vi.fn(),
+    getTaskNames: vi.fn(),
     getCategoryDrilldown: vi.fn(),
     getCategories: vi.fn()
   }
@@ -42,7 +42,7 @@ const mockAnalyticsData: AnalyticsData = {
     { date: '2026-01-27', minutes: 200, byCategory: { 'Deep Work': 140, 'Meetings': 60 } },
     { date: '2026-01-28', minutes: 310, byCategory: { 'Meetings': 230, 'Email': 80 } }
   ],
-  topNotes: []
+  topTasks: []
 };
 
 describe('Analytics', () => {
@@ -56,13 +56,13 @@ describe('Analytics', () => {
       { id: 2, name: 'Deep Work', color: '#10b981', created_at: '2026-01-01' },
       { id: 3, name: 'Email', color: '#f59e0b', created_at: '2026-01-01' }
     ]);
-    (api.getDescriptions as ReturnType<typeof vi.fn>).mockResolvedValue({
-      descriptions: [],
+    (api.getTaskNames as ReturnType<typeof vi.fn>).mockResolvedValue({
+      taskNames: [],
       pagination: { page: 1, pageSize: 20, totalCount: 0, totalPages: 0 }
     });
     (api.getCategoryDrilldown as ReturnType<typeof vi.fn>).mockResolvedValue({
       category: { name: 'Meetings', color: '#6366f1', minutes: 600, count: 5 },
-      descriptions: [],
+      taskNames: [],
       pagination: { page: 1, pageSize: 20, totalCount: 0, totalPages: 0 }
     });
   });

@@ -7,17 +7,17 @@ const router = Router();
 
 router.use(flexAuthMiddleware);
 
-// Update a description (rename and/or change category for all entries with that description)
-router.put('/descriptions', (req: AuthRequest, res: Response) => {
+// Update a task name (rename and/or change category for all entries with that task name)
+router.put('/task-names', (req: AuthRequest, res: Response) => {
   try {
-    const { oldDescription, newDescription, newCategoryId } = req.body;
+    const { oldTaskName, newTaskName, newCategoryId } = req.body;
     
-    if (!oldDescription) {
-      return res.status(400).json({ error: 'oldDescription is required' });
+    if (!oldTaskName) {
+      return res.status(400).json({ error: 'oldTaskName is required' });
     }
     
-    if (!newDescription && newCategoryId === undefined) {
-      return res.status(400).json({ error: 'Either newDescription or newCategoryId is required' });
+    if (!newTaskName && newCategoryId === undefined) {
+      return res.status(400).json({ error: 'Either newTaskName or newCategoryId is required' });
     }
 
     const db = getDb();
@@ -38,9 +38,9 @@ router.put('/descriptions', (req: AuthRequest, res: Response) => {
     const updates: string[] = [];
     const params: (string | number)[] = [];
     
-    if (newDescription) {
-      updates.push('description = ?');
-      params.push(newDescription);
+    if (newTaskName) {
+      updates.push('task_name = ?');
+      params.push(newTaskName);
     }
     
     if (newCategoryId !== undefined) {
@@ -48,12 +48,12 @@ router.put('/descriptions', (req: AuthRequest, res: Response) => {
       params.push(newCategoryId);
     }
     
-    params.push(oldDescription, userId);
+    params.push(oldTaskName, userId);
 
     const updateQuery = `
       UPDATE time_entries 
       SET ${updates.join(', ')}
-      WHERE description = ? AND user_id = ?
+      WHERE task_name = ? AND user_id = ?
     `;
     
     db.run(updateQuery, params);
@@ -66,10 +66,10 @@ router.put('/descriptions', (req: AuthRequest, res: Response) => {
       ? countResult[0].values[0][0] as number
       : 0;
 
-    logger.info('Description updated', { 
+    logger.info('Task name updated', { 
       userId, 
-      oldDescription, 
-      newDescription, 
+      oldTaskName, 
+      newTaskName, 
       newCategoryId,
       updatedCount 
     });
@@ -77,18 +77,18 @@ router.put('/descriptions', (req: AuthRequest, res: Response) => {
     res.json({ 
       success: true, 
       updatedCount,
-      oldDescription,
-      newDescription: newDescription || oldDescription,
+      oldTaskName,
+      newTaskName: newTaskName || oldTaskName,
       newCategoryId
     });
   } catch (error) {
-    logger.error('Error updating description', { error, userId: req.userId });
-    res.status(500).json({ error: 'Failed to update description' });
+    logger.error('Error updating task name', { error, userId: req.userId });
+    res.status(500).json({ error: 'Failed to update task name' });
   }
 });
 
-// Get all descriptions (paginated) for a date range
-router.get('/descriptions', (req: AuthRequest, res: Response) => {
+// Get all task names (paginated) for a date range
+router.get('/task-names', (req: AuthRequest, res: Response) => {
   try {
     const start = req.query.start as string;
     const end = req.query.end as string;
@@ -104,12 +104,12 @@ router.get('/descriptions', (req: AuthRequest, res: Response) => {
     const db = getDb();
     const userId = req.userId as number;
 
-    // Get total count of unique descriptions
+    // Get total count of unique task names
     const countResult = db.exec(`
-      SELECT COUNT(DISTINCT description) as total
+      SELECT COUNT(DISTINCT task_name) as total
       FROM time_entries
       WHERE user_id = ? AND start_time >= ? AND start_time < ? 
-        AND description IS NOT NULL AND description != ''
+        AND task_name IS NOT NULL AND task_name != ''
     `, [userId, start, end]);
 
     const totalCount = countResult.length > 0 && countResult[0].values.length > 0
@@ -120,7 +120,7 @@ router.get('/descriptions', (req: AuthRequest, res: Response) => {
     let orderBy: string;
     switch (sortBy) {
       case 'alpha':
-        orderBy = 'description ASC';
+        orderBy = 'task_name ASC';
         break;
       case 'count':
         orderBy = 'count DESC, total_minutes DESC';
@@ -134,22 +134,22 @@ router.get('/descriptions', (req: AuthRequest, res: Response) => {
         break;
     }
 
-    // Get paginated descriptions with category info
-    const descriptionsResult = db.exec(`
-      SELECT te.description, COUNT(*) as count, COALESCE(SUM(te.duration_minutes), 0) as total_minutes, MAX(te.start_time) as last_used,
+    // Get paginated task names with category info
+    const taskNamesResult = db.exec(`
+      SELECT te.task_name, COUNT(*) as count, COALESCE(SUM(te.duration_minutes), 0) as total_minutes, MAX(te.start_time) as last_used,
              c.name as category_name, c.color as category_color
       FROM time_entries te
       JOIN categories c ON te.category_id = c.id
       WHERE te.user_id = ? AND te.start_time >= ? AND te.start_time < ? 
-        AND te.description IS NOT NULL AND te.description != ''
-      GROUP BY te.description, c.name, c.color
+        AND te.task_name IS NOT NULL AND te.task_name != ''
+      GROUP BY te.task_name, c.name, c.color
       ORDER BY ${orderBy}
       LIMIT ? OFFSET ?
     `, [userId, start, end, pageSize, offset]);
 
-    const descriptions = descriptionsResult.length > 0
-      ? descriptionsResult[0].values.map(row => ({
-          description: row[0] as string,
+    const taskNames = taskNamesResult.length > 0
+      ? taskNamesResult[0].values.map(row => ({
+          task_name: row[0] as string,
           count: row[1] as number,
           total_minutes: row[2] as number,
           last_used: row[3] as string,
@@ -159,7 +159,7 @@ router.get('/descriptions', (req: AuthRequest, res: Response) => {
       : [];
 
     res.json({
-      descriptions,
+      taskNames,
       pagination: {
         page,
         pageSize,
@@ -168,12 +168,12 @@ router.get('/descriptions', (req: AuthRequest, res: Response) => {
       }
     });
   } catch (error) {
-    logger.error('Error fetching descriptions', { error, userId: req.userId });
-    res.status(500).json({ error: 'Failed to fetch descriptions' });
+    logger.error('Error fetching task names', { error, userId: req.userId });
+    res.status(500).json({ error: 'Failed to fetch task names' });
   }
 });
 
-// Get category drilldown with paginated descriptions
+// Get category drilldown with paginated task names
 router.get('/category/:categoryName', (req: AuthRequest, res: Response) => {
   try {
     const { categoryName } = req.params;
@@ -215,36 +215,36 @@ router.get('/category/:categoryName', (req: AuthRequest, res: Response) => {
       count: categoryRow[3] as number
     };
 
-    // Get total count of unique descriptions for this category
+    // Get total count of unique task names for this category
     const countResult = db.exec(`
-      SELECT COUNT(DISTINCT te.description) as total
+      SELECT COUNT(DISTINCT te.task_name) as total
       FROM time_entries te
       JOIN categories c ON te.category_id = c.id
       WHERE te.user_id = ? AND te.start_time >= ? AND te.start_time < ? 
         AND c.name = ?
-        AND te.description IS NOT NULL AND te.description != ''
+        AND te.task_name IS NOT NULL AND te.task_name != ''
     `, [userId, start, end, categoryName]);
 
     const totalCount = countResult.length > 0 && countResult[0].values.length > 0
       ? countResult[0].values[0][0] as number
       : 0;
 
-    // Get paginated descriptions for this category
-    const descriptionsResult = db.exec(`
-      SELECT te.description, COUNT(*) as count, COALESCE(SUM(te.duration_minutes), 0) as total_minutes
+    // Get paginated task names for this category
+    const taskNamesResult = db.exec(`
+      SELECT te.task_name, COUNT(*) as count, COALESCE(SUM(te.duration_minutes), 0) as total_minutes
       FROM time_entries te
       JOIN categories c ON te.category_id = c.id
       WHERE te.user_id = ? AND te.start_time >= ? AND te.start_time < ? 
         AND c.name = ?
-        AND te.description IS NOT NULL AND te.description != ''
-      GROUP BY te.description
+        AND te.task_name IS NOT NULL AND te.task_name != ''
+      GROUP BY te.task_name
       ORDER BY total_minutes DESC, count DESC
       LIMIT ? OFFSET ?
     `, [userId, start, end, categoryName, pageSize, offset]);
 
-    const descriptions = descriptionsResult.length > 0
-      ? descriptionsResult[0].values.map(row => ({
-          description: row[0] as string,
+    const taskNames = taskNamesResult.length > 0
+      ? taskNamesResult[0].values.map(row => ({
+          task_name: row[0] as string,
           count: row[1] as number,
           total_minutes: row[2] as number
         }))
@@ -252,7 +252,7 @@ router.get('/category/:categoryName', (req: AuthRequest, res: Response) => {
 
     res.json({
       category,
-      descriptions,
+      taskNames,
       pagination: {
         page,
         pageSize,
@@ -351,19 +351,19 @@ router.get('/', (req: AuthRequest, res: Response) => {
         }))
       : [];
 
-    // Get top descriptions
-    const descriptionsResult = db.exec(`
-      SELECT description, COUNT(*) as count, COALESCE(SUM(duration_minutes), 0) as total_minutes
+    // Get top task names
+    const taskNamesResult = db.exec(`
+      SELECT task_name, COUNT(*) as count, COALESCE(SUM(duration_minutes), 0) as total_minutes
       FROM time_entries
-      WHERE user_id = ? AND start_time >= ? AND start_time < ? AND description IS NOT NULL AND description != ''
-      GROUP BY description
+      WHERE user_id = ? AND start_time >= ? AND start_time < ? AND task_name IS NOT NULL AND task_name != ''
+      GROUP BY task_name
       ORDER BY count DESC
       LIMIT 10
     `, [userId, start, end]);
 
-    const topNotes = descriptionsResult.length > 0
-      ? descriptionsResult[0].values.map(row => ({
-          description: row[0] as string,
+    const topTasks = taskNamesResult.length > 0
+      ? taskNamesResult[0].values.map(row => ({
+          task_name: row[0] as string,
           count: row[1] as number,
           total_minutes: row[2] as number
         }))
@@ -407,7 +407,7 @@ router.get('/', (req: AuthRequest, res: Response) => {
       },
       byCategory,
       daily,
-      topNotes
+      topTasks
     });
   } catch (error) {
     logger.error('Error fetching analytics', { error, userId: req.userId });

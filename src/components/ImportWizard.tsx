@@ -17,7 +17,7 @@ const FIELD_LABELS: Record<string, string> = {
   category: 'Category',
   startTime: 'Start Time',
   endTime: 'End Time',
-  description: 'Description',
+  taskName: 'Task',
   color: 'Color (optional)'
 };
 
@@ -256,12 +256,12 @@ export function ImportWizard({ csv, onClose, onSuccess }: Props) {
                 </select>
               </div>
               
-              {/* Row 2: Description, End Time, Color */}
+              {/* Row 2: Task, End Time, Color */}
               <div className="mapping-row">
-                <label>{FIELD_LABELS['description']}</label>
+                <label>{FIELD_LABELS['taskName']}</label>
                 <select
-                  value={mapping['description'] ?? ''}
-                  onChange={e => handleMappingChange('description', e.target.value ? parseInt(e.target.value) : undefined)}
+                  value={mapping['taskName'] ?? ''}
+                  onChange={e => handleMappingChange('taskName', e.target.value ? parseInt(e.target.value) : undefined)}
                 >
                   <option value="">— Not mapped —</option>
                   {headers.map((header, i) => (
@@ -364,7 +364,7 @@ export function ImportWizard({ csv, onClose, onSuccess }: Props) {
                   <tr>
                     <th className="col-skip">Skip</th>
                     <th className="col-category">Category</th>
-                    <th className="col-description">Description</th>
+                    <th className="col-task">Task</th>
                     <th className="col-start">Start</th>
                     <th className="col-end">End</th>
                     <th className="col-duration">Duration</th>
@@ -390,11 +390,11 @@ export function ImportWizard({ csv, onClose, onSuccess }: Props) {
                         />
                         {entry.isNewCategory && <span className="new-badge">new</span>}
                       </td>
-                      <td className="col-description">
+                      <td className="col-task">
                         <input
                           type="text"
-                          value={entry.description || ''}
-                          onChange={e => handleEntryChange(i, 'description', e.target.value || null)}
+                          value={entry.task_name || ''}
+                          onChange={e => handleEntryChange(i, 'task_name', e.target.value || null)}
                           disabled={entry.skip}
                           placeholder="—"
                         />

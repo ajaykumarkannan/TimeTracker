@@ -25,7 +25,7 @@ export interface TimeEntry {
   category_id: number;
   category_name: string;
   category_color: string | null;
-  description: string | null;
+  task_name: string | null;
   start_time: string;
   end_time: string | null;
   duration_minutes: number | null;
@@ -45,23 +45,23 @@ export interface DailyTotal {
   byCategory: { [key: string]: number };
 }
 
-export interface TopNote {
-  description: string;
+export interface TopTask {
+  task_name: string;
   count: number;
   total_minutes: number;
-  category_name: string;
-  category_color: string | null;
+  category_name?: string;
+  category_color?: string | null;
 }
 
-export interface CategoryDescription {
-  description: string;
+export interface CategoryTask {
+  task_name: string;
   count: number;
   total_minutes: number;
 }
 
 export interface CategoryDrilldown {
   category: CategoryTotal;
-  descriptions: CategoryDescription[];
+  taskNames: CategoryTask[];
   pagination: {
     page: number;
     pageSize: number;
@@ -70,8 +70,8 @@ export interface CategoryDrilldown {
   };
 }
 
-export interface DescriptionsPaginated {
-  descriptions: TopNote[];
+export interface TaskNamesPaginated {
+  taskNames: TopTask[];
   pagination: {
     page: number;
     pageSize: number;
@@ -91,7 +91,7 @@ export interface AnalyticsData {
   };
   byCategory: CategoryTotal[];
   daily: DailyTotal[];
-  topNotes: TopNote[];
+  topTasks: TopTask[];
 }
 
 export type Period = 'day' | 'week' | 'month' | 'quarter' | 'year' | 'all' | 'last7' | 'last30' | 'last90';
@@ -107,7 +107,7 @@ export interface ExportData {
 export interface ColumnMapping {
   category?: number;
   color?: number;
-  description?: number;
+  taskName?: number;
   startTime?: number;
   endTime?: number;
 }
@@ -116,7 +116,7 @@ export interface ImportEntry {
   rowIndex: number;
   category: string;
   color: string | null;
-  description: string | null;
+  task_name: string | null;
   startTime: string;
   endTime: string | null;
   duration: number | null; // Calculated for display only, not stored

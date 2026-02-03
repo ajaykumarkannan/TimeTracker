@@ -17,7 +17,7 @@ describe('Query Helpers', () => {
         5,                          // category_id
         'Development',              // category_name
         '#007bff',                  // category_color
-        'Working on feature',       // description
+        'Working on feature',       // task_name
         '2024-01-15T09:00:00Z',     // start_time
         '2024-01-15T11:00:00Z',     // end_time
         120,                        // duration_minutes
@@ -32,7 +32,7 @@ describe('Query Helpers', () => {
         category_id: 5,
         category_name: 'Development',
         category_color: '#007bff',
-        description: 'Working on feature',
+        task_name: 'Working on feature',
         start_time: '2024-01-15T09:00:00Z',
         end_time: '2024-01-15T11:00:00Z',
         duration_minutes: 120,
@@ -49,7 +49,7 @@ describe('Query Helpers', () => {
       const entry = rowToTimeEntry(row);
 
       expect(entry.category_color).toBeNull();
-      expect(entry.description).toBeNull();
+      expect(entry.task_name).toBeNull();
       expect(entry.end_time).toBeNull();
       expect(entry.duration_minutes).toBeNull();
     });

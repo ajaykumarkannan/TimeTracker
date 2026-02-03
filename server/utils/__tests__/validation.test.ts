@@ -5,7 +5,7 @@ import {
   validateDateParam,
   validatePositiveInt,
   validateCategoryId,
-  validateDescription,
+  validateTaskName,
   validateTimeRange
 } from '../validation';
 
@@ -109,30 +109,30 @@ describe('Validation Utilities', () => {
     });
   });
 
-  describe('validateDescription', () => {
+  describe('validateTaskName', () => {
     test('returns null for empty values', () => {
-      expect(validateDescription(undefined)).toBeNull();
-      expect(validateDescription(null)).toBeNull();
-      expect(validateDescription('')).toBeNull();
+      expect(validateTaskName(undefined)).toBeNull();
+      expect(validateTaskName(null)).toBeNull();
+      expect(validateTaskName('')).toBeNull();
     });
 
     test('returns trimmed string', () => {
-      expect(validateDescription('Meeting notes')).toBe('Meeting notes');
-      expect(validateDescription('  trimmed  ')).toBe('trimmed');
+      expect(validateTaskName('Meeting notes')).toBe('Meeting notes');
+      expect(validateTaskName('  trimmed  ')).toBe('trimmed');
     });
 
-    test('accepts descriptions up to 500 chars', () => {
-      const longDesc = 'a'.repeat(500);
-      expect(validateDescription(longDesc)).toBe(longDesc);
+    test('accepts task names up to 500 chars', () => {
+      const longName = 'a'.repeat(500);
+      expect(validateTaskName(longName)).toBe(longName);
     });
 
-    test('throws for too long descriptions', () => {
+    test('throws for too long task names', () => {
       const tooLong = 'a'.repeat(501);
-      expect(() => validateDescription(tooLong)).toThrow('must be 500 characters or less');
+      expect(() => validateTaskName(tooLong)).toThrow('must be 500 characters or less');
     });
 
     test('throws for non-string values', () => {
-      expect(() => validateDescription(123)).toThrow('must be a string');
+      expect(() => validateTaskName(123)).toThrow('must be a string');
     });
   });
 
