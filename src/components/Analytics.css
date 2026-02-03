@@ -976,22 +976,27 @@
   }
   
   .category-row {
-    flex-direction: column;
-    align-items: flex-start;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
     gap: 0.5rem;
+    padding: 0.5rem 0;
   }
   
   .category-row .category-info {
     min-width: auto;
+    flex: 0 0 auto;
   }
   
   .category-bar-wrapper {
-    width: 100%;
+    flex: 1;
+    min-width: 60px;
   }
   
   .category-stats {
-    width: 100%;
-    justify-content: space-between;
+    flex: 0 0 auto;
+    min-width: auto;
+    gap: 0.5rem;
   }
   
   .drilldown-header {
