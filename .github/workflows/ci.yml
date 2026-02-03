@@ -31,6 +31,25 @@ jobs:
       - name: Type check server
         run: npx tsc -p tsconfig.server.json --noEmit
 
+  security:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run npm audit
+        run: npm audit --audit-level=high
+        continue-on-error: true
+
   test:
     name: Unit Tests
     runs-on: ubuntu-latest
