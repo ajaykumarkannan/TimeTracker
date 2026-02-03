@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { getDb, saveDatabase } from '../database';
 import { logger } from '../logger';
+import { config } from '../config';
 import { 
   generateAccessToken, 
   generateRefreshToken, 
@@ -450,12 +451,18 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
     // In a real app, send email here. For demo, log the token
     logger.info('Password reset token generated', { userId, resetToken });
 
-    // Return token in response for demo purposes (remove in production!)
-    res.json({ 
-      message: 'If an account exists with this email, a reset link has been sent',
-      // Demo only - remove in production:
-      resetToken 
-    });
+    // Only return token in development mode for testing purposes
+    if (config.nodeEnv === 'production') {
+      res.json({ 
+        message: 'If an account exists with this email, a reset link has been sent'
+      });
+    } else {
+      // Development only - token included for testing
+      res.json({ 
+        message: 'If an account exists with this email, a reset link has been sent',
+        resetToken 
+      });
+    }
   } catch (error) {
     logger.error('Forgot password error', { error });
     res.status(500).json({ error: 'Failed to process request' });
