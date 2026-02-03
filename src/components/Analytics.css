@@ -1093,10 +1093,17 @@
   /* Chart improvements for mobile */
   .daily-chart {
     padding: 0.75rem 0;
+    gap: 0.25rem;
   }
   
   .chart-bar-container {
     min-width: 2.5rem;
+  }
+
+  .daily-chart.view-day .chart-bar-container,
+  .daily-chart.view-week .chart-bar-container {
+    flex: 1 1 0;
+    min-width: 2.25rem;
   }
   
   .chart-legend {
