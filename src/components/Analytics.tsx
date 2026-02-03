@@ -37,6 +37,7 @@ function getStoredPeriod(): Period {
 export function Analytics() {
   const [period, setPeriod] = useState<Period>(getStoredPeriod);
   const [periodOffset, setPeriodOffset] = useState(0); // 0 = current, -1 = previous, etc.
+  const [dayOffset, setDayOffset] = useState(0); // For "last N days" periods: shifts the window by days
   const [showPreviousMenu, setShowPreviousMenu] = useState(false);
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -164,11 +165,13 @@ export function Analytics() {
     
     const now = new Date();
     
-    // Handle "last X days" periods (no offset support)
+    // Handle "last X days" periods with optional day offset
     if (p === 'last7' || p === 'last30' || p === 'last90') {
       const end = new Date(now);
+      // Apply day offset (negative means going back in time)
+      end.setDate(end.getDate() + offset);
       end.setHours(23, 59, 59, 999);
-      const start = new Date(now);
+      const start = new Date(end);
       start.setHours(0, 0, 0, 0);
       
       switch (p) {
@@ -311,17 +314,23 @@ export function Analytics() {
   const handlePreviousPeriod = (lastDays: 'last7' | 'last30' | 'last90') => {
     setPeriod(lastDays);
     setPeriodOffset(0);
+    setDayOffset(0);
     setShowPreviousMenu(false);
     setCustomRange(null);
     setDrilldownHistory([]);
     try { localStorage.setItem(STORAGE_KEY, lastDays); } catch { /* ignore */ }
   };
 
-  const canNavigatePrevious = period !== 'all' && period !== 'last7' && period !== 'last30' && period !== 'last90' && !customRange;
-  const canNavigateNext = canNavigatePrevious && periodOffset < 0;
+  const isLastNDaysPeriod = period === 'last7' || period === 'last30' || period === 'last90';
+  const canNavigatePrevious = period !== 'all' && !customRange;
+  const canNavigateNext = canNavigatePrevious && (isLastNDaysPeriod ? dayOffset < 0 : periodOffset < 0);
 
   const navigatePeriod = (direction: -1 | 1) => {
-    setPeriodOffset(prev => prev + direction);
+    if (isLastNDaysPeriod) {
+      setDayOffset(prev => prev + direction);
+    } else {
+      setPeriodOffset(prev => prev + direction);
+    }
   };
 
   // Handle drill-down into a specific time bucket (day, week, or month)
@@ -436,7 +445,7 @@ export function Analytics() {
       setSelectedDescriptions(new Set());
       setShowMergeModal(false);
       // Trigger data refresh
-      const { start, end } = getDateRange(period, periodOffset);
+      const { start, end } = getDateRange(period, effectiveOffset);
       const result = await api.getDescriptions(start.toISOString(), end.toISOString(), descriptionsPage, descriptionsPageSize, descriptionsSortBy);
       setDescriptions(result);
     } catch (error) {
@@ -480,7 +489,7 @@ export function Analytics() {
         hasCategoryChange ? editCategoryId! : undefined
       );
       // Refresh descriptions
-      const { start, end } = getDateRange(period, periodOffset);
+      const { start, end } = getDateRange(period, effectiveOffset);
       const result = await api.getDescriptions(start.toISOString(), end.toISOString(), descriptionsPage, descriptionsPageSize, descriptionsSortBy);
       setDescriptions(result);
       // Also refresh analytics data to update category totals
@@ -493,11 +502,14 @@ export function Analytics() {
     setSaving(false);
   };
 
+  // Get the effective offset based on period type
+  const effectiveOffset = isLastNDaysPeriod ? dayOffset : periodOffset;
+
   useEffect(() => {
     const loadAnalytics = async () => {
       setLoading(true);
       try {
-        const { start, end } = getDateRange(period, periodOffset);
+        const { start, end } = getDateRange(period, effectiveOffset);
         const analytics = await api.getAnalytics(start.toISOString(), end.toISOString());
         setData(analytics);
         // Reset drill-down state when period changes
@@ -512,7 +524,7 @@ export function Analytics() {
     };
 
     loadAnalytics();
-  }, [period, periodOffset, customRange]);
+  }, [period, effectiveOffset, customRange]);
 
   // Load all descriptions (paginated)
   useEffect(() => {
@@ -520,7 +532,7 @@ export function Analytics() {
       if (!data) return;
       setDescriptionsLoading(true);
       try {
-        const { start, end } = getDateRange(period, periodOffset);
+        const { start, end } = getDateRange(period, effectiveOffset);
         const result = await api.getDescriptions(start.toISOString(), end.toISOString(), descriptionsPage, descriptionsPageSize, descriptionsSortBy);
         setDescriptions(result);
       } catch (error) {
@@ -530,7 +542,7 @@ export function Analytics() {
     };
 
     loadDescriptions();
-  }, [data, descriptionsPage, descriptionsPageSize, descriptionsSortBy, period, periodOffset]);
+  }, [data, descriptionsPage, descriptionsPageSize, descriptionsSortBy, period, effectiveOffset]);
 
   // Load category drilldown when a category is selected
   useEffect(() => {
@@ -541,7 +553,7 @@ export function Analytics() {
       }
       setCategoryDrilldownLoading(true);
       try {
-        const { start, end } = getDateRange(period, periodOffset);
+        const { start, end } = getDateRange(period, effectiveOffset);
         const result = await api.getCategoryDrilldown(selectedCategory, start.toISOString(), end.toISOString(), categoryDrilldownPage, 20);
         setCategoryDrilldown(result);
       } catch (error) {
@@ -551,7 +563,7 @@ export function Analytics() {
     };
 
     loadCategoryDrilldown();
-  }, [selectedCategory, categoryDrilldownPage, data, period, periodOffset]);
+  }, [selectedCategory, categoryDrilldownPage, data, period, effectiveOffset]);
 
   // Fill in missing days with 0 minutes (skip for 'all' period - too slow)
   const filledDaily = useMemo(() => {
@@ -562,7 +574,7 @@ export function Analytics() {
       return data.daily;
     }
     
-    const { start, end } = getDateRange(period, periodOffset);
+    const { start, end } = getDateRange(period, effectiveOffset);
     const dailyMap = new Map(data.daily.map(d => [d.date, d]));
     const filled: DailyTotal[] = [];
     
@@ -575,7 +587,7 @@ export function Analytics() {
     }
     
     return filled;
-  }, [data, period, periodOffset]);
+  }, [data, period, effectiveOffset]);
 
   // Aggregate daily data into hours, weeks, or months based on period
   const aggregatedData = useMemo((): AggregatedTotal[] => {
@@ -764,7 +776,7 @@ export function Analytics() {
   };
 
   const getChartHint = () => {
-    const { start, end } = getDateRange(period, periodOffset);
+    const { start, end } = getDateRange(period, effectiveOffset);
     const formatRange = (s: Date, e: Date) => {
       const opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
       if (s.getFullYear() !== e.getFullYear()) {
