@@ -42,10 +42,11 @@ export default tseslint.config(
     },
   },
   {
-    // Test files can use any and console
-    files: ['**/*.test.ts', '**/*.test.tsx', '**/test/**/*.ts', 'e2e/**/*.ts'],
+    // Test files can use any, non-null assertions, and console
+    files: ['**/*.test.ts', '**/*.test.tsx', '**/test/**/*.ts', 'e2e/**/*.ts', 'e2e/**/*.spec.ts'],
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-non-null-assertion': 'off',
       'no-console': 'off',
     },
   },
