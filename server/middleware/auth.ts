@@ -2,8 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { getDb, saveDatabase } from '../database';
 import { logger } from '../logger';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'chronoflow-secret-key-change-in-production';
+import { config } from '../config';
 
 export interface AuthRequest extends Request {
   userId?: number;
@@ -17,16 +16,16 @@ export interface JwtPayload {
 }
 
 export function generateAccessToken(userId: number, email: string): string {
-  return jwt.sign({ userId, email }, JWT_SECRET, { expiresIn: '15m' });
+  return jwt.sign({ userId, email }, config.jwtSecret, { expiresIn: '15m' });
 }
 
 export function generateRefreshToken(userId: number, email: string): string {
-  return jwt.sign({ userId, email, type: 'refresh' }, JWT_SECRET, { expiresIn: '7d' });
+  return jwt.sign({ userId, email, type: 'refresh' }, config.jwtSecret, { expiresIn: '7d' });
 }
 
 export function verifyToken(token: string): JwtPayload | null {
   try {
-    return jwt.verify(token, JWT_SECRET) as JwtPayload;
+    return jwt.verify(token, config.jwtSecret) as JwtPayload;
   } catch {
     return null;
   }

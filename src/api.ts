@@ -2,10 +2,43 @@ import { Category, TimeEntry, AnalyticsData, AuthResponse, User, ColumnMapping, 
 
 const API_BASE = '/api';
 
+// Request timeout configuration (30 seconds default)
+const DEFAULT_TIMEOUT_MS = 30000;
+
 // Session management
 let accessToken: string | null = localStorage.getItem('accessToken');
 let refreshToken: string | null = localStorage.getItem('refreshToken');
 let sessionId: string | null = localStorage.getItem('sessionId');
+
+// Auth state change listeners - used to notify when a logged-in user gets logged out unexpectedly
+type AuthStateChangeCallback = (reason: 'session_expired' | 'refresh_failed') => void;
+const authStateChangeListeners: Set<AuthStateChangeCallback> = new Set();
+
+/**
+ * Subscribe to authentication state changes (e.g., when a logged-in user is unexpectedly logged out)
+ * Returns an unsubscribe function
+ */
+export function onAuthStateChange(callback: AuthStateChangeCallback): () => void {
+  authStateChangeListeners.add(callback);
+  return () => authStateChangeListeners.delete(callback);
+}
+
+/**
+ * Check if the user was previously logged in (had tokens stored)
+ */
+export function wasLoggedIn(): boolean {
+  return localStorage.getItem('user') !== null;
+}
+
+function notifyAuthStateChange(reason: 'session_expired' | 'refresh_failed') {
+  authStateChangeListeners.forEach(callback => {
+    try {
+      callback(reason);
+    } catch {
+      // Ignore callback errors
+    }
+  });
+}
 
 // Generate or get session ID for anonymous users
 function getSessionId(): string {
@@ -44,6 +77,33 @@ export function isLoggedIn(): boolean {
   return !!accessToken;
 }
 
+/**
+ * Fetch with timeout support
+ */
+async function fetchWithTimeout(
+  url: string, 
+  options: RequestInit = {}, 
+  timeoutMs: number = DEFAULT_TIMEOUT_MS
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  
+  try {
+    const response = await fetch(url, { 
+      ...options, 
+      signal: controller.signal 
+    });
+    return response;
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error(`Request timeout after ${timeoutMs}ms`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 async function apiFetch(url: string, options: RequestInit = {}): Promise<Response> {
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
@@ -57,7 +117,7 @@ async function apiFetch(url: string, options: RequestInit = {}): Promise<Respons
     (headers as Record<string, string>)['X-Session-ID'] = getSessionId();
   }
 
-  let res = await fetch(url, { ...options, headers });
+  let res = await fetchWithTimeout(url, { ...options, headers });
 
   // Handle rate limiting - don't treat as auth failure
   if (res.status === 429) {
@@ -66,7 +126,7 @@ async function apiFetch(url: string, options: RequestInit = {}): Promise<Respons
 
   // If unauthorized and we have a refresh token, try to refresh
   if (res.status === 401 && refreshToken) {
-    const refreshRes = await fetch(`${API_BASE}/auth/refresh`, {
+    const refreshRes = await fetchWithTimeout(`${API_BASE}/auth/refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refreshToken })
@@ -79,9 +139,12 @@ async function apiFetch(url: string, options: RequestInit = {}): Promise<Respons
       
       (headers as Record<string, string>)['Authorization'] = `Bearer ${data.accessToken}`;
       delete (headers as Record<string, string>)['X-Session-ID'];
-      res = await fetch(url, { ...options, headers });
+      res = await fetchWithTimeout(url, { ...options, headers });
     } else {
+      // User was logged in but refresh failed - notify listeners
+      // This prevents falling back to guest mode silently
       clearTokens();
+      notifyAuthStateChange('refresh_failed');
     }
   }
 

@@ -185,3 +185,48 @@
 .back-link:hover {
   color: var(--text-secondary);
 }
+
+/* Session expired message */
+.session-expired-message {
+  position: relative;
+  background: var(--warning-bg, rgba(245, 158, 11, 0.1));
+  border: 1px solid var(--warning, #f59e0b);
+  color: var(--text-primary);
+  padding: 1rem 2.5rem 1rem 1rem;
+  border-radius: var(--radius-md);
+  margin-bottom: 1.25rem;
+}
+
+.session-expired-message strong {
+  display: block;
+  color: var(--warning, #f59e0b);
+  font-size: 0.9375rem;
+  margin-bottom: 0.25rem;
+}
+
+.session-expired-message p {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.session-expired-message .dismiss-btn {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.25rem;
+  cursor: pointer;
+  padding: 0.25rem;
+  line-height: 1;
+  border-radius: var(--radius-sm);
+  transition: all 0.15s ease;
+}
+
+.session-expired-message .dismiss-btn:hover {
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+}

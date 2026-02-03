@@ -355,7 +355,7 @@ function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLoggedIn: bo
 }
 
 export default function App() {
-  const { user, loading, logout } = useAuth();
+  const { user, loading, logout, sessionExpired, clearSessionExpired } = useAuth();
   const [showLanding, setShowLanding] = useState(() => {
     // Show landing if no session and not logged in
     const hasSession = !!localStorage.getItem('sessionId');
@@ -392,11 +392,13 @@ export default function App() {
 
   const handleLoginBack = () => {
     setShowLogin(false);
+    clearSessionExpired();
   };
 
   const handleLoginSuccess = () => {
     setShowLogin(false);
     setShowLanding(false);
+    clearSessionExpired();
   };
 
   const handleConvertSuccess = () => {
@@ -404,7 +406,12 @@ export default function App() {
     window.location.reload();
   };
 
-  // Show login screen
+  // If session expired (logged-in user was logged out unexpectedly), show login with message
+  if (sessionExpired && !user) {
+    return <Login onBack={handleLoginBack} onSuccess={handleLoginSuccess} sessionExpired={true} />;
+  }
+
+  // Show login screen (intentional navigation)
   if (showLogin) {
     return <Login onBack={handleLoginBack} onSuccess={handleLoginSuccess} />;
   }

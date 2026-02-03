@@ -1,12 +1,11 @@
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
-import { initDatabase, shutdownDatabase } from './database';
+import { initDatabase, shutdownDatabase, getDb } from './database';
 import { logger } from './logger';
 import { config, validateConfig } from './config';
 import { rateLimiter, securityHeaders, sanitizeInput } from './middleware/security';
 import { getCurrentVersion, LATEST_VERSION } from './migrations';
-import { getDb } from './database';
 import authRouter from './routes/auth';
 import timeEntriesRouter from './routes/timeEntries';
 import categoriesRouter from './routes/categories';

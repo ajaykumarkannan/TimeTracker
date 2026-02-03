@@ -14,8 +14,40 @@ export default tseslint.config(
       },
     },
     rules: {
+      // TypeScript rules
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      '@typescript-eslint/no-non-null-assertion': 'warn',
+      
+      // General best practices
+      'no-console': ['warn', { allow: ['warn', 'error'] }],
+      'no-debugger': 'error',
+      'no-duplicate-imports': 'error',
+      'no-template-curly-in-string': 'warn',
+      'prefer-const': 'error',
+      'eqeqeq': ['error', 'always', { null: 'ignore' }],
+      
+      // Security-related rules
+      'no-eval': 'error',
+      'no-implied-eval': 'error',
+      'no-new-func': 'error',
+      'no-script-url': 'error',
+    },
+  },
+  {
+    // Server-specific rules
+    files: ['server/**/*.ts'],
+    rules: {
+      'no-console': 'off', // Server can use console (winston handles logging)
+    },
+  },
+  {
+    // Test files can use any, non-null assertions, and console
+    files: ['**/*.test.ts', '**/*.test.tsx', '**/test/**/*.ts', 'e2e/**/*.ts', 'e2e/**/*.spec.ts'],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-non-null-assertion': 'off',
+      'no-console': 'off',
     },
   },
   {

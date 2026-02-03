@@ -8,6 +8,13 @@ import {
   rowsToTimeEntries,
   calculateDurationMinutes 
 } from '../utils/queryHelpers';
+import {
+  validateDateParam,
+  validatePositiveInt,
+  validateCategoryId,
+  validateDescription,
+  isValidISODate
+} from '../utils/validation';
 
 const router = Router();
 
@@ -17,10 +24,19 @@ router.use(flexAuthMiddleware);
 router.get('/', (req: AuthRequest, res: Response) => {
   try {
     const db = getDb();
-    const limit = Math.min(parseInt(req.query.limit as string) || 100, 500);
-    const offset = parseInt(req.query.offset as string) || 0;
-    const startDate = req.query.startDate as string;
-    const endDate = req.query.endDate as string;
+    
+    // Validate query parameters
+    const limit = Math.min(validatePositiveInt(req.query.limit, 'limit', 100), 500);
+    const offset = validatePositiveInt(req.query.offset, 'offset', 0);
+    
+    let startDate: string | null;
+    let endDate: string | null;
+    try {
+      startDate = validateDateParam(req.query.startDate, 'startDate');
+      endDate = validateDateParam(req.query.endDate, 'endDate');
+    } catch (err) {
+      return res.status(400).json({ error: (err as Error).message });
+    }
     
     let query = TIME_ENTRIES_WITH_CATEGORIES_QUERY + ` WHERE te.user_id = ?`;
     const params: (number | string)[] = [req.userId as number];
@@ -69,10 +85,14 @@ router.get('/active', (req: AuthRequest, res: Response) => {
 // Start new entry
 router.post('/start', (req: AuthRequest, res: Response) => {
   try {
-    const { category_id, description } = req.body;
+    let categoryId: number;
+    let desc: string | null;
     
-    if (!category_id) {
-      return res.status(400).json({ error: 'Category is required' });
+    try {
+      categoryId = validateCategoryId(req.body.category_id);
+      desc = validateDescription(req.body.description);
+    } catch (err) {
+      return res.status(400).json({ error: (err as Error).message });
     }
 
     const db = getDb();
@@ -80,7 +100,7 @@ router.post('/start', (req: AuthRequest, res: Response) => {
     // Verify category belongs to user
     const catCheck = db.exec(
       `SELECT id FROM categories WHERE id = ? AND user_id = ?`,
-      [category_id, req.userId as number]
+      [categoryId, req.userId as number]
     );
     if (catCheck.length === 0 || catCheck[0].values.length === 0) {
       return res.status(400).json({ error: 'Invalid category' });
@@ -107,7 +127,7 @@ router.post('/start', (req: AuthRequest, res: Response) => {
     const startTime = new Date().toISOString();
     db.run(
       `INSERT INTO time_entries (user_id, category_id, description, start_time) VALUES (?, ?, ?, ?)`,
-      [req.userId as number, category_id, description || null, startTime]
+      [req.userId as number, categoryId, desc, startTime]
     );
     saveDatabase();
 
@@ -228,10 +248,26 @@ router.put('/:id', (req: AuthRequest, res: Response) => {
 // Create manual entry (for past tasks)
 router.post('/', (req: AuthRequest, res: Response) => {
   try {
-    const { category_id, description, start_time, end_time } = req.body;
+    let categoryId: number;
+    let desc: string | null;
+    let startTime: string;
+    let endTime: string;
     
-    if (!category_id || !start_time || !end_time) {
-      return res.status(400).json({ error: 'Category, start time, and end time are required' });
+    try {
+      categoryId = validateCategoryId(req.body.category_id);
+      desc = validateDescription(req.body.description);
+      
+      if (!req.body.start_time || !isValidISODate(req.body.start_time)) {
+        throw new Error('start_time must be a valid ISO 8601 date');
+      }
+      startTime = req.body.start_time;
+      
+      if (!req.body.end_time || !isValidISODate(req.body.end_time)) {
+        throw new Error('end_time must be a valid ISO 8601 date');
+      }
+      endTime = req.body.end_time;
+    } catch (err) {
+      return res.status(400).json({ error: (err as Error).message });
     }
 
     const db = getDb();
@@ -239,14 +275,14 @@ router.post('/', (req: AuthRequest, res: Response) => {
     // Verify category belongs to user
     const catCheck = db.exec(
       `SELECT id FROM categories WHERE id = ? AND user_id = ?`,
-      [category_id, req.userId as number]
+      [categoryId, req.userId as number]
     );
     if (catCheck.length === 0 || catCheck[0].values.length === 0) {
       return res.status(400).json({ error: 'Invalid category' });
     }
 
     // Calculate duration
-    const duration = calculateDurationMinutes(start_time, end_time);
+    const duration = calculateDurationMinutes(startTime, endTime);
     
     if (duration < 0) {
       return res.status(400).json({ error: 'End time must be after start time' });
@@ -254,7 +290,7 @@ router.post('/', (req: AuthRequest, res: Response) => {
 
     db.run(
       `INSERT INTO time_entries (user_id, category_id, description, start_time, end_time, duration_minutes) VALUES (?, ?, ?, ?, ?, ?)`,
-      [req.userId as number, category_id, description || null, start_time, end_time, duration]
+      [req.userId as number, categoryId, desc, startTime, endTime, duration]
     );
     saveDatabase();
 
