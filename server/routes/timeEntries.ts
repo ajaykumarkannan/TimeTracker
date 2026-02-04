@@ -25,8 +25,18 @@ router.get('/', (req: AuthRequest, res: Response) => {
   try {
     const db = getDb();
     
+    // Optional category filter
+    const categoryId = req.query.categoryId ? parseInt(req.query.categoryId as string) : null;
+    
+    // Optional search query (searches task_name and category_name)
+    const searchQuery = (req.query.search as string || '').trim().toLowerCase();
+    
+    // When filtering by category or search, use a higher default limit to return all matching entries
+    const hasFilters = categoryId || searchQuery;
+    const defaultLimit = hasFilters ? 1000 : 100;
+    
     // Validate query parameters
-    const limit = Math.min(validatePositiveInt(req.query.limit, 'limit', 100), 500);
+    const limit = Math.min(validatePositiveInt(req.query.limit, 'limit', defaultLimit), 5000);
     const offset = validatePositiveInt(req.query.offset, 'offset', 0);
     
     let startDate: string | null;
@@ -49,6 +59,18 @@ router.get('/', (req: AuthRequest, res: Response) => {
     if (endDate) {
       query += ` AND te.start_time <= ?`;
       params.push(endDate);
+    }
+    
+    // Optional category filtering
+    if (categoryId) {
+      query += ` AND te.category_id = ?`;
+      params.push(categoryId);
+    }
+    
+    // Optional search filtering (task_name or category_name)
+    if (searchQuery) {
+      query += ` AND (LOWER(te.task_name) LIKE ? OR LOWER(c.name) LIKE ?)`;
+      params.push(`%${searchQuery}%`, `%${searchQuery}%`);
     }
     
     query += ` ORDER BY te.start_time DESC LIMIT ? OFFSET ?`;

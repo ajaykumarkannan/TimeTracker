@@ -4,6 +4,23 @@ import { api } from '../api';
 import { formatTime, formatDuration, formatDate, formatDateTimeLocal, formatDateOnly, formatTimeOnly, combineDateAndTime } from '../utils/timeUtils';
 import './TimeEntryList.css';
 
+// Debounce hook for search input
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+}
+
 // Simple fuzzy match - checks if all characters in query appear in order in target
 function fuzzyMatch(query: string, target: string): { match: boolean; score: number } {
   const q = query.toLowerCase();
@@ -73,6 +90,9 @@ export function TimeEntryList({ categories, onEntryChange, onCategoryChange, ref
   const [categoryFilter, setCategoryFilter] = useState<number | 'all'>('all');
   const [showFilters, setShowFilters] = useState(false);
   const [activePreset, setActivePreset] = useState<'today' | 'week' | 'month' | 'all' | null>('week');
+  
+  // Debounce search query to avoid excessive API calls while typing
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
   
   // Initialize date filters to "This Week" on mount
   const [dateFrom, setDateFrom] = useState(() => {
@@ -191,13 +211,17 @@ export function TimeEntryList({ categories, onEntryChange, onCategoryChange, ref
         endDate = localEnd.toISOString();
       }
       
-      const data = await api.getTimeEntries(startDate, endDate);
+      // Pass category and search filters to server for proper filtering across all entries
+      const categoryIdParam = categoryFilter !== 'all' ? categoryFilter : undefined;
+      const searchParam = debouncedSearchQuery.trim() || undefined;
+      
+      const data = await api.getTimeEntries(startDate, endDate, categoryIdParam, searchParam);
       setEntries(data);
     } catch (error) {
       console.error('Failed to load entries:', error);
     }
     setLoading(false);
-  }, [dateFrom, dateTo]);
+  }, [dateFrom, dateTo, categoryFilter, debouncedSearchQuery]);
 
   // Load entries when date filter changes
   useEffect(() => {
@@ -322,22 +346,11 @@ export function TimeEntryList({ categories, onEntryChange, onCategoryChange, ref
   }, [entries]);
 
   // Filter entries based on search, category, and date range
+  // Note: Primary filtering is now done server-side, but we keep client-side date filtering
+  // for accurate display grouping based on local timezone
   const filteredEntries = useMemo(() => {
     return entries.filter(entry => {
-      // Search filter (task name and category name)
-      if (searchQuery) {
-        const query = searchQuery.toLowerCase();
-        const matchesTaskName = entry.task_name?.toLowerCase().includes(query);
-        const matchesCategory = entry.category_name.toLowerCase().includes(query);
-        if (!matchesTaskName && !matchesCategory) return false;
-      }
-      
-      // Category filter
-      if (categoryFilter !== 'all' && entry.category_id !== categoryFilter) {
-        return false;
-      }
-      
-      // Date range filter
+      // Date range filter (client-side for accurate local timezone handling)
       const entryDate = new Date(entry.start_time);
       if (dateFrom) {
         // Parse YYYY-MM-DD as local date by splitting and using Date constructor
@@ -353,7 +366,7 @@ export function TimeEntryList({ categories, onEntryChange, onCategoryChange, ref
       
       return true;
     });
-  }, [entries, searchQuery, categoryFilter, dateFrom, dateTo]);
+  }, [entries, dateFrom, dateTo]);
 
   const hasActiveFilters = searchQuery || categoryFilter !== 'all' || dateFrom || dateTo;
 

@@ -43,6 +43,7 @@ beforeAll(async () => {
       user_id INTEGER NOT NULL,
       category_id INTEGER NOT NULL,
       note TEXT,
+      task_name TEXT,
       start_time DATETIME NOT NULL,
       end_time DATETIME,
       duration_minutes INTEGER,
@@ -349,6 +350,58 @@ describe('Analytics', () => {
       expect(total).toBe(360);
       expect(days).toBe(3);
       expect(Math.round(total / days)).toBe(120);
+    });
+  });
+
+  describe('Task Name Search', () => {
+    it('searches both task name and category name', () => {
+      // Create categories
+      db.run('INSERT INTO categories (user_id, name, color) VALUES (?, ?, ?)', 
+        [testUserId, 'Deep Work', '#007bff']);
+      const deepWorkId = db.exec('SELECT last_insert_rowid()')[0].values[0][0];
+      
+      db.run('INSERT INTO categories (user_id, name, color) VALUES (?, ?, ?)', 
+        [testUserId, 'Meetings', '#28a745']);
+      const meetingsId = db.exec('SELECT last_insert_rowid()')[0].values[0][0];
+
+      // Add time entries with task names
+      db.run(`INSERT INTO time_entries (user_id, category_id, task_name, start_time, duration_minutes) 
+              VALUES (?, ?, ?, ?, ?)`,
+        [testUserId, deepWorkId, 'Code review', '2024-01-15T09:00:00Z', 120]);
+      db.run(`INSERT INTO time_entries (user_id, category_id, task_name, start_time, duration_minutes) 
+              VALUES (?, ?, ?, ?, ?)`,
+        [testUserId, meetingsId, 'Weekly standup', '2024-01-15T14:00:00Z', 60]);
+
+      // Search by task name
+      const taskNameSearch = 'code';
+      const taskResult = db.exec(`
+        SELECT te.task_name, c.name as category_name
+        FROM time_entries te
+        JOIN categories c ON te.category_id = c.id
+        WHERE te.user_id = ? 
+          AND te.task_name IS NOT NULL 
+          AND (LOWER(te.task_name) LIKE ? OR LOWER(c.name) LIKE ?)
+        GROUP BY te.task_name, c.name
+      `, [testUserId, `%${taskNameSearch}%`, `%${taskNameSearch}%`]);
+
+      expect(taskResult[0].values).toHaveLength(1);
+      expect(taskResult[0].values[0][0]).toBe('Code review');
+
+      // Search by category name - should find task in "Deep Work" category
+      const categorySearch = 'deep';
+      const categoryResult = db.exec(`
+        SELECT te.task_name, c.name as category_name
+        FROM time_entries te
+        JOIN categories c ON te.category_id = c.id
+        WHERE te.user_id = ? 
+          AND te.task_name IS NOT NULL 
+          AND (LOWER(te.task_name) LIKE ? OR LOWER(c.name) LIKE ?)
+        GROUP BY te.task_name, c.name
+      `, [testUserId, `%${categorySearch}%`, `%${categorySearch}%`]);
+
+      expect(categoryResult[0].values).toHaveLength(1);
+      expect(categoryResult[0].values[0][0]).toBe('Code review');
+      expect(categoryResult[0].values[0][1]).toBe('Deep Work');
     });
   });
 });
