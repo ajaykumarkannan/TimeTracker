@@ -125,20 +125,35 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   }, [entries.length]); // Refetch when entries change
 
   // Filter suggestions locally with fuzzy matching
+  // Prefer selected category but show all tasks
   const suggestions = useMemo(() => {
-    let filtered = cachedSuggestions;
+    let filtered = [...cachedSuggestions];
     
-    // Filter by category if selected
-    if (selectedCategory) {
-      filtered = filtered.filter(s => s.categoryId === selectedCategory);
-    }
-    
-    // Fuzzy filter by task name
+    // Fuzzy filter by task name if there's a description
     if (description) {
       filtered = filtered
         .map(s => ({ ...s, ...fuzzyMatch(description, s.task_name) }))
         .filter(s => s.match)
-        .sort((a, b) => b.score - a.score || b.count - a.count);
+        .sort((a, b) => {
+          // Prefer selected category
+          if (selectedCategory) {
+            const aInCategory = a.categoryId === selectedCategory ? 1 : 0;
+            const bInCategory = b.categoryId === selectedCategory ? 1 : 0;
+            if (aInCategory !== bInCategory) return bInCategory - aInCategory;
+          }
+          // Then by match score, then by recency
+          return b.score - a.score || new Date(b.lastUsed).getTime() - new Date(a.lastUsed).getTime();
+        });
+    } else {
+      // No query - sort by category preference, then recency
+      filtered = filtered.sort((a, b) => {
+        if (selectedCategory) {
+          const aInCategory = a.categoryId === selectedCategory ? 1 : 0;
+          const bInCategory = b.categoryId === selectedCategory ? 1 : 0;
+          if (aInCategory !== bInCategory) return bInCategory - aInCategory;
+        }
+        return new Date(b.lastUsed).getTime() - new Date(a.lastUsed).getTime();
+      });
     }
     
     return filtered.slice(0, 8);
