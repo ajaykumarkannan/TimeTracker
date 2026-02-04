@@ -133,7 +133,7 @@ App runs on `http://localhost:4849`
 
 #### GHCR Publishing
 
-- `main` pushes publish `ghcr.io/<owner>/<repo>:main` and `:sha-<short>`.
+- `main` pushes publish `ghcr.io/<owner>/<repo>:main` and `:sha-<short>` (GHCR lowercases the repo name, e.g. `ghcr.io/owner/timetracker`).
 - Version tags publish semver tags plus `:latest` for production.
 
 #### Data Persistence

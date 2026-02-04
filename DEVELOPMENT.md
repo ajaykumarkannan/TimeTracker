@@ -5,8 +5,8 @@ This guide is for contributors who want to develop and improve ChronoFlow.
 ## Quick Start
 
 ```bash
-git clone https://github.com/YOUR-USERNAME/chronoflow.git
-cd chronoflow
+git clone https://github.com/YOUR-USERNAME/TimeTracker.git
+cd TimeTracker
 npm install
 npm run dev
 ```
@@ -167,8 +167,8 @@ Users with Watchtower will auto-update within an hour.
 
 ## GHCR Publishing
 
-- `main` pushes publish `ghcr.io/<owner>/<repo>:main` and `:sha-<short>` for smoke testing.
-- Version tags (`vX.Y.Z`) publish semver tags plus `:latest` for production.
+- `main` pushes publish `ghcr.io/<owner>/<repo>:main` and `:sha-<short>` for smoke testing (GHCR lowercases the repo name, e.g. `ghcr.io/owner/timetracker`).
+- Version tags (`vX.Y.Z`) publish semver tags (`1.0.0`, `v1.0.0`, `1.0`, `1`) plus `:latest` for production.
 
 ## Environment Variables
 

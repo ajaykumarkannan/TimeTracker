@@ -29,7 +29,7 @@ docker run -d \
   -v chronoflow-data:/app/data \
   -e JWT_SECRET=$(openssl rand -base64 32) \
   --name chronoflow \
-  ghcr.io/ajaykumarkannan/chronoflow:latest
+  ghcr.io/ajaykumarkannan/timetracker:latest
 
 # Visit http://localhost:4849
 ```
@@ -38,7 +38,7 @@ Or use docker-compose for a more complete setup:
 
 ```bash
 # Clone the repo (or just download docker-compose.yml)
-curl -O https://raw.githubusercontent.com/ajaykumarkannan/chronoflow/main/docker-compose.yml
+curl -O https://raw.githubusercontent.com/ajaykumarkannan/TimeTracker/main/docker-compose.yml
 
 # Start
 docker-compose up -d
@@ -52,11 +52,11 @@ For production with Cloudflare Tunnel and auto-updates:
 
 ```bash
 # Download production compose file
-curl -O https://raw.githubusercontent.com/ajaykumarkannan/chronoflow/main/docker-compose.prod.yml
+curl -O https://raw.githubusercontent.com/ajaykumarkannan/TimeTracker/main/docker-compose.prod.yml
 
 # Create environment file
 cat > .env << 'EOF'
-GITHUB_REPO=ajaykumarkannan/chronoflow
+GITHUB_REPO=ajaykumarkannan/timetracker
 JWT_SECRET=$(openssl rand -base64 32)
 CLOUDFLARE_TUNNEL_TOKEN=your-tunnel-token
 CORS_ORIGIN=https://chronoflow.yourdomain.com
@@ -73,19 +73,19 @@ The production setup includes:
 
 ### GitHub Container Registry (GHCR)
 
-Images are published to GHCR at `ghcr.io/ajaykumarkannan/chronoflow`. If you fork the repo, update the image name to match your owner/repo.
+Images are published to GHCR at `ghcr.io/ajaykumarkannan/timetracker` (repo name is lowercased by GHCR). If you fork the repo, set `GITHUB_REPO` to your owner/repo in lowercase (e.g. `youruser/timetracker`).
 
 For private images, authenticate first:
 ```bash
-echo "$GITHUB_TOKEN" | docker login ghcr.io -u ajaykumarkannan --password-stdin
+echo "$GITHUB_TOKEN" | docker login ghcr.io -u YOUR_GITHUB_USERNAME --password-stdin
 ```
 
 ### npm (Without Docker)
 
 ```bash
 # Clone and install
-git clone https://github.com/YOUR-USERNAME/chronoflow.git
-cd chronoflow
+git clone https://github.com/YOUR-USERNAME/TimeTracker.git
+cd TimeTracker
 npm install
 
 # Build for production
