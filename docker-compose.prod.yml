@@ -67,6 +67,8 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
+      # Force a modern Docker API version for compatibility with newer daemons
+      - DOCKER_API_VERSION=1.44
       # Check for updates every hour
       - WATCHTOWER_POLL_INTERVAL=3600
       # Only update containers with the enable label

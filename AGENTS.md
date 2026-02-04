@@ -107,6 +107,8 @@ main (production-ready)
 3. **Update PR descriptions**: When adding new functionality to an existing feature branch, update the PR description to reflect all changes included
 4. **Keep documentation current**: Always update `AGENTS.md` and `README.md` when adding or modifying features
 5. **Version bump on feature branches**: Update the app version on the feature branch before opening a PR. Use a **minor** bump for larger changes (new features, significant UX changes, or breaking behavior) and a **patch** bump for small fixes or low-impact tweaks.
+6. **Create GitHub releases**: After merging a tagged patch release, create the corresponding GitHub release (e.g., `v0.7.2`) with a short changelog
+
 
 #### Code Quality Standards
 
