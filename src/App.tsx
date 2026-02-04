@@ -295,7 +295,6 @@ function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLoggedIn: bo
               entries={entries}
               onEntryChange={handleEntryChange}
               onCategoryChange={handleCategoryChange}
-              isMobile={isMobile}
             />
             <TimeEntryList
               categories={categories}

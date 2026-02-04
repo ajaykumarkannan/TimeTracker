@@ -3,7 +3,6 @@ import { Category, TimeEntry } from '../types';
 import { api } from '../api';
 import { useTheme } from '../contexts/ThemeContext';
 import { getAdaptiveCategoryColors } from '../hooks/useAdaptiveColors';
-import { PopOutTimer } from './PopOutTimer';
 import './TimeTracker.css';
 
 // Simple fuzzy match - checks if all characters in query appear in order in target
@@ -65,7 +64,6 @@ interface Props {
   entries: TimeEntry[];
   onEntryChange: () => void;
   onCategoryChange: () => void;
-  isMobile?: boolean;
 }
 
 interface RecentTask {
@@ -76,7 +74,7 @@ interface RecentTask {
   count: number;
 }
 
-export function TimeTracker({ categories, activeEntry, entries, onEntryChange, onCategoryChange, isMobile = false }: Props) {
+export function TimeTracker({ categories, activeEntry, entries, onEntryChange, onCategoryChange }: Props) {
   const { resolvedTheme } = useTheme();
   const isDarkMode = resolvedTheme === 'dark';
 
@@ -97,7 +95,6 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   const [showNewTaskForm, setShowNewTaskForm] = useState(false);
   const [switchTaskPrompt, setSwitchTaskPrompt] = useState<{ categoryId: number; categoryName: string; categoryColor: string | null } | null>(null);
   const [switchTaskName, setSwitchTaskName] = useState('');
-  const [showPopOut, setShowPopOut] = useState(false);
   
   // Cached suggestions - fetched once, filtered locally
   const [cachedSuggestions, setCachedSuggestions] = useState<{ task_name: string; categoryId: number; count: number; totalMinutes: number; lastUsed: string }[]>([]);
@@ -1011,34 +1008,6 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
         </div>
       )}
 
-      {/* Floating pop-out button - hidden on mobile */}
-      {activeEntry && !showPopOut && !isMobile && (
-        <button 
-          className="floating-popout-btn"
-          onClick={() => setShowPopOut(true)} 
-          title="Pop out timer"
-          aria-label="Pop out timer to separate window"
-        >
-          <span className="popout-icon">⧉</span>
-        </button>
-      )}
-
-      {/* Pop-out timer window */}
-      {showPopOut && activeEntry && (
-        <PopOutTimer
-          activeEntry={activeEntry}
-          onStop={() => {
-            handleStop();
-            setShowPopOut(false);
-          }}
-          onPause={() => {
-            handlePause();
-            setShowPopOut(false);
-          }}
-          onClose={() => setShowPopOut(false)}
-          isDarkMode={isDarkMode}
-        />
-      )}
     </div>
   );
 }
