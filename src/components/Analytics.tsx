@@ -522,7 +522,11 @@ export function Analytics() {
 
   useEffect(() => {
     const loadAnalytics = async () => {
-      setLoading(true);
+      // Only show full loading state on initial load (when no data exists)
+      // For subsequent loads, keep showing previous data with a subtle indicator
+      if (!data) {
+        setLoading(true);
+      }
       try {
         const { start, end } = getDateRange(period, effectiveOffset);
         const analytics = await api.getAnalytics(start.toISOString(), end.toISOString());
@@ -910,7 +914,8 @@ export function Analytics() {
     }
   };
 
-  if (loading) {
+  // Show full loading state only on initial load
+  if (loading && !data) {
     return (
       <div className="analytics-loading">
         <div className="loading-spinner" />
@@ -931,7 +936,7 @@ export function Analytics() {
   const hasData = data.summary.totalMinutes > 0;
 
   return (
-    <div className="analytics">
+    <div className={`analytics ${loading ? 'analytics-updating' : ''}`}>
       {/* Period selector */}
       <div className="analytics-header">
         <div className="period-selector-wrapper">
