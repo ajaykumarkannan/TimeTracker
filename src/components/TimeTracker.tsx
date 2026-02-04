@@ -144,9 +144,12 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
     return filtered.slice(0, 8);
   }, [cachedSuggestions, selectedCategory, description]);
 
-  // Filter modal suggestions (for task/switch prompts) - show all tasks sorted by recency
+  // Filter modal suggestions (for task/switch prompts)
+  // For new task: show all tasks sorted by recency
+  // For switch task: prefer current category, then show others sorted by recency
   const modalSuggestions = useMemo(() => {
     const query = taskNamePrompt ? promptedTaskName : (switchTaskPrompt ? switchTaskName : '');
+    const currentCategoryId = switchTaskPrompt?.categoryId;
     
     if (!taskNamePrompt && !switchTaskPrompt) return [];
     
@@ -156,10 +159,26 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
       filtered = filtered
         .map(s => ({ ...s, ...fuzzyMatch(query, s.task_name) }))
         .filter(s => s.match)
-        .sort((a, b) => b.score - a.score || new Date(b.lastUsed).getTime() - new Date(a.lastUsed).getTime());
+        .sort((a, b) => {
+          // For switch task, prefer current category
+          if (currentCategoryId) {
+            const aInCategory = a.categoryId === currentCategoryId ? 1 : 0;
+            const bInCategory = b.categoryId === currentCategoryId ? 1 : 0;
+            if (aInCategory !== bInCategory) return bInCategory - aInCategory;
+          }
+          // Then by match score, then by recency
+          return b.score - a.score || new Date(b.lastUsed).getTime() - new Date(a.lastUsed).getTime();
+        });
     } else {
-      // No query - sort by recency (lastUsed)
-      filtered = filtered.sort((a, b) => new Date(b.lastUsed).getTime() - new Date(a.lastUsed).getTime());
+      // No query - sort by category preference (for switch), then recency
+      filtered = filtered.sort((a, b) => {
+        if (currentCategoryId) {
+          const aInCategory = a.categoryId === currentCategoryId ? 1 : 0;
+          const bInCategory = b.categoryId === currentCategoryId ? 1 : 0;
+          if (aInCategory !== bInCategory) return bInCategory - aInCategory;
+        }
+        return new Date(b.lastUsed).getTime() - new Date(a.lastUsed).getTime();
+      });
     }
     
     return filtered.slice(0, 8);
