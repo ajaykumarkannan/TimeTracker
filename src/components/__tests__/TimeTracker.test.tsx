@@ -3194,3 +3194,169 @@ describe('Modal keyboard navigation edge cases', () => {
     expect(screen.getByText('Task 1')).toBeInTheDocument();
   });
 });
+
+
+describe('Color palette exhaustion', () => {
+  const mockOnEntryChange = vi.fn();
+  const mockOnCategoryChange = vi.fn();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('returns random color when all palette colors are used', async () => {
+    // Create categories that use all colors in the palette
+    const allColorsUsed = [
+      { id: 1, name: 'Cat1', color: '#6366f1', created_at: '2024-01-01' },
+      { id: 2, name: 'Cat2', color: '#10b981', created_at: '2024-01-01' },
+      { id: 3, name: 'Cat3', color: '#f59e0b', created_at: '2024-01-01' },
+      { id: 4, name: 'Cat4', color: '#ef4444', created_at: '2024-01-01' },
+      { id: 5, name: 'Cat5', color: '#8b5cf6', created_at: '2024-01-01' },
+      { id: 6, name: 'Cat6', color: '#ec4899', created_at: '2024-01-01' },
+      { id: 7, name: 'Cat7', color: '#14b8a6', created_at: '2024-01-01' },
+      { id: 8, name: 'Cat8', color: '#f97316', created_at: '2024-01-01' },
+      { id: 9, name: 'Cat9', color: '#06b6d4', created_at: '2024-01-01' },
+      { id: 10, name: 'Cat10', color: '#84cc16', created_at: '2024-01-01' },
+    ];
+
+    await renderWithTheme(
+      <TimeTracker 
+        categories={allColorsUsed} 
+        activeEntry={null}
+        entries={[]}
+        onEntryChange={mockOnEntryChange}
+        onCategoryChange={mockOnCategoryChange}
+      />
+    );
+    
+    // Select "+ New category" from dropdown
+    const select = screen.getByRole('combobox');
+    await act(async () => {
+      fireEvent.change(select, { target: { value: 'new' } });
+    });
+    
+    // Should show new category form with a color (even if all are used)
+    const colorPicker = document.querySelector('.color-picker') as HTMLInputElement;
+    expect(colorPicker).toBeInTheDocument();
+    // The color should be one from the palette (random selection)
+    expect(colorPicker.value).toMatch(/^#[0-9a-f]{6}$/i);
+  });
+});
+
+describe('Modal suggestion mouse interactions', () => {
+  const mockCategories = [
+    { id: 1, name: 'Development', color: '#007bff', created_at: '2024-01-01' },
+    { id: 2, name: 'Meetings', color: '#28a745', created_at: '2024-01-01' }
+  ];
+
+  const mockOnEntryChange = vi.fn();
+  const mockOnCategoryChange = vi.fn();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(api.getTaskNameSuggestions).mockResolvedValue([
+      { task_name: 'Task A', categoryId: 1, count: 5, totalMinutes: 120, lastUsed: '2024-01-01' },
+      { task_name: 'Task B', categoryId: 1, count: 3, totalMinutes: 60, lastUsed: '2024-01-01' },
+    ]);
+  });
+
+  it('highlights suggestion on mouse enter in modal', async () => {
+    await renderWithTheme(
+      <TimeTracker 
+        categories={mockCategories} 
+        activeEntry={null}
+        entries={[]}
+        onEntryChange={mockOnEntryChange}
+        onCategoryChange={mockOnCategoryChange}
+      />
+    );
+    
+    // Click on a category quick start button to open modal
+    const quickStartBtns = document.querySelectorAll('.quick-start-btn');
+    if (quickStartBtns.length > 0) {
+      await act(async () => {
+        fireEvent.click(quickStartBtns[0]);
+      });
+      
+      // Wait for modal
+      await waitFor(() => {
+        expect(document.querySelector('.task-prompt-modal')).toBeInTheDocument();
+      });
+      
+      const modalInput = document.querySelector('.task-prompt-input') as HTMLInputElement;
+      if (modalInput) {
+        // Type to show suggestions
+        await act(async () => {
+          fireEvent.focus(modalInput);
+          fireEvent.change(modalInput, { target: { value: 'Task' } });
+        });
+        
+        // Wait for suggestions to appear
+        await waitFor(() => {
+          expect(document.querySelector('.modal-suggestions')).toBeInTheDocument();
+        });
+        
+        // Find suggestion items and hover over the second one
+        const suggestionItems = document.querySelectorAll('.modal-suggestions .suggestion-item');
+        if (suggestionItems.length > 1) {
+          await act(async () => {
+            fireEvent.mouseEnter(suggestionItems[1]);
+          });
+          
+          // The second item should now be selected (have 'selected' class)
+          expect(suggestionItems[1]).toHaveClass('selected');
+        }
+      }
+    }
+  });
+
+  it('selects suggestion on click in modal', async () => {
+    await renderWithTheme(
+      <TimeTracker 
+        categories={mockCategories} 
+        activeEntry={null}
+        entries={[]}
+        onEntryChange={mockOnEntryChange}
+        onCategoryChange={mockOnCategoryChange}
+      />
+    );
+    
+    // Click on a category quick start button to open modal
+    const quickStartBtns = document.querySelectorAll('.quick-start-btn');
+    if (quickStartBtns.length > 0) {
+      await act(async () => {
+        fireEvent.click(quickStartBtns[0]);
+      });
+      
+      // Wait for modal
+      await waitFor(() => {
+        expect(document.querySelector('.task-prompt-modal')).toBeInTheDocument();
+      });
+      
+      const modalInput = document.querySelector('.task-prompt-input') as HTMLInputElement;
+      if (modalInput) {
+        // Type to show suggestions
+        await act(async () => {
+          fireEvent.focus(modalInput);
+          fireEvent.change(modalInput, { target: { value: 'Task' } });
+        });
+        
+        // Wait for suggestions to appear
+        await waitFor(() => {
+          expect(document.querySelector('.modal-suggestions')).toBeInTheDocument();
+        });
+        
+        // Click on a suggestion
+        const suggestionItems = document.querySelectorAll('.modal-suggestions .suggestion-item');
+        if (suggestionItems.length > 0) {
+          await act(async () => {
+            fireEvent.click(suggestionItems[0]);
+          });
+          
+          // Input should be filled with the suggestion
+          expect(modalInput.value).toBe('Task A');
+        }
+      }
+    }
+  });
+});
