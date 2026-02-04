@@ -16,13 +16,9 @@ vi.mock('../../api', () => ({
   }
 }));
 
-// Store PopOutTimer callbacks for testing
-let popOutTimerCallbacks: { onStop?: () => void; onPause?: () => void; onClose?: () => void } = {};
-
 // Mock PopOutTimer to capture callbacks
 vi.mock('../PopOutTimer', () => ({
   PopOutTimer: ({ onStop, onPause, onClose }: { onStop: () => void; onPause: () => void; onClose: () => void }) => {
-    popOutTimerCallbacks = { onStop, onPause, onClose };
     return (
       <div data-testid="mock-popout-timer" className="popout-timer">
         <button data-testid="popout-stop" onClick={onStop}>Stop</button>
@@ -2962,7 +2958,6 @@ describe('PopOutTimer callbacks with mock', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    popOutTimerCallbacks = {};
   });
 
   it('handles PopOutTimer onStop callback', async () => {

@@ -1002,8 +1002,8 @@ describe('Analytics', () => {
           fireEvent.keyDown(taskInput, { key: 'Escape' });
         });
         
-        // Should exit editing mode
-        expect(screen.queryByRole('textbox', { name: '' })).toBeFalsy;
+        // Should exit editing mode - task-name-input should no longer exist
+        expect(document.querySelector('.task-name-input')).toBeNull();
       }
     }
   });
