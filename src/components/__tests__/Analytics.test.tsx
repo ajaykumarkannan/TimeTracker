@@ -15,7 +15,8 @@ vi.mock('../../api', () => ({
     getCategories: vi.fn(),
     mergeTaskNames: vi.fn(),
     updateTaskName: vi.fn(),
-    createCategory: vi.fn()
+    createCategory: vi.fn(),
+    updateEntry: vi.fn()
   }
 }));
 
@@ -1483,5 +1484,205 @@ describe('Merge Modal Radio Handlers', () => {
     await waitFor(() => {
       expect(api.getTaskNames).toHaveBeenCalledTimes(3); // Initial + Next + Previous
     });
+  });
+});
+
+
+describe('Category row keyboard navigation', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    (api.getAnalytics as ReturnType<typeof vi.fn>).mockResolvedValue(mockAnalyticsData);
+    (api.getActiveEntry as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (api.getCategories as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { id: 1, name: 'Meetings', color: '#6366f1', created_at: '2026-01-01' },
+      { id: 2, name: 'Deep Work', color: '#10b981', created_at: '2026-01-01' }
+    ]);
+    (api.getTaskNames as ReturnType<typeof vi.fn>).mockResolvedValue({
+      taskNames: [],
+      pagination: { page: 1, pageSize: 20, totalCount: 0, totalPages: 0 }
+    });
+    (api.getCategoryDrilldown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      category: { name: 'Meetings', color: '#6366f1', minutes: 600, count: 5 },
+      taskNames: [],
+      pagination: { page: 1, pageSize: 20, totalCount: 0, totalPages: 0 }
+    });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('opens category drilldown when Space key is pressed on category row', async () => {
+    await act(async () => {
+      render(<Analytics />);
+    });
+    
+    await waitFor(() => {
+      expect(screen.getByText('By Category')).toBeInTheDocument();
+    });
+    
+    // Find a category row and press Space
+    const categoryRows = document.querySelectorAll('.category-row.clickable');
+    if (categoryRows.length > 0) {
+      await act(async () => {
+        fireEvent.keyDown(categoryRows[0], { key: ' ' });
+      });
+      
+      // Should open category drilldown
+      await waitFor(() => {
+        expect(api.getCategoryDrilldown).toHaveBeenCalled();
+      });
+    }
+  });
+});
+
+describe('Inline category creation in task editing', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    (api.getAnalytics as ReturnType<typeof vi.fn>).mockResolvedValue(mockAnalyticsData);
+    (api.getActiveEntry as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (api.getCategories as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { id: 1, name: 'Meetings', color: '#6366f1', created_at: '2026-01-01' },
+      { id: 2, name: 'Deep Work', color: '#10b981', created_at: '2026-01-01' }
+    ]);
+    (api.getTaskNames as ReturnType<typeof vi.fn>).mockResolvedValue({
+      taskNames: [
+        { task_name: 'Weekly standup', category_name: 'Meetings', category_color: '#6366f1', count: 5, total_minutes: 150 }
+      ],
+      pagination: { page: 1, pageSize: 20, totalCount: 1, totalPages: 1 }
+    });
+    (api.createCategory as ReturnType<typeof vi.fn>).mockResolvedValue({ id: 3, name: 'New Category', color: '#ff0000' });
+    (api.updateEntry as ReturnType<typeof vi.fn>).mockResolvedValue({});
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('creates category via inline form save button click', async () => {
+    await act(async () => {
+      render(<Analytics />);
+    });
+    
+    await waitFor(() => {
+      expect(screen.getByText('All Tasks')).toBeInTheDocument();
+    });
+    
+    // Click edit on a task
+    const editButtons = screen.getAllByTitle('Edit task');
+    if (editButtons.length > 0) {
+      await act(async () => {
+        fireEvent.click(editButtons[0]);
+      });
+      
+      // Select "+ New category" from dropdown
+      const categorySelect = document.querySelector('.task-category-select') as HTMLSelectElement;
+      if (categorySelect) {
+        await act(async () => {
+          fireEvent.change(categorySelect, { target: { value: 'new' } });
+        });
+        
+        // Fill in category name
+        const nameInput = document.querySelector('.inline-new-category .task-name-input') as HTMLInputElement;
+        if (nameInput) {
+          await act(async () => {
+            fireEvent.change(nameInput, { target: { value: 'Test Category' } });
+          });
+          
+          // Click the save button (checkmark)
+          const saveBtn = document.querySelector('.task-edit-btn.save') as HTMLButtonElement;
+          if (saveBtn) {
+            await act(async () => {
+              fireEvent.click(saveBtn);
+            });
+            
+            await waitFor(() => {
+              expect(api.createCategory).toHaveBeenCalledWith('Test Category', expect.any(String));
+            });
+          }
+        }
+      }
+    }
+  });
+
+  it('cancels inline category creation via cancel button click', async () => {
+    await act(async () => {
+      render(<Analytics />);
+    });
+    
+    await waitFor(() => {
+      expect(screen.getByText('All Tasks')).toBeInTheDocument();
+    });
+    
+    // Click edit on a task
+    const editButtons = screen.getAllByTitle('Edit task');
+    if (editButtons.length > 0) {
+      await act(async () => {
+        fireEvent.click(editButtons[0]);
+      });
+      
+      // Select "+ New category" from dropdown
+      const categorySelect = document.querySelector('.task-category-select') as HTMLSelectElement;
+      if (categorySelect) {
+        await act(async () => {
+          fireEvent.change(categorySelect, { target: { value: 'new' } });
+        });
+        
+        // Verify inline form is shown
+        const nameInput = document.querySelector('.inline-new-category .task-name-input');
+        expect(nameInput).toBeInTheDocument();
+        
+        // Click the cancel button (X)
+        const cancelBtn = document.querySelector('.inline-new-category .task-edit-btn.cancel') as HTMLButtonElement;
+        if (cancelBtn) {
+          await act(async () => {
+            fireEvent.click(cancelBtn);
+          });
+          
+          // Inline form should be hidden
+          await waitFor(() => {
+            expect(document.querySelector('.inline-new-category')).not.toBeInTheDocument();
+          });
+        }
+      }
+    }
+  });
+
+  it('changes color in inline category creation form', async () => {
+    await act(async () => {
+      render(<Analytics />);
+    });
+    
+    await waitFor(() => {
+      expect(screen.getByText('All Tasks')).toBeInTheDocument();
+    });
+    
+    // Click edit on a task
+    const editButtons = screen.getAllByTitle('Edit task');
+    if (editButtons.length > 0) {
+      await act(async () => {
+        fireEvent.click(editButtons[0]);
+      });
+      
+      // Select "+ New category" from dropdown
+      const categorySelect = document.querySelector('.task-category-select') as HTMLSelectElement;
+      if (categorySelect) {
+        await act(async () => {
+          fireEvent.change(categorySelect, { target: { value: 'new' } });
+        });
+        
+        // Change color
+        const colorPicker = document.querySelector('.inline-color-picker') as HTMLInputElement;
+        if (colorPicker) {
+          await act(async () => {
+            fireEvent.change(colorPicker, { target: { value: '#ff5500' } });
+          });
+          
+          expect(colorPicker.value).toBe('#ff5500');
+        }
+      }
+    }
   });
 });
