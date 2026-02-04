@@ -29,7 +29,7 @@ docker run -d \
   -v chronoflow-data:/app/data \
   -e JWT_SECRET=$(openssl rand -base64 32) \
   --name chronoflow \
-  ghcr.io/YOUR-USERNAME/chronoflow:latest
+  ghcr.io/my-user/chronoflow:latest
 
 # Visit http://localhost:4849
 ```
@@ -38,7 +38,7 @@ Or use docker-compose for a more complete setup:
 
 ```bash
 # Clone the repo (or just download docker-compose.yml)
-curl -O https://raw.githubusercontent.com/YOUR-USERNAME/chronoflow/main/docker-compose.yml
+curl -O https://raw.githubusercontent.com/my-user/chronoflow/main/docker-compose.yml
 
 # Start
 docker-compose up -d
@@ -52,11 +52,11 @@ For production with Cloudflare Tunnel and auto-updates:
 
 ```bash
 # Download production compose file
-curl -O https://raw.githubusercontent.com/YOUR-USERNAME/chronoflow/main/docker-compose.prod.yml
+curl -O https://raw.githubusercontent.com/my-user/chronoflow/main/docker-compose.prod.yml
 
 # Create environment file
 cat > .env << 'EOF'
-GITHUB_REPO=your-username/chronoflow
+GITHUB_REPO=my-user/chronoflow
 JWT_SECRET=$(openssl rand -base64 32)
 CLOUDFLARE_TUNNEL_TOKEN=your-tunnel-token
 CORS_ORIGIN=https://chronoflow.yourdomain.com
@@ -70,6 +70,15 @@ The production setup includes:
 - **Watchtower** for automatic updates when new versions are released
 - **Cloudflare Tunnel** for secure access without exposed ports
 - Resource limits suitable for Raspberry Pi
+
+### GitHub Container Registry (GHCR)
+
+Images are published to GHCR at `ghcr.io/my-user/chronoflow`. If you fork the repo, update the image name to match your owner/repo.
+
+For private images, authenticate first:
+```bash
+echo "$GITHUB_TOKEN" | docker login ghcr.io -u my-user --password-stdin
+```
 
 ### npm (Without Docker)
 

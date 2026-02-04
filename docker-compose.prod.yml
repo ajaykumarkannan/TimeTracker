@@ -7,9 +7,9 @@ version: '3.8'
 
 services:
   chronoflow:
-    # Use pre-built image from GitHub Container Registry
-    # Replace with your GitHub username/repo
-    image: ghcr.io/${GITHUB_REPO:-your-username/chronoflow}:latest
+    # Use pre-built image from GitHub Container Registry (GHCR)
+    # Override GITHUB_REPO to point at your fork
+    image: ghcr.io/${GITHUB_REPO:-my-user/chronoflow}:latest
     container_name: chronoflow
     expose:
       - "4849"
