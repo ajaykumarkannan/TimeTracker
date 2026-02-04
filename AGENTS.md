@@ -269,3 +269,11 @@ When making changes to the database schema, follow these guidelines:
 - Update `README.md` when user-facing features, installation, or configuration changes (this is for end users)
 - Update `DEVELOPMENT.md` when development workflows, testing, or contribution guidelines change (this is for contributors)
 - Review all docs periodically to ensure accuracy
+
+## Release Process
+
+When bumping a minor or major version:
+
+1. **Create tags with the new version** (e.g., `vX.Y.Z`) after the release commit is ready.
+2. **Correct release notes once merged** (ensure the release is tied to the final merged commit).
+3. **List changes using short PR references** (e.g., `#47`) instead of full URLs in the release notes.
