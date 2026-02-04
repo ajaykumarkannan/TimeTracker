@@ -43,8 +43,8 @@ const mockActiveEntry: TimeEntry = {
   category_name: 'Meetings',
   category_color: '#6366f1',
   task_name: 'Team sync',
-  notes: null,
-  user_id: 1
+  duration_minutes: null,
+  created_at: new Date().toISOString()
 };
 
 const mockAnalyticsData: AnalyticsData = {
