@@ -78,6 +78,7 @@ function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLoggedIn: bo
   const [showMobileNav, setShowMobileNav] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const mobileNavRef = useRef<HTMLDivElement>(null);
+  const appVersion = __APP_VERSION__;
 
   // Update theme-color meta tag when theme changes
   useEffect(() => {
@@ -242,6 +243,9 @@ function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLoggedIn: bo
                   <LogoutIcon size={16} />
                   <span>{isLoggedIn ? 'Sign out' : 'Exit'}</span>
                 </button>
+                <div className="settings-dropdown-version">
+                  <span>Version {appVersion}</span>
+                </div>
               </div>
             )}
           </div>

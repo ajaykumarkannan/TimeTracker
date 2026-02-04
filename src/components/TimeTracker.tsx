@@ -105,12 +105,14 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
   const descriptionInputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
+  const suppressSuggestionOpenRef = useRef(false);
   
   // Modal suggestions state
   const [showModalSuggestions, setShowModalSuggestions] = useState(false);
   const [selectedModalSuggestionIndex, setSelectedModalSuggestionIndex] = useState(-1);
   const modalInputRef = useRef<HTMLInputElement>(null);
   const modalSuggestionsRef = useRef<HTMLDivElement>(null);
+  const suppressModalSuggestionOpenRef = useRef(false);
 
   // Fetch all suggestions once and cache them
   useEffect(() => {
@@ -169,8 +171,10 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
 
   // Show/hide suggestions based on filtered results
   useEffect(() => {
-    if (suggestions.length > 0 && (selectedCategory || description)) {
+    if (suggestions.length > 0 && (selectedCategory || description) && !suppressSuggestionOpenRef.current) {
       setShowSuggestions(true);
+    } else if (suggestions.length === 0) {
+      setShowSuggestions(false);
     }
     setSelectedSuggestionIndex(-1);
   }, [suggestions, selectedCategory, description]);
@@ -178,7 +182,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   useEffect(() => {
     // Show modal suggestions when modal opens and has suggestions
     // This runs after modalSuggestions recalculates
-    if ((taskNamePrompt || switchTaskPrompt) && modalSuggestions.length > 0) {
+    if ((taskNamePrompt || switchTaskPrompt) && modalSuggestions.length > 0 && !suppressModalSuggestionOpenRef.current) {
       setShowModalSuggestions(true);
     } else if (!taskNamePrompt && !switchTaskPrompt) {
       setShowModalSuggestions(false);
@@ -211,6 +215,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   }, []);
 
   const handleSuggestionSelect = (suggestion: { task_name: string; categoryId: number }) => {
+    suppressSuggestionOpenRef.current = true;
     setDescription(suggestion.task_name);
     if (!selectedCategory) {
       setSelectedCategory(suggestion.categoryId);
@@ -220,6 +225,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   };
   
   const handleModalSuggestionSelect = (suggestion: { task_name: string }, isSwitch: boolean) => {
+    suppressModalSuggestionOpenRef.current = true;
     if (isSwitch) {
       setSwitchTaskName(suggestion.task_name);
     } else {
@@ -257,6 +263,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
         }
         break;
       case 'Escape':
+        suppressSuggestionOpenRef.current = true;
         setShowSuggestions(false);
         setSelectedSuggestionIndex(-1);
         break;
@@ -292,6 +299,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
       case 'Escape':
         if (showModalSuggestions) {
           e.preventDefault();
+          suppressModalSuggestionOpenRef.current = true;
           setShowModalSuggestions(false);
           setSelectedModalSuggestionIndex(-1);
         } else {
@@ -547,13 +555,18 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                       ref={modalInputRef}
                       type="text"
                       className="task-prompt-input"
-                      value={switchTaskName}
-                      onChange={(e) => setSwitchTaskName(e.target.value)}
+                    value={switchTaskName}
+                      onChange={(e) => {
+                        suppressModalSuggestionOpenRef.current = false;
+                        setSwitchTaskName(e.target.value);
+                      }}
                       placeholder="What are you working on? (optional)"
                       autoFocus
                       autoComplete="off"
                       onFocus={() => {
-                        if (modalSuggestions.length > 0) setShowModalSuggestions(true);
+                        if (modalSuggestions.length > 0 && !suppressModalSuggestionOpenRef.current) {
+                          setShowModalSuggestions(true);
+                        }
                       }}
                       onKeyDown={(e) => handleModalKeyDown(e, true, handlePromptedSwitch, () => setSwitchTaskPrompt(null))}
                     />
@@ -601,7 +614,10 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                 <select 
                   className="switch-category-select"
                   value={selectedCategory || ''} 
-                  onChange={(e) => setSelectedCategory(Number(e.target.value))}
+                  onChange={(e) => {
+                    suppressSuggestionOpenRef.current = false;
+                    setSelectedCategory(Number(e.target.value));
+                  }}
                 >
                   <option value="">Category...</option>
                   {categories.map(cat => (
@@ -614,11 +630,16 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                     type="text"
                     className="switch-description-input"
                     value={description}
-                    onChange={(e) => setDescription(e.target.value)}
+                    onChange={(e) => {
+                      suppressSuggestionOpenRef.current = false;
+                      setDescription(e.target.value);
+                    }}
                     placeholder="Task name (optional)"
                     autoComplete="off"
                     onFocus={() => {
-                      if (suggestions.length > 0) setShowSuggestions(true);
+                      if (suggestions.length > 0 && !suppressSuggestionOpenRef.current) {
+                        setShowSuggestions(true);
+                      }
                     }}
                     onKeyDown={(e) => {
                       if (!showSuggestions || suggestions.length === 0) {
@@ -647,6 +668,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                           }
                           break;
                         case 'Escape':
+                          suppressSuggestionOpenRef.current = true;
                           setShowSuggestions(false);
                           setSelectedSuggestionIndex(-1);
                           break;
@@ -779,13 +801,18 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                     type="text"
                     className="task-prompt-input"
                     value={promptedTaskName}
-                    onChange={(e) => setPromptedTaskName(e.target.value)}
+                      onChange={(e) => {
+                        suppressModalSuggestionOpenRef.current = false;
+                        setPromptedTaskName(e.target.value);
+                      }}
                     placeholder="What are you working on? (optional)"
                     autoFocus
                     autoComplete="off"
-                    onFocus={() => {
-                      if (modalSuggestions.length > 0) setShowModalSuggestions(true);
-                    }}
+                      onFocus={() => {
+                        if (modalSuggestions.length > 0 && !suppressModalSuggestionOpenRef.current) {
+                          setShowModalSuggestions(true);
+                        }
+                      }}
                     onKeyDown={(e) => handleModalKeyDown(e, false, handlePromptedStart, () => setTaskNamePrompt(null))}
                   />
                   {showModalSuggestions && modalSuggestions.length > 0 && (
@@ -897,9 +924,14 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                     ref={descriptionInputRef}
                     type="text"
                     value={description}
-                    onChange={(e) => setDescription(e.target.value)}
+                    onChange={(e) => {
+                      suppressSuggestionOpenRef.current = false;
+                      setDescription(e.target.value);
+                    }}
                     onFocus={() => {
-                      if (suggestions.length > 0) setShowSuggestions(true);
+                      if (suggestions.length > 0 && !suppressSuggestionOpenRef.current) {
+                        setShowSuggestions(true);
+                      }
                     }}
                     onKeyDown={handleDescriptionKeyDown}
                     placeholder="What are you working on?"

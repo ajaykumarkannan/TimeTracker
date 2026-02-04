@@ -1,6 +1,6 @@
 {
   "name": "chronoflow",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "type": "module",
   "description": "Time tracking webapp - understand where your work hours go",
   "scripts": {
