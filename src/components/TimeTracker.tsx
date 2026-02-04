@@ -144,23 +144,22 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
     return filtered.slice(0, 8);
   }, [cachedSuggestions, selectedCategory, description]);
 
-  // Filter modal suggestions (for task/switch prompts)
+  // Filter modal suggestions (for task/switch prompts) - show all tasks sorted by recency
   const modalSuggestions = useMemo(() => {
-    const categoryId = taskNamePrompt?.categoryId || switchTaskPrompt?.categoryId;
     const query = taskNamePrompt ? promptedTaskName : (switchTaskPrompt ? switchTaskName : '');
     
-    if (!categoryId) return [];
+    if (!taskNamePrompt && !switchTaskPrompt) return [];
     
-    let filtered = cachedSuggestions.filter(s => s.categoryId === categoryId);
+    let filtered = [...cachedSuggestions];
     
     if (query) {
       filtered = filtered
         .map(s => ({ ...s, ...fuzzyMatch(query, s.task_name) }))
         .filter(s => s.match)
-        .sort((a, b) => b.score - a.score || b.count - a.count);
+        .sort((a, b) => b.score - a.score || new Date(b.lastUsed).getTime() - new Date(a.lastUsed).getTime());
     } else {
-      // No query - sort by count
-      filtered = filtered.sort((a, b) => b.count - a.count);
+      // No query - sort by recency (lastUsed)
+      filtered = filtered.sort((a, b) => new Date(b.lastUsed).getTime() - new Date(a.lastUsed).getTime());
     }
     
     return filtered.slice(0, 8);
@@ -567,9 +566,12 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                       }}
                       onKeyDown={(e) => handleModalKeyDown(e, true, handlePromptedSwitch, () => setSwitchTaskPrompt(null))}
                     />
-                    {showModalSuggestions && modalSuggestions.length > 0 && (
-                      <div className="description-suggestions modal-suggestions" ref={modalSuggestionsRef}>
-                        {modalSuggestions.map((suggestion, idx) => (
+                  {showModalSuggestions && modalSuggestions.length > 0 && (
+                    <div className="description-suggestions modal-suggestions" ref={modalSuggestionsRef}>
+                      {modalSuggestions.map((suggestion, idx) => {
+                        const cat = categories.find(c => c.id === suggestion.categoryId);
+                        const colors = getCategoryColors(cat?.color || null);
+                        return (
                           <button
                             key={`${suggestion.categoryId}-${suggestion.task_name}`}
                             className={`suggestion-item ${idx === selectedModalSuggestionIndex ? 'selected' : ''}`}
@@ -577,11 +579,16 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                             onMouseEnter={() => setSelectedModalSuggestionIndex(idx)}
                           >
                             <span className="suggestion-text">{suggestion.task_name}</span>
-                            <span className="suggestion-count">×{suggestion.count}</span>
+                            <span className="suggestion-meta">
+                              <span className="category-dot" style={{ backgroundColor: colors.dotColor }} />
+                              <span className="suggestion-category">{cat?.name || 'Unknown'}</span>
+                              <span className="suggestion-count">×{suggestion.count}</span>
+                            </span>
                           </button>
-                        ))}
-                      </div>
-                    )}
+                        );
+                      })}
+                    </div>
+                  )}
                   </div>
                   <div className="task-prompt-actions">
                     <button className="btn btn-ghost" onClick={() => setSwitchTaskPrompt(null)}>
@@ -814,17 +821,25 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                   />
                   {showModalSuggestions && modalSuggestions.length > 0 && (
                     <div className="description-suggestions modal-suggestions" ref={modalSuggestionsRef}>
-                      {modalSuggestions.map((suggestion, idx) => (
-                        <button
-                          key={`${suggestion.categoryId}-${suggestion.task_name}`}
-                          className={`suggestion-item ${idx === selectedModalSuggestionIndex ? 'selected' : ''}`}
-                          onClick={() => handleModalSuggestionSelect(suggestion, false)}
-                          onMouseEnter={() => setSelectedModalSuggestionIndex(idx)}
-                        >
-                          <span className="suggestion-text">{suggestion.task_name}</span>
-                          <span className="suggestion-count">×{suggestion.count}</span>
-                        </button>
-                      ))}
+                      {modalSuggestions.map((suggestion, idx) => {
+                        const cat = categories.find(c => c.id === suggestion.categoryId);
+                        const colors = getCategoryColors(cat?.color || null);
+                        return (
+                          <button
+                            key={`${suggestion.categoryId}-${suggestion.task_name}`}
+                            className={`suggestion-item ${idx === selectedModalSuggestionIndex ? 'selected' : ''}`}
+                            onClick={() => handleModalSuggestionSelect(suggestion, false)}
+                            onMouseEnter={() => setSelectedModalSuggestionIndex(idx)}
+                          >
+                            <span className="suggestion-text">{suggestion.task_name}</span>
+                            <span className="suggestion-meta">
+                              <span className="category-dot" style={{ backgroundColor: colors.dotColor }} />
+                              <span className="suggestion-category">{cat?.name || 'Unknown'}</span>
+                              <span className="suggestion-count">×{suggestion.count}</span>
+                            </span>
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
