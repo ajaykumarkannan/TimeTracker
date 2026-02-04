@@ -76,6 +76,18 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # Make package public so anyone can pull without login (optional; may require PAT with admin:packages)
+      - name: Set package visibility to public
+        continue-on-error: true
+        run: |
+          PACKAGE_NAME=$(echo ${{ env.IMAGE_NAME }} | tr '[:upper:]' '[:lower:]' | sed 's/\//%2F/g')
+          curl -sS -X PATCH \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/user/packages/container/${PACKAGE_NAME} \
+            -d '{"visibility":"public"}'
+
   create-release:
     needs: build-and-push
     runs-on: ubuntu-latest

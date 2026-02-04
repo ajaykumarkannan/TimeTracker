@@ -170,6 +170,8 @@ Users with Watchtower will auto-update within an hour.
 - `main` pushes publish `ghcr.io/<owner>/<repo>:main` and `:sha-<short>` for smoke testing (GHCR lowercases the repo name, e.g. `ghcr.io/owner/timetracker`).
 - Version tags (`vX.Y.Z`) publish semver tags (`1.0.0`, `v1.0.0`, `1.0`, `1`) plus `:latest` for production.
 
+**Package visibility:** New GHCR packages start as private. The workflows try to set visibility to public via the API so anyone can `docker pull` without logging in. If that step fails (e.g. token lacks permission), make the package public once manually: open the package page (e.g. **Your profile → Packages →** the container image), then **Package settings → Danger zone → Change visibility → Public**. This is irreversible.
+
 ## Environment Variables
 
 ### Development
