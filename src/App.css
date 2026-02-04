@@ -448,6 +448,15 @@ body {
   color: var(--error);
 }
 
+.settings-dropdown-version {
+  padding: 0.625rem 1rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-align: center;
+  background: var(--card-bg);
+}
+
 /* Settings Modal */
 .settings-modal-overlay {
   position: fixed;

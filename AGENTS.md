@@ -106,6 +106,7 @@ main (production-ready)
 2. **Continue on the same branch**: If the user requests additional changes related to the feature, continue working on the same branch without renaming it
 3. **Update PR descriptions**: When adding new functionality to an existing feature branch, update the PR description to reflect all changes included
 4. **Keep documentation current**: Always update `AGENTS.md` and `README.md` when adding or modifying features
+5. **Version bump on feature branches**: Update the app version on the feature branch before opening a PR. Use a **minor** bump for larger changes (new features, significant UX changes, or breaking behavior) and a **patch** bump for small fixes or low-impact tweaks.
 
 #### Code Quality Standards
 
@@ -134,7 +135,7 @@ App runs on `http://localhost:4849`
 #### GHCR Publishing
 
 - `main` pushes publish `ghcr.io/<owner>/<repo>:main` and `:sha-<short>` (GHCR lowercases the repo name, e.g. `ghcr.io/owner/timetracker`).
-- Version tags with patch=0 (minor/major only, e.g. `v1.0.0`, `v1.1.0`) publish semver tags plus `:latest` for production; patch tags (e.g. `v1.0.1`) do not trigger the release workflow.
+- Version tags (including patch tags like `v1.0.1`) publish semver tags plus `:latest` for production.
 
 #### Data Persistence
 
