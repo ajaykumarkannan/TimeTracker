@@ -49,6 +49,6 @@ describe('Help', () => {
 
   it('renders version info', () => {
     render(<Help />);
-    expect(screen.getByText('ChronoFlow v1.0.0')).toBeInTheDocument();
+    expect(screen.getByText('ChronoFlow v0.7.0')).toBeInTheDocument();
   });
 });
