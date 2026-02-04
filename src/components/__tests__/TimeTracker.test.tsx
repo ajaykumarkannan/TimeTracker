@@ -16,19 +16,6 @@ vi.mock('../../api', () => ({
   }
 }));
 
-// Mock PopOutTimer to capture callbacks
-vi.mock('../PopOutTimer', () => ({
-  PopOutTimer: ({ onStop, onPause, onClose }: { onStop: () => void; onPause: () => void; onClose: () => void }) => {
-    return (
-      <div data-testid="mock-popout-timer" className="popout-timer">
-        <button data-testid="popout-stop" onClick={onStop}>Stop</button>
-        <button data-testid="popout-pause" onClick={onPause}>Pause</button>
-        <button data-testid="popout-close" onClick={onClose}>Close</button>
-      </div>
-    );
-  }
-}));
-
 import { api } from '../../api';
 
 // Helper to render with ThemeProvider and wait for effects
@@ -702,11 +689,10 @@ describe('TimeTracker', () => {
         entries={mockEntries}
         onEntryChange={mockOnEntryChange}
         onCategoryChange={mockOnCategoryChange}
-        isMobile={true}
       />
     );
     
-    // Should render without errors in mobile mode
+    // Should render without errors
     expect(screen.getByText('Category')).toBeInTheDocument();
   });
 
@@ -1111,100 +1097,6 @@ describe('TimeTracker', () => {
     // Should have called API
     await waitFor(() => {
       expect(api.createCategory).toHaveBeenCalled();
-    });
-  });
-
-  it('shows pop-out button when timer is active on desktop', async () => {
-    const activeEntry = {
-      id: 1,
-      category_id: 1,
-      category_name: 'Development',
-      category_color: '#007bff',
-      task_name: null,
-      start_time: new Date().toISOString(),
-      end_time: null,
-      duration_minutes: null,
-      created_at: '2024-01-01'
-    };
-
-    await renderWithTheme(
-      <TimeTracker 
-        categories={mockCategories} 
-        activeEntry={activeEntry}
-        entries={mockEntries}
-        onEntryChange={mockOnEntryChange}
-        onCategoryChange={mockOnCategoryChange}
-        isMobile={false}
-      />
-    );
-    
-    // Should show pop-out button
-    const popoutBtn = document.querySelector('.floating-popout-btn');
-    expect(popoutBtn).toBeInTheDocument();
-  });
-
-  it('hides pop-out button on mobile', async () => {
-    const activeEntry = {
-      id: 1,
-      category_id: 1,
-      category_name: 'Development',
-      category_color: '#007bff',
-      task_name: null,
-      start_time: new Date().toISOString(),
-      end_time: null,
-      duration_minutes: null,
-      created_at: '2024-01-01'
-    };
-
-    await renderWithTheme(
-      <TimeTracker 
-        categories={mockCategories} 
-        activeEntry={activeEntry}
-        entries={mockEntries}
-        onEntryChange={mockOnEntryChange}
-        onCategoryChange={mockOnCategoryChange}
-        isMobile={true}
-      />
-    );
-    
-    // Should NOT show pop-out button on mobile
-    const popoutBtn = document.querySelector('.floating-popout-btn');
-    expect(popoutBtn).not.toBeInTheDocument();
-  });
-
-  it('opens pop-out timer when clicking pop-out button', async () => {
-    const activeEntry = {
-      id: 1,
-      category_id: 1,
-      category_name: 'Development',
-      category_color: '#007bff',
-      task_name: null,
-      start_time: new Date().toISOString(),
-      end_time: null,
-      duration_minutes: null,
-      created_at: '2024-01-01'
-    };
-
-    await renderWithTheme(
-      <TimeTracker 
-        categories={mockCategories} 
-        activeEntry={activeEntry}
-        entries={mockEntries}
-        onEntryChange={mockOnEntryChange}
-        onCategoryChange={mockOnCategoryChange}
-        isMobile={false}
-      />
-    );
-    
-    // Pop-out button should be visible and clickable
-    const popoutBtn = document.querySelector('.floating-popout-btn');
-    expect(popoutBtn).toBeInTheDocument();
-    expect(popoutBtn).toHaveAttribute('title', 'Pop out timer');
-    expect(popoutBtn).toHaveAttribute('aria-label', 'Pop out timer to separate window');
-    
-    // Clicking should not throw
-    await act(async () => {
-      fireEvent.click(popoutBtn!);
     });
   });
 
@@ -2042,40 +1934,6 @@ describe('TimeTracker', () => {
     }
   });
 
-  it('shows PopOutTimer when clicking pop-out button', async () => {
-    const activeEntry = {
-      id: 1,
-      category_id: 1,
-      category_name: 'Development',
-      category_color: '#007bff',
-      task_name: 'Working',
-      start_time: new Date().toISOString(),
-      end_time: null,
-      duration_minutes: null,
-      created_at: '2024-01-01'
-    };
-
-    await renderWithTheme(
-      <TimeTracker 
-        categories={mockCategories} 
-        activeEntry={activeEntry}
-        entries={mockEntries}
-        onEntryChange={mockOnEntryChange}
-        onCategoryChange={mockOnCategoryChange}
-        isMobile={false}
-      />
-    );
-    
-    // Click pop-out button
-    const popoutBtn = document.querySelector('.floating-popout-btn');
-    expect(popoutBtn).toBeInTheDocument();
-    
-    // Clicking should not throw (PopOutTimer opens a window)
-    await act(async () => {
-      fireEvent.click(popoutBtn!);
-    });
-  });
-
   it('uses fallback color when all palette colors are used', async () => {
     // Create categories that use all palette colors
     const manyCategories = [
@@ -2469,7 +2327,7 @@ describe('TimeTracker', () => {
 });
 
 
-// Additional tests for fuzzyMatch and PopOutTimer callbacks
+// Additional tests for fuzzyMatch
 describe('fuzzyMatch function coverage', () => {
   const mockCategories = [
     { id: 1, name: 'Development', color: '#007bff', created_at: '2024-01-01' },
@@ -2567,166 +2425,6 @@ describe('fuzzyMatch function coverage', () => {
     
     // Should not show the suggestion
     expect(screen.queryByText('Feature development')).not.toBeInTheDocument();
-  });
-});
-
-describe('PopOutTimer callbacks', () => {
-  const mockCategories = [
-    { id: 1, name: 'Development', color: '#007bff', created_at: '2024-01-01' },
-    { id: 2, name: 'Meetings', color: '#28a745', created_at: '2024-01-01' }
-  ];
-
-  const mockEntries = [
-    {
-      id: 1,
-      category_id: 1,
-      category_name: 'Development',
-      category_color: '#007bff',
-      task_name: 'Previous task',
-      start_time: '2024-01-01T10:00:00Z',
-      end_time: '2024-01-01T11:00:00Z',
-      duration_minutes: 60,
-      created_at: '2024-01-01'
-    }
-  ];
-
-  const mockOnEntryChange = vi.fn();
-  const mockOnCategoryChange = vi.fn();
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it('handles PopOutTimer onStop callback', async () => {
-    const activeEntry = {
-      id: 1,
-      category_id: 1,
-      category_name: 'Development',
-      category_color: '#007bff',
-      task_name: 'Working',
-      start_time: new Date().toISOString(),
-      end_time: null,
-      duration_minutes: null,
-      created_at: '2024-01-01'
-    };
-
-    await renderWithTheme(
-      <TimeTracker 
-        categories={mockCategories} 
-        activeEntry={activeEntry}
-        entries={mockEntries}
-        onEntryChange={mockOnEntryChange}
-        onCategoryChange={mockOnCategoryChange}
-        isMobile={false}
-      />
-    );
-    
-    // Click pop-out button to show PopOutTimer
-    const popoutBtn = document.querySelector('.floating-popout-btn');
-    expect(popoutBtn).toBeInTheDocument();
-    
-    await act(async () => {
-      fireEvent.click(popoutBtn!);
-    });
-    
-    // PopOutTimer should be rendered - find the stop button in it
-    const popoutStopBtn = document.querySelector('.popout-timer .stop-btn, .popout-stop-btn');
-    if (popoutStopBtn) {
-      await act(async () => {
-        fireEvent.click(popoutStopBtn);
-      });
-      
-      await waitFor(() => {
-        expect(api.stopEntry).toHaveBeenCalled();
-      });
-    }
-  });
-
-  it('handles PopOutTimer onPause callback', async () => {
-    const activeEntry = {
-      id: 1,
-      category_id: 1,
-      category_name: 'Development',
-      category_color: '#007bff',
-      task_name: 'Working',
-      start_time: new Date().toISOString(),
-      end_time: null,
-      duration_minutes: null,
-      created_at: '2024-01-01'
-    };
-
-    await renderWithTheme(
-      <TimeTracker 
-        categories={mockCategories} 
-        activeEntry={activeEntry}
-        entries={mockEntries}
-        onEntryChange={mockOnEntryChange}
-        onCategoryChange={mockOnCategoryChange}
-        isMobile={false}
-      />
-    );
-    
-    // Click pop-out button
-    const popoutBtn = document.querySelector('.floating-popout-btn');
-    await act(async () => {
-      fireEvent.click(popoutBtn!);
-    });
-    
-    // Find pause button in PopOutTimer
-    const popoutPauseBtn = document.querySelector('.popout-timer .pause-btn, .popout-pause-btn');
-    if (popoutPauseBtn) {
-      await act(async () => {
-        fireEvent.click(popoutPauseBtn);
-      });
-      
-      await waitFor(() => {
-        expect(api.stopEntry).toHaveBeenCalled();
-      });
-    }
-  });
-
-  it('handles PopOutTimer onClose callback', async () => {
-    const activeEntry = {
-      id: 1,
-      category_id: 1,
-      category_name: 'Development',
-      category_color: '#007bff',
-      task_name: 'Working',
-      start_time: new Date().toISOString(),
-      end_time: null,
-      duration_minutes: null,
-      created_at: '2024-01-01'
-    };
-
-    await renderWithTheme(
-      <TimeTracker 
-        categories={mockCategories} 
-        activeEntry={activeEntry}
-        entries={mockEntries}
-        onEntryChange={mockOnEntryChange}
-        onCategoryChange={mockOnCategoryChange}
-        isMobile={false}
-      />
-    );
-    
-    // Click pop-out button
-    const popoutBtn = document.querySelector('.floating-popout-btn');
-    await act(async () => {
-      fireEvent.click(popoutBtn!);
-    });
-    
-    // Find close button in PopOutTimer
-    const popoutCloseBtn = document.querySelector('.popout-timer .close-btn, .popout-close-btn, [aria-label*="close"]');
-    if (popoutCloseBtn) {
-      await act(async () => {
-        fireEvent.click(popoutCloseBtn);
-      });
-      
-      // PopOutTimer should be closed
-      await waitFor(() => {
-        expect(document.querySelector('.popout-timer')).not.toBeInTheDocument();
-      });
-    }
   });
 });
 
@@ -2832,7 +2530,7 @@ describe('Modal keyboard navigation edge cases', () => {
 });
 
 
-// Additional tests for fuzzyMatch and PopOutTimer callbacks
+// Additional tests for fuzzyMatch
 describe('fuzzyMatch function coverage', () => {
   const mockCategories = [
     { id: 1, name: 'Development', color: '#007bff', created_at: '2024-01-01' },
@@ -2930,167 +2628,6 @@ describe('fuzzyMatch function coverage', () => {
     
     // Should not show the suggestion
     expect(screen.queryByText('Feature development')).not.toBeInTheDocument();
-  });
-});
-
-describe('PopOutTimer callbacks with mock', () => {
-  const mockCategories = [
-    { id: 1, name: 'Development', color: '#007bff', created_at: '2024-01-01' },
-    { id: 2, name: 'Meetings', color: '#28a745', created_at: '2024-01-01' }
-  ];
-
-  const mockEntries = [
-    {
-      id: 1,
-      category_id: 1,
-      category_name: 'Development',
-      category_color: '#007bff',
-      task_name: 'Previous task',
-      start_time: '2024-01-01T10:00:00Z',
-      end_time: '2024-01-01T11:00:00Z',
-      duration_minutes: 60,
-      created_at: '2024-01-01'
-    }
-  ];
-
-  const mockOnEntryChange = vi.fn();
-  const mockOnCategoryChange = vi.fn();
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it('handles PopOutTimer onStop callback', async () => {
-    const activeEntry = {
-      id: 1,
-      category_id: 1,
-      category_name: 'Development',
-      category_color: '#007bff',
-      task_name: 'Working',
-      start_time: new Date().toISOString(),
-      end_time: null,
-      duration_minutes: null,
-      created_at: '2024-01-01'
-    };
-
-    await renderWithTheme(
-      <TimeTracker 
-        categories={mockCategories} 
-        activeEntry={activeEntry}
-        entries={mockEntries}
-        onEntryChange={mockOnEntryChange}
-        onCategoryChange={mockOnCategoryChange}
-        isMobile={false}
-      />
-    );
-    
-    // Click pop-out button to show PopOutTimer
-    const popoutBtn = document.querySelector('.floating-popout-btn');
-    expect(popoutBtn).toBeInTheDocument();
-    
-    await act(async () => {
-      fireEvent.click(popoutBtn!);
-    });
-    
-    // PopOutTimer should be rendered with mock
-    const mockPopout = screen.getByTestId('mock-popout-timer');
-    expect(mockPopout).toBeInTheDocument();
-    
-    // Click the stop button in the mock PopOutTimer
-    const stopBtn = screen.getByTestId('popout-stop');
-    await act(async () => {
-      fireEvent.click(stopBtn);
-    });
-    
-    await waitFor(() => {
-      expect(api.stopEntry).toHaveBeenCalled();
-    });
-  });
-
-  it('handles PopOutTimer onPause callback', async () => {
-    const activeEntry = {
-      id: 1,
-      category_id: 1,
-      category_name: 'Development',
-      category_color: '#007bff',
-      task_name: 'Working',
-      start_time: new Date().toISOString(),
-      end_time: null,
-      duration_minutes: null,
-      created_at: '2024-01-01'
-    };
-
-    await renderWithTheme(
-      <TimeTracker 
-        categories={mockCategories} 
-        activeEntry={activeEntry}
-        entries={mockEntries}
-        onEntryChange={mockOnEntryChange}
-        onCategoryChange={mockOnCategoryChange}
-        isMobile={false}
-      />
-    );
-    
-    // Click pop-out button
-    const popoutBtn = document.querySelector('.floating-popout-btn');
-    await act(async () => {
-      fireEvent.click(popoutBtn!);
-    });
-    
-    // Click the pause button in the mock PopOutTimer
-    const pauseBtn = screen.getByTestId('popout-pause');
-    await act(async () => {
-      fireEvent.click(pauseBtn);
-    });
-    
-    await waitFor(() => {
-      expect(api.stopEntry).toHaveBeenCalled();
-    });
-  });
-
-  it('handles PopOutTimer onClose callback', async () => {
-    const activeEntry = {
-      id: 1,
-      category_id: 1,
-      category_name: 'Development',
-      category_color: '#007bff',
-      task_name: 'Working',
-      start_time: new Date().toISOString(),
-      end_time: null,
-      duration_minutes: null,
-      created_at: '2024-01-01'
-    };
-
-    await renderWithTheme(
-      <TimeTracker 
-        categories={mockCategories} 
-        activeEntry={activeEntry}
-        entries={mockEntries}
-        onEntryChange={mockOnEntryChange}
-        onCategoryChange={mockOnCategoryChange}
-        isMobile={false}
-      />
-    );
-    
-    // Click pop-out button
-    const popoutBtn = document.querySelector('.floating-popout-btn');
-    await act(async () => {
-      fireEvent.click(popoutBtn!);
-    });
-    
-    // Verify PopOutTimer is shown
-    expect(screen.getByTestId('mock-popout-timer')).toBeInTheDocument();
-    
-    // Click the close button in the mock PopOutTimer
-    const closeBtn = screen.getByTestId('popout-close');
-    await act(async () => {
-      fireEvent.click(closeBtn);
-    });
-    
-    // PopOutTimer should be closed (showPopOut set to false)
-    await waitFor(() => {
-      expect(screen.queryByTestId('mock-popout-timer')).not.toBeInTheDocument();
-    });
   });
 });
 

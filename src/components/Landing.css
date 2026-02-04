@@ -100,22 +100,30 @@
 
 .btn-primary.btn-lg {
   box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .btn-primary.btn-lg:hover {
-  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.45);
-  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.45);
+  transform: translateY(-3px);
+}
+
+.btn-primary.btn-lg:active {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
 }
 
 .btn-outline {
   background: var(--card-bg);
   border: 1.5px solid var(--border);
   color: var(--text-primary);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .btn-outline:hover {
   background: var(--bg-secondary);
   border-color: var(--text-muted);
+  transform: translateY(-2px);
 }
 
 /* Features Grid */
@@ -133,7 +141,7 @@
   text-align: left;
   border: 1px solid var(--card-border);
   box-shadow: var(--card-shadow);
-  transition: all 0.25s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
 }
@@ -147,11 +155,11 @@
   height: 3px;
   background: linear-gradient(90deg, var(--primary), #a855f7);
   opacity: 0;
-  transition: opacity 0.25s ease;
+  transition: opacity 0.3s ease;
 }
 
 .feature-card:hover {
-  transform: translateY(-4px);
+  transform: translateY(-6px);
   box-shadow: var(--card-shadow-hover);
 }
 
@@ -163,6 +171,11 @@
   font-size: 1.5rem;
   margin-bottom: 0.75rem;
   display: inline-block;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.feature-card:hover .feature-icon {
+  transform: scale(1.15);
 }
 
 .feature-card h3 {
@@ -214,17 +227,23 @@
   border: 1px solid var(--card-border);
   box-shadow: var(--card-shadow);
   text-align: center;
-  transition: all 0.25s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .mode-card:hover {
   box-shadow: var(--card-shadow-hover);
+  transform: translateY(-4px);
 }
 
 .mode-icon {
   font-size: 2rem;
   margin-bottom: 0.75rem;
   display: inline-block;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.mode-card:hover .mode-icon {
+  transform: scale(1.15);
 }
 
 .mode-card h3 {

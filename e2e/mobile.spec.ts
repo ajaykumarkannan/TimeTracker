@@ -86,22 +86,6 @@ test.describe('Mobile UI', () => {
     await page.click('button:has-text("Stop")');
   });
 
-  test('pop-out button is hidden on mobile', async ({ page }) => {
-    // Start a timer
-    await page.click('.quick-start-category:has-text("Planning")');
-    await page.click('.task-prompt-modal button:has-text("Start")');
-    
-    // Wait for timer to be visible
-    await expect(page.locator('.timer-time')).toBeVisible();
-    
-    // Floating pop-out button should NOT be visible on mobile
-    const popoutBtn = page.locator('.floating-popout-btn');
-    await expect(popoutBtn).not.toBeVisible();
-    
-    // Clean up
-    await page.click('button:has-text("Stop")');
-  });
-
   test('guest mode shown in settings dropdown', async ({ page }) => {
     // Open settings menu
     const settingsBtn = page.locator('.settings-menu-btn');

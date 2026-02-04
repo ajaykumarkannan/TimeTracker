@@ -3,7 +3,6 @@ import { Category, TimeEntry } from '../types';
 import { api } from '../api';
 import { useTheme } from '../contexts/ThemeContext';
 import { getAdaptiveCategoryColors } from '../hooks/useAdaptiveColors';
-import { PopOutTimer } from './PopOutTimer';
 import './TimeTracker.css';
 
 // Simple fuzzy match - checks if all characters in query appear in order in target
@@ -65,7 +64,6 @@ interface Props {
   entries: TimeEntry[];
   onEntryChange: () => void;
   onCategoryChange: () => void;
-  isMobile?: boolean;
 }
 
 interface RecentTask {
@@ -76,7 +74,7 @@ interface RecentTask {
   count: number;
 }
 
-export function TimeTracker({ categories, activeEntry, entries, onEntryChange, onCategoryChange, isMobile = false }: Props) {
+export function TimeTracker({ categories, activeEntry, entries, onEntryChange, onCategoryChange }: Props) {
   const { resolvedTheme } = useTheme();
   const isDarkMode = resolvedTheme === 'dark';
 
@@ -97,7 +95,6 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   const [showNewTaskForm, setShowNewTaskForm] = useState(false);
   const [switchTaskPrompt, setSwitchTaskPrompt] = useState<{ categoryId: number; categoryName: string; categoryColor: string | null } | null>(null);
   const [switchTaskName, setSwitchTaskName] = useState('');
-  const [showPopOut, setShowPopOut] = useState(false);
   
   // Cached suggestions - fetched once, filtered locally
   const [cachedSuggestions, setCachedSuggestions] = useState<{ task_name: string; categoryId: number; count: number; totalMinutes: number; lastUsed: string }[]>([]);
@@ -148,22 +145,40 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   }, [cachedSuggestions, selectedCategory, description]);
 
   // Filter modal suggestions (for task/switch prompts)
+  // For new task: show all tasks sorted by recency
+  // For switch task: prefer current category, then show others sorted by recency
   const modalSuggestions = useMemo(() => {
-    const categoryId = taskNamePrompt?.categoryId || switchTaskPrompt?.categoryId;
     const query = taskNamePrompt ? promptedTaskName : (switchTaskPrompt ? switchTaskName : '');
+    const currentCategoryId = switchTaskPrompt?.categoryId;
     
-    if (!categoryId) return [];
+    if (!taskNamePrompt && !switchTaskPrompt) return [];
     
-    let filtered = cachedSuggestions.filter(s => s.categoryId === categoryId);
+    let filtered = [...cachedSuggestions];
     
     if (query) {
       filtered = filtered
         .map(s => ({ ...s, ...fuzzyMatch(query, s.task_name) }))
         .filter(s => s.match)
-        .sort((a, b) => b.score - a.score || b.count - a.count);
+        .sort((a, b) => {
+          // For switch task, prefer current category
+          if (currentCategoryId) {
+            const aInCategory = a.categoryId === currentCategoryId ? 1 : 0;
+            const bInCategory = b.categoryId === currentCategoryId ? 1 : 0;
+            if (aInCategory !== bInCategory) return bInCategory - aInCategory;
+          }
+          // Then by match score, then by recency
+          return b.score - a.score || new Date(b.lastUsed).getTime() - new Date(a.lastUsed).getTime();
+        });
     } else {
-      // No query - sort by count
-      filtered = filtered.sort((a, b) => b.count - a.count);
+      // No query - sort by category preference (for switch), then recency
+      filtered = filtered.sort((a, b) => {
+        if (currentCategoryId) {
+          const aInCategory = a.categoryId === currentCategoryId ? 1 : 0;
+          const bInCategory = b.categoryId === currentCategoryId ? 1 : 0;
+          if (aInCategory !== bInCategory) return bInCategory - aInCategory;
+        }
+        return new Date(b.lastUsed).getTime() - new Date(a.lastUsed).getTime();
+      });
     }
     
     return filtered.slice(0, 8);
@@ -570,9 +585,12 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                       }}
                       onKeyDown={(e) => handleModalKeyDown(e, true, handlePromptedSwitch, () => setSwitchTaskPrompt(null))}
                     />
-                    {showModalSuggestions && modalSuggestions.length > 0 && (
-                      <div className="description-suggestions modal-suggestions" ref={modalSuggestionsRef}>
-                        {modalSuggestions.map((suggestion, idx) => (
+                  {showModalSuggestions && modalSuggestions.length > 0 && (
+                    <div className="description-suggestions modal-suggestions" ref={modalSuggestionsRef}>
+                      {modalSuggestions.map((suggestion, idx) => {
+                        const cat = categories.find(c => c.id === suggestion.categoryId);
+                        const colors = getCategoryColors(cat?.color || null);
+                        return (
                           <button
                             key={`${suggestion.categoryId}-${suggestion.task_name}`}
                             className={`suggestion-item ${idx === selectedModalSuggestionIndex ? 'selected' : ''}`}
@@ -580,11 +598,16 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                             onMouseEnter={() => setSelectedModalSuggestionIndex(idx)}
                           >
                             <span className="suggestion-text">{suggestion.task_name}</span>
-                            <span className="suggestion-count">×{suggestion.count}</span>
+                            <span className="suggestion-meta">
+                              <span className="category-dot" style={{ backgroundColor: colors.dotColor }} />
+                              <span className="suggestion-category">{cat?.name || 'Unknown'}</span>
+                              <span className="suggestion-count">×{suggestion.count}</span>
+                            </span>
                           </button>
-                        ))}
-                      </div>
-                    )}
+                        );
+                      })}
+                    </div>
+                  )}
                   </div>
                   <div className="task-prompt-actions">
                     <button className="btn btn-ghost" onClick={() => setSwitchTaskPrompt(null)}>
@@ -817,17 +840,25 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                   />
                   {showModalSuggestions && modalSuggestions.length > 0 && (
                     <div className="description-suggestions modal-suggestions" ref={modalSuggestionsRef}>
-                      {modalSuggestions.map((suggestion, idx) => (
-                        <button
-                          key={`${suggestion.categoryId}-${suggestion.task_name}`}
-                          className={`suggestion-item ${idx === selectedModalSuggestionIndex ? 'selected' : ''}`}
-                          onClick={() => handleModalSuggestionSelect(suggestion, false)}
-                          onMouseEnter={() => setSelectedModalSuggestionIndex(idx)}
-                        >
-                          <span className="suggestion-text">{suggestion.task_name}</span>
-                          <span className="suggestion-count">×{suggestion.count}</span>
-                        </button>
-                      ))}
+                      {modalSuggestions.map((suggestion, idx) => {
+                        const cat = categories.find(c => c.id === suggestion.categoryId);
+                        const colors = getCategoryColors(cat?.color || null);
+                        return (
+                          <button
+                            key={`${suggestion.categoryId}-${suggestion.task_name}`}
+                            className={`suggestion-item ${idx === selectedModalSuggestionIndex ? 'selected' : ''}`}
+                            onClick={() => handleModalSuggestionSelect(suggestion, false)}
+                            onMouseEnter={() => setSelectedModalSuggestionIndex(idx)}
+                          >
+                            <span className="suggestion-text">{suggestion.task_name}</span>
+                            <span className="suggestion-meta">
+                              <span className="category-dot" style={{ backgroundColor: colors.dotColor }} />
+                              <span className="suggestion-category">{cat?.name || 'Unknown'}</span>
+                              <span className="suggestion-count">×{suggestion.count}</span>
+                            </span>
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -1011,34 +1042,6 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
         </div>
       )}
 
-      {/* Floating pop-out button - hidden on mobile */}
-      {activeEntry && !showPopOut && !isMobile && (
-        <button 
-          className="floating-popout-btn"
-          onClick={() => setShowPopOut(true)} 
-          title="Pop out timer"
-          aria-label="Pop out timer to separate window"
-        >
-          <span className="popout-icon">⧉</span>
-        </button>
-      )}
-
-      {/* Pop-out timer window */}
-      {showPopOut && activeEntry && (
-        <PopOutTimer
-          activeEntry={activeEntry}
-          onStop={() => {
-            handleStop();
-            setShowPopOut(false);
-          }}
-          onPause={() => {
-            handlePause();
-            setShowPopOut(false);
-          }}
-          onClose={() => setShowPopOut(false)}
-          isDarkMode={isDarkMode}
-        />
-      )}
     </div>
   );
 }
