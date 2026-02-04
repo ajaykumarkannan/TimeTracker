@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { Help } from '../Help';
+import packageInfo from '../../../package.json';
 
 describe('Help', () => {
   it('renders getting started section', () => {
@@ -49,6 +50,6 @@ describe('Help', () => {
 
   it('renders version info', () => {
     render(<Help />);
-    expect(screen.getByText('ChronoFlow v0.7.0')).toBeInTheDocument();
+    expect(screen.getByText(`ChronoFlow v${packageInfo.version}`)).toBeInTheDocument();
   });
 });
