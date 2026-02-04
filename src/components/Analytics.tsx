@@ -616,8 +616,11 @@ export function Analytics() {
           return a.task_name.localeCompare(b.task_name);
         case 'count':
           return b.count - a.count || b.total_minutes - a.total_minutes;
-        case 'recent':
-          return new Date(b.last_used).getTime() - new Date(a.last_used).getTime();
+        case 'recent': {
+          const aTime = a.last_used ? new Date(a.last_used).getTime() : 0;
+          const bTime = b.last_used ? new Date(b.last_used).getTime() : 0;
+          return bTime - aTime;
+        }
         case 'time':
         default:
           return b.total_minutes - a.total_minutes || b.count - a.count;
