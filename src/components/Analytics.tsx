@@ -968,6 +968,14 @@ export function Analytics() {
                   <polyline points="15,18 9,12 15,6" />
                 </svg>
               </button>
+              <button 
+                className="period-nav-btn today-btn" 
+                onClick={() => { setPeriodOffset(0); setDayOffset(0); }} 
+                disabled={effectiveOffset === 0}
+                title="Go to today"
+              >
+                Today
+              </button>
               <button className="period-nav-btn" onClick={() => navigatePeriod(1)} disabled={!canNavigateNext} title="Next">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
                   <polyline points="9,18 15,12 9,6" />
@@ -1212,102 +1220,105 @@ export function Analytics() {
       </div>
 
       {/* All tasks (paginated) */}
-      {taskNameData && taskNameData.pagination.totalCount > 0 && (
-        <div className="card">
-          <div className="card-header">
-            <h2 className="card-title">All Tasks</h2>
-            <div className="descriptions-header-controls">
-              {selectedTaskNames.size >= 2 && (
-                <button className="merge-btn" onClick={openMergeModal}>
-                  Merge {selectedTaskNames.size} selected
-                </button>
-              )}
-              {selectedTaskNames.size > 0 && selectedTaskNames.size < 2 && (
-                <span className="merge-hint">Select 2+ to merge</span>
-              )}
-              <select 
-                className="sort-select"
-                value={taskNamesSortBy}
-                onChange={(e) => { setTaskNamesSortBy(e.target.value as 'time' | 'alpha' | 'count' | 'recent'); setTaskNamesPage(1); }}
-              >
-                <option value="time">Sort by Time</option>
-                <option value="alpha">Sort A-Z</option>
-                <option value="count">Sort by Instances</option>
-                <option value="recent">Sort by Recent</option>
-              </select>
-              <span className="descriptions-count">{taskNameData.pagination.totalCount} total</span>
-            </div>
-          </div>
-          {/* Filter row */}
-          <div className="tasks-filter-row">
-            <input
-              type="text"
-              className="tasks-search-input"
-              placeholder={needsServerSearch ? "Search tasks (press Enter)..." : "Filter tasks..."}
-              value={needsServerSearch ? pendingServerSearch : tasksSearchQuery}
-              onChange={(e) => { 
-                if (needsServerSearch) {
-                  setPendingServerSearch(e.target.value);
-                } else {
-                  setTasksSearchQuery(e.target.value); 
-                  setTaskNamesPage(1); 
-                }
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && needsServerSearch) {
-                  executeServerSearch();
-                }
-              }}
-            />
-            <select
-              className="tasks-category-filter"
-              value={tasksFilterCategory}
-              onChange={(e) => { setTasksFilterCategory(e.target.value); setTaskNamesPage(1); }}
-            >
-              <option value="">All Categories</option>
-              {categories.map(cat => (
-                <option key={cat.id} value={cat.name}>{cat.name}</option>
-              ))}
-            </select>
-            {(tasksSearchQuery || tasksFilterCategory || pendingServerSearch) && (
-              <button 
-                className="tasks-clear-filter" 
-                onClick={() => { 
-                  setTasksSearchQuery(''); 
-                  setTasksFilterCategory(''); 
-                  setPendingServerSearch('');
-                  setTaskNamesPage(1); 
-                  // Reload full list if we had a server search active
-                  if (tasksSearchQuery && totalTaskCount > TASK_CACHE_LIMIT) {
-                    const loadFresh = async () => {
-                      if (!data) return;
-                      setTaskNamesLoading(true);
-                      try {
-                        const { start, end } = getDateRange(period, effectiveOffset);
-                        const result = await api.getTaskNames(start.toISOString(), end.toISOString(), 1, TASK_CACHE_LIMIT, 'time');
-                        setAllTaskNames(result.taskNames);
-                        setTotalTaskCount(result.pagination.totalCount);
-                      } catch (error) {
-                        console.error('Failed to reload task names:', error);
-                      }
-                      setTaskNamesLoading(false);
-                    };
-                    loadFresh();
-                  }
-                }}
-              >
-                Clear
+      <div className="card">
+        <div className="card-header">
+          <h2 className="card-title">All Tasks</h2>
+          <div className="descriptions-header-controls">
+            {selectedTaskNames.size >= 2 && (
+              <button className="merge-btn" onClick={openMergeModal}>
+                Merge {selectedTaskNames.size} selected
               </button>
             )}
-            {needsServerSearch && (
-              <span className="tasks-search-hint">
-                {totalTaskCount.toLocaleString()} tasks - press Enter to search
-              </span>
+            {selectedTaskNames.size > 0 && selectedTaskNames.size < 2 && (
+              <span className="merge-hint">Select 2+ to merge</span>
             )}
+            <select 
+              className="sort-select"
+              value={taskNamesSortBy}
+              onChange={(e) => { setTaskNamesSortBy(e.target.value as 'time' | 'alpha' | 'count' | 'recent'); setTaskNamesPage(1); }}
+            >
+              <option value="time">Sort by Time</option>
+              <option value="alpha">Sort A-Z</option>
+              <option value="count">Sort by Instances</option>
+              <option value="recent">Sort by Recent</option>
+            </select>
+            <span className="descriptions-count">{taskNameData?.pagination.totalCount ?? 0} total</span>
           </div>
-          {taskNamesLoading ? (
-            <div className="drilldown-loading">Loading...</div>
-          ) : (
+        </div>
+        {/* Filter row */}
+        <div className="tasks-filter-row">
+          <input
+            type="text"
+            className="tasks-search-input"
+            placeholder={needsServerSearch ? "Search tasks (press Enter)..." : "Filter tasks..."}
+            value={needsServerSearch ? pendingServerSearch : tasksSearchQuery}
+            onChange={(e) => { 
+              if (needsServerSearch) {
+                setPendingServerSearch(e.target.value);
+              } else {
+                setTasksSearchQuery(e.target.value); 
+                setTaskNamesPage(1); 
+              }
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && needsServerSearch) {
+                executeServerSearch();
+              }
+            }}
+          />
+          <select
+            className="tasks-category-filter"
+            value={tasksFilterCategory}
+            onChange={(e) => { setTasksFilterCategory(e.target.value); setTaskNamesPage(1); }}
+          >
+            <option value="">All Categories</option>
+            {categories.map(cat => (
+              <option key={cat.id} value={cat.name}>{cat.name}</option>
+            ))}
+          </select>
+          {(tasksSearchQuery || tasksFilterCategory || pendingServerSearch) && (
+            <button 
+              className="tasks-clear-filter" 
+              onClick={() => { 
+                setTasksSearchQuery(''); 
+                setTasksFilterCategory(''); 
+                setPendingServerSearch('');
+                setTaskNamesPage(1); 
+                // Reload full list if we had a server search active
+                if (tasksSearchQuery && totalTaskCount > TASK_CACHE_LIMIT) {
+                  const loadFresh = async () => {
+                    if (!data) return;
+                    setTaskNamesLoading(true);
+                    try {
+                      const { start, end } = getDateRange(period, effectiveOffset);
+                      const result = await api.getTaskNames(start.toISOString(), end.toISOString(), 1, TASK_CACHE_LIMIT, 'time');
+                      setAllTaskNames(result.taskNames);
+                      setTotalTaskCount(result.pagination.totalCount);
+                    } catch (error) {
+                      console.error('Failed to reload task names:', error);
+                    }
+                    setTaskNamesLoading(false);
+                  };
+                  loadFresh();
+                }
+              }}
+            >
+              Clear
+            </button>
+          )}
+          {needsServerSearch && (
+            <span className="tasks-search-hint">
+              {totalTaskCount.toLocaleString()} tasks - press Enter to search
+            </span>
+          )}
+        </div>
+        {taskNamesLoading ? (
+          <div className="drilldown-loading">Loading...</div>
+        ) : !taskNameData || taskNameData.taskNames.length === 0 ? (
+          <div className="empty-state">
+            <p>{tasksSearchQuery || tasksFilterCategory ? 'No tasks match your filter' : 'No tasks for this period'}</p>
+          </div>
+        ) : (
             <>
               <div className="top-tasks">
                 {taskNameData.taskNames.map((item: TopTask, i: number) => {
@@ -1456,7 +1467,6 @@ export function Analytics() {
             </>
           )}
         </div>
-      )}
 
       {/* Merge tasks modal */}
       {showMergeModal && (() => {
