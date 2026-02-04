@@ -243,10 +243,12 @@ export const api = {
   },
 
   // Time entries
-  async getTimeEntries(startDate?: string, endDate?: string): Promise<TimeEntry[]> {
+  async getTimeEntries(startDate?: string, endDate?: string, categoryId?: number, search?: string): Promise<TimeEntry[]> {
     const params = new URLSearchParams();
     if (startDate) params.append('startDate', startDate);
     if (endDate) params.append('endDate', endDate);
+    if (categoryId) params.append('categoryId', categoryId.toString());
+    if (search) params.append('search', search);
     const queryString = params.toString();
     const url = queryString ? `${API_BASE}/time-entries?${queryString}` : `${API_BASE}/time-entries`;
     const res = await apiFetch(url);
@@ -373,7 +375,7 @@ export const api = {
     return res.json();
   },
 
-  async getTaskNames(start: string, end: string, page: number = 1, pageSize: number = 20, sortBy: 'time' | 'alpha' | 'count' | 'recent' = 'time'): Promise<TaskNamesPaginated> {
+  async getTaskNames(start: string, end: string, page: number = 1, pageSize: number = 20, sortBy: 'time' | 'alpha' | 'count' | 'recent' = 'time', search?: string, category?: string): Promise<TaskNamesPaginated> {
     const params = new URLSearchParams({
       start,
       end,
@@ -381,6 +383,8 @@ export const api = {
       pageSize: pageSize.toString(),
       sortBy
     });
+    if (search) params.append('search', search);
+    if (category) params.append('category', category);
     const res = await apiFetch(`${API_BASE}/analytics/task-names?${params}`);
     if (!res.ok) throw new Error('Failed to fetch task names');
     return res.json();

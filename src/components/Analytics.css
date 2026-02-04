@@ -126,6 +126,13 @@
   transition: all 0.15s ease;
 }
 
+.period-nav-btn.today-btn {
+  width: auto;
+  padding: 0 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
 .period-nav-btn:hover:not(:disabled) {
   background: var(--bg-tertiary, var(--bg-secondary));
   color: var(--text-primary);
@@ -1467,6 +1474,14 @@
 .tasks-clear-filter:hover {
   background: var(--bg-secondary);
   color: var(--text-primary);
+}
+
+.tasks-search-hint {
+  display: flex;
+  align-items: center;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  white-space: nowrap;
 }
 
 /* Inline editing */

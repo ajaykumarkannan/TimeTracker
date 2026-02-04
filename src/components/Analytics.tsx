@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { api } from '../api';
-import { AnalyticsData, Period, DailyTotal, TimeEntry, CategoryDrilldown, TaskNamesPaginated, Category, TopTask } from '../types';
+import { AnalyticsData, Period, DailyTotal, TimeEntry, CategoryDrilldown, Category, TopTask } from '../types';
 import './Analytics.css';
 
 type AggregatedTotal = {
@@ -14,6 +14,8 @@ type AggregatedTotal = {
 type PeriodType = 'day' | 'week' | 'month' | 'quarter' | 'year' | 'all';
 
 const STORAGE_KEY = 'chronoflow-analytics-period';
+// Maximum tasks to cache for client-side filtering; beyond this, use server-side search
+const TASK_CACHE_LIMIT = 500;
 
 function getStoredPeriod(): Period {
   try {
@@ -45,14 +47,17 @@ export function Analytics() {
   const [categoryDrilldownPage, setCategoryDrilldownPage] = useState(1);
   const [categoryDrilldownLoading, setCategoryDrilldownLoading] = useState(false);
   
-  // All tasks state (paginated)
-  const [taskNameData, setTaskNameData] = useState<TaskNamesPaginated | null>(null);
-  const [taskNamesPage, setTaskNamesPage] = useState(1);
-  const [taskNamesPageSize, setTaskNamesPageSize] = useState(10);
+  // All tasks state - cached for fast client-side filtering
+  const [allTaskNames, setAllTaskNames] = useState<TopTask[]>([]);
   const [taskNamesLoading, setTaskNamesLoading] = useState(false);
   const [taskNamesSortBy, setTaskNamesSortBy] = useState<'time' | 'alpha' | 'count' | 'recent'>('time');
   const [tasksSearchQuery, setTasksSearchQuery] = useState('');
   const [tasksFilterCategory, setTasksFilterCategory] = useState<string>('');
+  const [taskNamesPage, setTaskNamesPage] = useState(1);
+  const [taskNamesPageSize, setTaskNamesPageSize] = useState(10);
+  // Track if total tasks exceed cache limit (requires server-side search)
+  const [totalTaskCount, setTotalTaskCount] = useState(0);
+  const [pendingServerSearch, setPendingServerSearch] = useState('');
   
   // Merge tasks state - track by "task_name|category" key
   const [selectedTaskNames, setSelectedTaskNames] = useState<Set<string>>(new Set());
@@ -426,10 +431,10 @@ export function Analytics() {
       // Clear selection and refresh data
       setSelectedTaskNames(new Set());
       setShowMergeModal(false);
-      // Trigger data refresh
+      // Refresh the cached task names
       const { start, end } = getDateRange(period, effectiveOffset);
-      const result = await api.getTaskNames(start.toISOString(), end.toISOString(), taskNamesPage, taskNamesPageSize, taskNamesSortBy);
-      setTaskNameData(result);
+      const result = await api.getTaskNames(start.toISOString(), end.toISOString(), 1, 5000, 'time');
+      setAllTaskNames(result.taskNames);
     } catch (error) {
       console.error('Failed to merge task names:', error);
     }
@@ -498,10 +503,10 @@ export function Analytics() {
         hasTaskNameChange ? editTaskNameValue : undefined,
         hasCategoryChange && editCategoryId !== null ? editCategoryId : undefined
       );
-      // Refresh task names
+      // Refresh the cached task names
       const { start, end } = getDateRange(period, effectiveOffset);
-      const result = await api.getTaskNames(start.toISOString(), end.toISOString(), taskNamesPage, taskNamesPageSize, taskNamesSortBy);
-      setTaskNameData(result);
+      const result = await api.getTaskNames(start.toISOString(), end.toISOString(), 1, 5000, 'time');
+      setAllTaskNames(result.taskNames);
       // Also refresh analytics data to update category totals
       const analytics = await api.getAnalytics(start.toISOString(), end.toISOString());
       setData(analytics);
@@ -536,23 +541,108 @@ export function Analytics() {
     loadAnalytics();
   }, [period, effectiveOffset]);
 
-  // Load all task names (paginated)
+  // Load all task names once when period changes (for client-side filtering)
+  // If total exceeds cache limit, we'll need server-side search
   useEffect(() => {
-    const loadTaskNames = async () => {
+    const loadAllTaskNames = async () => {
       if (!data) return;
       setTaskNamesLoading(true);
       try {
         const { start, end } = getDateRange(period, effectiveOffset);
-        const result = await api.getTaskNames(start.toISOString(), end.toISOString(), taskNamesPage, taskNamesPageSize, taskNamesSortBy);
-        setTaskNameData(result);
+        // Fetch task names up to cache limit for client-side filtering
+        const result = await api.getTaskNames(start.toISOString(), end.toISOString(), 1, TASK_CACHE_LIMIT, 'time');
+        setAllTaskNames(result.taskNames);
+        setTotalTaskCount(result.pagination.totalCount);
+        // Clear any pending server search when period changes
+        setPendingServerSearch('');
       } catch (error) {
         console.error('Failed to load task names:', error);
       }
       setTaskNamesLoading(false);
     };
 
-    loadTaskNames();
-  }, [data, taskNamesPage, taskNamesPageSize, taskNamesSortBy, period, effectiveOffset]);
+    loadAllTaskNames();
+  }, [data, period, effectiveOffset]);
+
+  // Server-side search when cache limit exceeded
+  const executeServerSearch = useCallback(async () => {
+    if (!data) return;
+    const query = pendingServerSearch.trim();
+    setTaskNamesLoading(true);
+    try {
+      const { start, end } = getDateRange(period, effectiveOffset);
+      const result = await api.getTaskNames(
+        start.toISOString(), 
+        end.toISOString(), 
+        1, 
+        TASK_CACHE_LIMIT, 
+        taskNamesSortBy,
+        query || undefined,
+        tasksFilterCategory || undefined
+      );
+      setAllTaskNames(result.taskNames);
+      setTotalTaskCount(result.pagination.totalCount);
+      setTasksSearchQuery(query);
+      setTaskNamesPage(1);
+    } catch (error) {
+      console.error('Failed to search task names:', error);
+    }
+    setTaskNamesLoading(false);
+  }, [data, period, effectiveOffset, pendingServerSearch, taskNamesSortBy, tasksFilterCategory]);
+
+  // Check if we're in server-search mode (cache exceeded and no active filter narrowing results)
+  const needsServerSearch = totalTaskCount > TASK_CACHE_LIMIT && !tasksSearchQuery && !tasksFilterCategory;
+
+  // Client-side filtering, sorting, and pagination of cached task names
+  const taskNameData = useMemo(() => {
+    if (allTaskNames.length === 0) return null;
+    
+    // Filter
+    let filtered = allTaskNames.filter(item => {
+      if (tasksSearchQuery) {
+        const query = tasksSearchQuery.toLowerCase();
+        const matchesTask = item.task_name.toLowerCase().includes(query);
+        const matchesCategory = item.category_name?.toLowerCase().includes(query);
+        if (!matchesTask && !matchesCategory) return false;
+      }
+      if (tasksFilterCategory && item.category_name !== tasksFilterCategory) return false;
+      return true;
+    });
+    
+    // Sort
+    filtered = [...filtered].sort((a, b) => {
+      switch (taskNamesSortBy) {
+        case 'alpha':
+          return a.task_name.localeCompare(b.task_name);
+        case 'count':
+          return b.count - a.count || b.total_minutes - a.total_minutes;
+        case 'recent': {
+          const aTime = a.last_used ? new Date(a.last_used).getTime() : 0;
+          const bTime = b.last_used ? new Date(b.last_used).getTime() : 0;
+          return bTime - aTime;
+        }
+        case 'time':
+        default:
+          return b.total_minutes - a.total_minutes || b.count - a.count;
+      }
+    });
+    
+    // Paginate
+    const totalCount = filtered.length;
+    const totalPages = Math.ceil(totalCount / taskNamesPageSize);
+    const offset = (taskNamesPage - 1) * taskNamesPageSize;
+    const taskNames = filtered.slice(offset, offset + taskNamesPageSize);
+    
+    return {
+      taskNames,
+      pagination: {
+        page: taskNamesPage,
+        pageSize: taskNamesPageSize,
+        totalCount,
+        totalPages
+      }
+    };
+  }, [allTaskNames, tasksSearchQuery, tasksFilterCategory, taskNamesSortBy, taskNamesPage, taskNamesPageSize]);
 
   // Load category drilldown when a category is selected
   useEffect(() => {
@@ -878,6 +968,14 @@ export function Analytics() {
                   <polyline points="15,18 9,12 15,6" />
                 </svg>
               </button>
+              <button 
+                className="period-nav-btn today-btn" 
+                onClick={() => { setPeriodOffset(0); setDayOffset(0); }} 
+                disabled={effectiveOffset === 0}
+                title="Go to today"
+              >
+                Today
+              </button>
               <button className="period-nav-btn" onClick={() => navigatePeriod(1)} disabled={!canNavigateNext} title="Next">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
                   <polyline points="9,18 15,12 9,6" />
@@ -1122,77 +1220,108 @@ export function Analytics() {
       </div>
 
       {/* All tasks (paginated) */}
-      {taskNameData && taskNameData.pagination.totalCount > 0 && (
-        <div className="card">
-          <div className="card-header">
-            <h2 className="card-title">All Tasks</h2>
-            <div className="descriptions-header-controls">
-              {selectedTaskNames.size >= 2 && (
-                <button className="merge-btn" onClick={openMergeModal}>
-                  Merge {selectedTaskNames.size} selected
-                </button>
-              )}
-              {selectedTaskNames.size > 0 && selectedTaskNames.size < 2 && (
-                <span className="merge-hint">Select 2+ to merge</span>
-              )}
-              <select 
-                className="sort-select"
-                value={taskNamesSortBy}
-                onChange={(e) => { setTaskNamesSortBy(e.target.value as 'time' | 'alpha' | 'count' | 'recent'); setTaskNamesPage(1); }}
-              >
-                <option value="time">Sort by Time</option>
-                <option value="alpha">Sort A-Z</option>
-                <option value="count">Sort by Instances</option>
-                <option value="recent">Sort by Recent</option>
-              </select>
-              <span className="descriptions-count">{taskNameData.pagination.totalCount} total</span>
-            </div>
-          </div>
-          {/* Filter row */}
-          <div className="tasks-filter-row">
-            <input
-              type="text"
-              className="tasks-search-input"
-              placeholder="Filter tasks..."
-              value={tasksSearchQuery}
-              onChange={(e) => { setTasksSearchQuery(e.target.value); }}
-            />
-            <select
-              className="tasks-category-filter"
-              value={tasksFilterCategory}
-              onChange={(e) => { setTasksFilterCategory(e.target.value); }}
-            >
-              <option value="">All Categories</option>
-              {categories.map(cat => (
-                <option key={cat.id} value={cat.name}>{cat.name}</option>
-              ))}
-            </select>
-            {(tasksSearchQuery || tasksFilterCategory) && (
-              <button 
-                className="tasks-clear-filter" 
-                onClick={() => { setTasksSearchQuery(''); setTasksFilterCategory(''); }}
-              >
-                Clear
+      <div className="card">
+        <div className="card-header">
+          <h2 className="card-title">All Tasks</h2>
+          <div className="descriptions-header-controls">
+            {selectedTaskNames.size >= 2 && (
+              <button className="merge-btn" onClick={openMergeModal}>
+                Merge {selectedTaskNames.size} selected
               </button>
             )}
+            {selectedTaskNames.size > 0 && selectedTaskNames.size < 2 && (
+              <span className="merge-hint">Select 2+ to merge</span>
+            )}
+            <select 
+              className="sort-select"
+              value={taskNamesSortBy}
+              onChange={(e) => { setTaskNamesSortBy(e.target.value as 'time' | 'alpha' | 'count' | 'recent'); setTaskNamesPage(1); }}
+            >
+              <option value="time">Sort by Time</option>
+              <option value="alpha">Sort A-Z</option>
+              <option value="count">Sort by Instances</option>
+              <option value="recent">Sort by Recent</option>
+            </select>
+            <span className="descriptions-count">{taskNameData?.pagination.totalCount ?? 0} total</span>
           </div>
-          {taskNamesLoading ? (
-            <div className="drilldown-loading">Loading...</div>
-          ) : (
+        </div>
+        {/* Filter row */}
+        <div className="tasks-filter-row">
+          <input
+            type="text"
+            className="tasks-search-input"
+            placeholder={needsServerSearch ? "Search tasks (press Enter)..." : "Filter tasks..."}
+            value={needsServerSearch ? pendingServerSearch : tasksSearchQuery}
+            onChange={(e) => { 
+              if (needsServerSearch) {
+                setPendingServerSearch(e.target.value);
+              } else {
+                setTasksSearchQuery(e.target.value); 
+                setTaskNamesPage(1); 
+              }
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && needsServerSearch) {
+                executeServerSearch();
+              }
+            }}
+          />
+          <select
+            className="tasks-category-filter"
+            value={tasksFilterCategory}
+            onChange={(e) => { setTasksFilterCategory(e.target.value); setTaskNamesPage(1); }}
+          >
+            <option value="">All Categories</option>
+            {categories.map(cat => (
+              <option key={cat.id} value={cat.name}>{cat.name}</option>
+            ))}
+          </select>
+          {(tasksSearchQuery || tasksFilterCategory || pendingServerSearch) && (
+            <button 
+              className="tasks-clear-filter" 
+              onClick={() => { 
+                setTasksSearchQuery(''); 
+                setTasksFilterCategory(''); 
+                setPendingServerSearch('');
+                setTaskNamesPage(1); 
+                // Reload full list if we had a server search active
+                if (tasksSearchQuery && totalTaskCount > TASK_CACHE_LIMIT) {
+                  const loadFresh = async () => {
+                    if (!data) return;
+                    setTaskNamesLoading(true);
+                    try {
+                      const { start, end } = getDateRange(period, effectiveOffset);
+                      const result = await api.getTaskNames(start.toISOString(), end.toISOString(), 1, TASK_CACHE_LIMIT, 'time');
+                      setAllTaskNames(result.taskNames);
+                      setTotalTaskCount(result.pagination.totalCount);
+                    } catch (error) {
+                      console.error('Failed to reload task names:', error);
+                    }
+                    setTaskNamesLoading(false);
+                  };
+                  loadFresh();
+                }
+              }}
+            >
+              Clear
+            </button>
+          )}
+          {needsServerSearch && (
+            <span className="tasks-search-hint">
+              {totalTaskCount.toLocaleString()} tasks - press Enter to search
+            </span>
+          )}
+        </div>
+        {taskNamesLoading ? (
+          <div className="drilldown-loading">Loading...</div>
+        ) : !taskNameData || taskNameData.taskNames.length === 0 ? (
+          <div className="empty-state">
+            <p>{tasksSearchQuery || tasksFilterCategory ? 'No tasks match your filter' : 'No tasks for this period'}</p>
+          </div>
+        ) : (
             <>
               <div className="top-tasks">
-                {taskNameData.taskNames
-                  .filter((item: TopTask) => {
-                    // Apply search filter
-                    if (tasksSearchQuery) {
-                      const query = tasksSearchQuery.toLowerCase();
-                      if (!item.task_name.toLowerCase().includes(query)) return false;
-                    }
-                    // Apply category filter
-                    if (tasksFilterCategory && item.category_name !== tasksFilterCategory) return false;
-                    return true;
-                  })
-                  .map((item: TopTask, i: number) => {
+                {taskNameData.taskNames.map((item: TopTask, i: number) => {
                   const selectionKey = makeSelectionKey(item.task_name, item.category_name || '');
                   const isEditing = editingTaskName === item.task_name;
                   return (
@@ -1338,7 +1467,6 @@ export function Analytics() {
             </>
           )}
         </div>
-      )}
 
       {/* Merge tasks modal */}
       {showMergeModal && (() => {

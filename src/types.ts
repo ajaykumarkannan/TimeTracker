@@ -51,6 +51,7 @@ export interface TopTask {
   total_minutes: number;
   category_name?: string;
   category_color?: string | null;
+  last_used?: string;
 }
 
 export interface CategoryTask {

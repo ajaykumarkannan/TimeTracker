@@ -98,7 +98,13 @@ main (production-ready)
 2. **Never commit directly to main**: All changes must go through a feature branch first
 3. **Create PRs for main merges**: Use `gh pr create --base main --head feature/your-branch` when ready to merge
 4. **Wait for human approval**: After creating a PR to main, stop and ask the human to review and approve
-5. **Run tests locally before pushing**: Always run `npm test` and `npm run test:e2e` locally before pushing to a PR to catch issues early
+5. **Run full CI checks locally before pushing**: Always run the following commands locally before pushing to a PR to catch issues early:
+   - `npx tsc --noEmit` - TypeScript type checking (catches type errors that `npm test` may miss)
+   - `npm run lint` - ESLint checks
+   - `npm test` - Unit tests
+   - `npm run test:e2e` - E2E tests (when UI changes are involved)
+   
+   **Note**: `npm test` uses Vitest which has its own TypeScript handling and may not catch all type errors. Always run `tsc --noEmit` separately to ensure strict type compliance.
 
 #### Feature Branch Guidelines
 

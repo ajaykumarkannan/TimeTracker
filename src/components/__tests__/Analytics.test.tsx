@@ -504,6 +504,32 @@ describe('Analytics', () => {
     expect(screen.getByText('Weekly standup')).toBeInTheDocument();
   });
 
+  it('filters tasks by category name in search', async () => {
+    await act(async () => {
+      render(<Analytics />);
+    });
+    
+    await waitFor(() => {
+      expect(screen.getByText('All Tasks')).toBeInTheDocument();
+    });
+    
+    // Wait for tasks to load
+    await waitFor(() => {
+      expect(screen.getByText('Weekly standup')).toBeInTheDocument();
+    });
+    
+    const searchInput = screen.getByPlaceholderText('Filter tasks...');
+    await act(async () => {
+      // Search for "Deep" which is part of "Deep Work" category
+      fireEvent.change(searchInput, { target: { value: 'Deep' } });
+    });
+    
+    // Code review (Deep Work category) should be visible
+    await waitFor(() => {
+      expect(screen.getByText('Code review')).toBeInTheDocument();
+    });
+  });
+
   it('filters tasks by category', async () => {
     await act(async () => {
       render(<Analytics />);
@@ -1430,10 +1456,20 @@ describe('Merge Modal Radio Handlers', () => {
   });
 
   it('clicks Previous button in task names pagination', async () => {
-    // First render with page 1 data
+    // With client-side caching, all task names are fetched once and pagination is handled client-side
+    // Create enough mock tasks to span multiple pages
+    const manyTasks = Array.from({ length: 25 }, (_, i) => ({
+      task_name: `Task ${i + 1}`,
+      category_name: 'Meetings',
+      category_color: '#6366f1',
+      total_minutes: 60 - i,
+      count: 5 - (i % 5),
+      last_used: '2026-01-15T10:00:00Z'
+    }));
+    
     (api.getTaskNames as ReturnType<typeof vi.fn>).mockResolvedValue({
-      taskNames: mockTaskNames,
-      pagination: { page: 1, pageSize: 10, totalCount: 25, totalPages: 3 }
+      taskNames: manyTasks,
+      pagination: { page: 1, pageSize: 5000, totalCount: 25, totalPages: 1 }
     });
     
     await act(async () => {
@@ -1444,24 +1480,24 @@ describe('Merge Modal Radio Handlers', () => {
       expect(screen.getByText('All Tasks')).toBeInTheDocument();
     });
     
-    // Click Next to go to page 2
+    // Wait for task names to load
+    await waitFor(() => {
+      expect(screen.getByText('Task 1')).toBeInTheDocument();
+    });
+    
+    // Click Next to go to page 2 (client-side pagination)
     const nextButtons = screen.getAllByRole('button').filter(btn => 
       btn.classList.contains('pagination-btn') && btn.textContent === 'Next'
     );
     const nextButton = nextButtons[nextButtons.length - 1];
     
-    // Update mock to return page 2 data
-    (api.getTaskNames as ReturnType<typeof vi.fn>).mockResolvedValue({
-      taskNames: mockTaskNames,
-      pagination: { page: 2, pageSize: 10, totalCount: 25, totalPages: 3 }
-    });
-    
     await act(async () => {
       fireEvent.click(nextButton);
     });
     
+    // Should now show page 2 tasks (Task 11-20 with default page size of 10)
     await waitFor(() => {
-      expect(api.getTaskNames).toHaveBeenCalled();
+      expect(screen.getByText('Task 11')).toBeInTheDocument();
     });
     
     // Now find and click Previous button
@@ -1470,20 +1506,17 @@ describe('Merge Modal Radio Handlers', () => {
     );
     const prevButton = prevButtons[prevButtons.length - 1];
     
-    // Update mock for page 1 again
-    (api.getTaskNames as ReturnType<typeof vi.fn>).mockResolvedValue({
-      taskNames: mockTaskNames,
-      pagination: { page: 1, pageSize: 10, totalCount: 25, totalPages: 3 }
-    });
-    
     await act(async () => {
       fireEvent.click(prevButton);
     });
     
-    // API should be called again
+    // Should be back on page 1
     await waitFor(() => {
-      expect(api.getTaskNames).toHaveBeenCalledTimes(3); // Initial + Next + Previous
+      expect(screen.getByText('Task 1')).toBeInTheDocument();
     });
+    
+    // API should only be called once (initial load) - pagination is now client-side
+    expect(api.getTaskNames).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -1684,5 +1717,340 @@ describe('Inline category creation in task editing', () => {
         }
       }
     }
+  });
+});
+
+describe('Task search with cache limit', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    (api.getAnalytics as ReturnType<typeof vi.fn>).mockResolvedValue(mockAnalyticsData);
+    (api.getActiveEntry as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (api.getCategories as ReturnType<typeof vi.fn>).mockResolvedValue(mockCategories);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('shows server search hint when task count exceeds cache limit', async () => {
+    // Mock response with totalCount > 500 (cache limit)
+    (api.getTaskNames as ReturnType<typeof vi.fn>).mockResolvedValue({
+      taskNames: mockTaskNames,
+      pagination: { page: 1, pageSize: 500, totalCount: 750, totalPages: 2 }
+    });
+    
+    await act(async () => {
+      render(<Analytics />);
+    });
+    
+    await waitFor(() => {
+      expect(screen.getByText('All Tasks')).toBeInTheDocument();
+    });
+    
+    // Should show hint about pressing Enter to search
+    await waitFor(() => {
+      expect(screen.getByText(/750 tasks - press Enter to search/)).toBeInTheDocument();
+    });
+    
+    // Placeholder should indicate Enter is needed
+    const searchInput = screen.getByPlaceholderText('Search tasks (press Enter)...');
+    expect(searchInput).toBeInTheDocument();
+  });
+
+  it('uses live filtering when task count is under cache limit', async () => {
+    // Mock response with totalCount < 500 (cache limit)
+    (api.getTaskNames as ReturnType<typeof vi.fn>).mockResolvedValue({
+      taskNames: mockTaskNames,
+      pagination: { page: 1, pageSize: 500, totalCount: 3, totalPages: 1 }
+    });
+    
+    await act(async () => {
+      render(<Analytics />);
+    });
+    
+    await waitFor(() => {
+      expect(screen.getByText('All Tasks')).toBeInTheDocument();
+    });
+    
+    // Should NOT show server search hint
+    expect(screen.queryByText(/press Enter to search/)).not.toBeInTheDocument();
+    
+    // Placeholder should be normal filter
+    const searchInput = screen.getByPlaceholderText('Filter tasks...');
+    expect(searchInput).toBeInTheDocument();
+  });
+
+  it('triggers server search on Enter when cache limit exceeded', async () => {
+    // Mock response with totalCount > 500 (cache limit)
+    (api.getTaskNames as ReturnType<typeof vi.fn>).mockResolvedValue({
+      taskNames: mockTaskNames,
+      pagination: { page: 1, pageSize: 500, totalCount: 750, totalPages: 2 }
+    });
+    
+    await act(async () => {
+      render(<Analytics />);
+    });
+    
+    await waitFor(() => {
+      expect(screen.getByText('All Tasks')).toBeInTheDocument();
+    });
+    
+    const searchInput = screen.getByPlaceholderText('Search tasks (press Enter)...');
+    
+    // Type a search query
+    await act(async () => {
+      fireEvent.change(searchInput, { target: { value: 'test query' } });
+    });
+    
+    // Clear mock call count
+    vi.clearAllMocks();
+    
+    // Press Enter to trigger server search
+    await act(async () => {
+      fireEvent.keyDown(searchInput, { key: 'Enter' });
+    });
+    
+    // Should call API with search parameter
+    await waitFor(() => {
+      expect(api.getTaskNames).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.any(String),
+        1,
+        500,
+        'time',
+        'test query',
+        undefined
+      );
+    });
+  });
+});
+
+// Empty filtered results tests - regression tests for disappearing All Tasks section
+describe('Analytics empty filter states', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    (api.getAnalytics as ReturnType<typeof vi.fn>).mockResolvedValue(mockAnalyticsData);
+    (api.getActiveEntry as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (api.getCategories as ReturnType<typeof vi.fn>).mockResolvedValue(mockCategories);
+    (api.getTaskNames as ReturnType<typeof vi.fn>).mockResolvedValue({
+      taskNames: mockTaskNames,
+      pagination: { page: 1, pageSize: 10, totalCount: 3, totalPages: 1 }
+    });
+    (api.getCategoryDrilldown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      category: { name: 'Meetings', color: '#6366f1', minutes: 600, count: 5 },
+      taskNames: [{ task_name: 'Weekly standup', count: 5, total_minutes: 150 }],
+      pagination: { page: 1, pageSize: 20, totalCount: 1, totalPages: 1 }
+    });
+    (api.exportCSV as ReturnType<typeof vi.fn>).mockResolvedValue('date,category,minutes\n2026-01-15,Meetings,60');
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('shows empty state message when search filter returns no results', async () => {
+    await act(async () => {
+      render(<Analytics />);
+    });
+    
+    await waitFor(() => {
+      expect(screen.getByText('All Tasks')).toBeInTheDocument();
+    });
+    
+    // Verify tasks are initially visible
+    expect(screen.getByText('Weekly standup')).toBeInTheDocument();
+    
+    // Search for something that doesn't exist
+    const searchInput = screen.getByPlaceholderText('Filter tasks...');
+    await act(async () => {
+      fireEvent.change(searchInput, { target: { value: 'nonexistent task xyz' } });
+    });
+    
+    // All Tasks section should still be visible with empty state message
+    expect(screen.getByText('All Tasks')).toBeInTheDocument();
+    expect(screen.getByText('No tasks match your filter')).toBeInTheDocument();
+    
+    // Original tasks should not be visible
+    expect(screen.queryByText('Weekly standup')).not.toBeInTheDocument();
+  });
+
+  it('shows empty state message when category filter returns no results', async () => {
+    // Mock with tasks that don't include a specific category
+    (api.getTaskNames as ReturnType<typeof vi.fn>).mockResolvedValue({
+      taskNames: [
+        { task_name: 'Task A', category_name: 'Meetings', category_color: '#6366f1', count: 5, total_minutes: 150 }
+      ],
+      pagination: { page: 1, pageSize: 10, totalCount: 1, totalPages: 1 }
+    });
+    
+    await act(async () => {
+      render(<Analytics />);
+    });
+    
+    await waitFor(() => {
+      expect(screen.getByText('All Tasks')).toBeInTheDocument();
+    });
+    
+    // Filter by a category that has no tasks in the current result set
+    const selects = screen.getAllByRole('combobox');
+    const categorySelect = selects.find(s => s.classList.contains('tasks-category-filter'));
+    
+    if (categorySelect) {
+      await act(async () => {
+        fireEvent.change(categorySelect, { target: { value: 'Deep Work' } });
+      });
+      
+      // All Tasks section should still be visible with empty state message
+      expect(screen.getByText('All Tasks')).toBeInTheDocument();
+      expect(screen.getByText('No tasks match your filter')).toBeInTheDocument();
+    }
+  });
+
+  it('shows generic empty state when no tasks exist for period', async () => {
+    (api.getTaskNames as ReturnType<typeof vi.fn>).mockResolvedValue({
+      taskNames: [],
+      pagination: { page: 1, pageSize: 10, totalCount: 0, totalPages: 0 }
+    });
+    
+    await act(async () => {
+      render(<Analytics />);
+    });
+    
+    await waitFor(() => {
+      expect(screen.getByText('All Tasks')).toBeInTheDocument();
+    });
+    
+    // Should show generic empty state (not filter-specific)
+    expect(screen.getByText('No tasks for this period')).toBeInTheDocument();
+  });
+
+  it('restores task list when clearing filter that had no results', async () => {
+    await act(async () => {
+      render(<Analytics />);
+    });
+    
+    await waitFor(() => {
+      expect(screen.getByText('All Tasks')).toBeInTheDocument();
+    });
+    
+    // Verify tasks are initially visible
+    expect(screen.getByText('Weekly standup')).toBeInTheDocument();
+    
+    // Search for something that doesn't exist
+    const searchInput = screen.getByPlaceholderText('Filter tasks...');
+    await act(async () => {
+      fireEvent.change(searchInput, { target: { value: 'nonexistent' } });
+    });
+    
+    // Verify empty state
+    expect(screen.getByText('No tasks match your filter')).toBeInTheDocument();
+    
+    // Clear the filter
+    const clearButton = screen.getByText('Clear');
+    await act(async () => {
+      fireEvent.click(clearButton);
+    });
+    
+    // Tasks should be visible again
+    await waitFor(() => {
+      expect(screen.getByText('Weekly standup')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('No tasks match your filter')).not.toBeInTheDocument();
+  });
+});
+
+
+// Today button tests
+describe('Analytics Today button', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    (api.getAnalytics as ReturnType<typeof vi.fn>).mockResolvedValue(mockAnalyticsData);
+    (api.getActiveEntry as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (api.getCategories as ReturnType<typeof vi.fn>).mockResolvedValue(mockCategories);
+    (api.getTaskNames as ReturnType<typeof vi.fn>).mockResolvedValue({
+      taskNames: mockTaskNames,
+      pagination: { page: 1, pageSize: 10, totalCount: 3, totalPages: 1 }
+    });
+    (api.getCategoryDrilldown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      category: { name: 'Meetings', color: '#6366f1', minutes: 600, count: 5 },
+      taskNames: [{ task_name: 'Weekly standup', count: 5, total_minutes: 150 }],
+      pagination: { page: 1, pageSize: 20, totalCount: 1, totalPages: 1 }
+    });
+    (api.exportCSV as ReturnType<typeof vi.fn>).mockResolvedValue('date,category,minutes\n2026-01-15,Meetings,60');
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('shows Today button that is disabled when viewing current period', async () => {
+    await act(async () => {
+      render(<Analytics />);
+    });
+    
+    await waitFor(() => {
+      expect(screen.getByText('Total Time')).toBeInTheDocument();
+    });
+    
+    // Today button should be present and disabled (we're at current period)
+    const todayButton = screen.getByTitle('Go to today');
+    expect(todayButton).toBeInTheDocument();
+    expect(todayButton).toBeDisabled();
+  });
+
+  it('enables Today button after navigating to previous period', async () => {
+    await act(async () => {
+      render(<Analytics />);
+    });
+    
+    await waitFor(() => {
+      expect(screen.getByText('Total Time')).toBeInTheDocument();
+    });
+    
+    // Navigate to previous period
+    const prevButton = screen.getByTitle('Previous');
+    await act(async () => {
+      fireEvent.click(prevButton);
+    });
+    
+    // Today button should now be enabled
+    const todayButton = screen.getByTitle('Go to today');
+    expect(todayButton).not.toBeDisabled();
+  });
+
+  it('returns to current period when Today button is clicked', async () => {
+    await act(async () => {
+      render(<Analytics />);
+    });
+    
+    await waitFor(() => {
+      expect(screen.getByText('Total Time')).toBeInTheDocument();
+    });
+    
+    // Navigate to previous period
+    const prevButton = screen.getByTitle('Previous');
+    await act(async () => {
+      fireEvent.click(prevButton);
+    });
+    
+    // Clear mock to track new calls
+    vi.clearAllMocks();
+    
+    // Click Today button
+    const todayButton = screen.getByTitle('Go to today');
+    await act(async () => {
+      fireEvent.click(todayButton);
+    });
+    
+    // Should call API again (returning to current period)
+    await waitFor(() => {
+      expect(api.getAnalytics).toHaveBeenCalled();
+    });
+    
+    // Today button should be disabled again
+    expect(todayButton).toBeDisabled();
   });
 });

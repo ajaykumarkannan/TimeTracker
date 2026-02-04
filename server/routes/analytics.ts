@@ -96,6 +96,10 @@ router.get('/task-names', (req: AuthRequest, res: Response) => {
     const pageSize = Math.min(parseInt(req.query.pageSize as string) || 20, 100);
     const offset = (page - 1) * pageSize;
     const sortBy = (req.query.sortBy as string) || 'time'; // time, alpha, count, recent
+    
+    // Optional filters
+    const searchQuery = (req.query.search as string || '').trim().toLowerCase();
+    const categoryFilter = (req.query.category as string || '').trim();
 
     if (!start || !end) {
       return res.status(400).json({ error: 'Start and end dates are required' });
@@ -104,13 +108,31 @@ router.get('/task-names', (req: AuthRequest, res: Response) => {
     const db = getDb();
     const userId = req.userId as number;
 
-    // Get total count of unique task names
+    // Build WHERE clause with optional filters
+    let whereClause = `te.user_id = ? AND te.start_time >= ? AND te.start_time < ? 
+        AND te.task_name IS NOT NULL AND te.task_name != ''`;
+    const countParams: (number | string)[] = [userId, start, end];
+    const queryParams: (number | string)[] = [userId, start, end];
+    
+    if (searchQuery) {
+      whereClause += ` AND (LOWER(te.task_name) LIKE ? OR LOWER(c.name) LIKE ?)`;
+      countParams.push(`%${searchQuery}%`, `%${searchQuery}%`);
+      queryParams.push(`%${searchQuery}%`, `%${searchQuery}%`);
+    }
+    
+    if (categoryFilter) {
+      whereClause += ` AND c.name = ?`;
+      countParams.push(categoryFilter);
+      queryParams.push(categoryFilter);
+    }
+
+    // Get total count of unique task names (with filters applied)
     const countResult = db.exec(`
-      SELECT COUNT(DISTINCT task_name) as total
-      FROM time_entries
-      WHERE user_id = ? AND start_time >= ? AND start_time < ? 
-        AND task_name IS NOT NULL AND task_name != ''
-    `, [userId, start, end]);
+      SELECT COUNT(DISTINCT te.task_name || '|' || c.name) as total
+      FROM time_entries te
+      JOIN categories c ON te.category_id = c.id
+      WHERE ${whereClause}
+    `, countParams);
 
     const totalCount = countResult.length > 0 && countResult[0].values.length > 0
       ? countResult[0].values[0][0] as number
@@ -134,18 +156,20 @@ router.get('/task-names', (req: AuthRequest, res: Response) => {
         break;
     }
 
+    // Add pagination params
+    queryParams.push(pageSize, offset);
+
     // Get paginated task names with category info
     const taskNamesResult = db.exec(`
       SELECT te.task_name, COUNT(*) as count, COALESCE(SUM(te.duration_minutes), 0) as total_minutes, MAX(te.start_time) as last_used,
              c.name as category_name, c.color as category_color
       FROM time_entries te
       JOIN categories c ON te.category_id = c.id
-      WHERE te.user_id = ? AND te.start_time >= ? AND te.start_time < ? 
-        AND te.task_name IS NOT NULL AND te.task_name != ''
+      WHERE ${whereClause}
       GROUP BY te.task_name, c.name, c.color
       ORDER BY ${orderBy}
       LIMIT ? OFFSET ?
-    `, [userId, start, end, pageSize, offset]);
+    `, queryParams);
 
     const taskNames = taskNamesResult.length > 0
       ? taskNamesResult[0].values.map(row => ({
