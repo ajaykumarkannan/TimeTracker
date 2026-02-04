@@ -131,6 +131,11 @@ docker-compose up --build  # Build and run
 
 App runs on `http://localhost:4849`
 
+#### GHCR Publishing
+
+- `main` pushes publish `ghcr.io/<owner>/<repo>:main` and `:sha-<short>`.
+- Version tags publish semver tags plus `:latest` for production.
+
 #### Data Persistence
 
 Docker uses **named volumes** (not bind mounts) for data persistence:

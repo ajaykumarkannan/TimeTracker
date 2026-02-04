@@ -158,12 +158,17 @@ The CI builds for `linux/amd64`, `linux/arm64`, and `linux/arm/v7` (Raspberry Pi
    ```
 
 3. GitHub Actions will:
-   - Run tests
-   - Build multi-arch Docker image
-   - Push to GitHub Container Registry (ghcr.io)
-   - Create GitHub Release
+    - Run tests
+    - Build multi-arch Docker image
+    - Push to GitHub Container Registry (ghcr.io)
+    - Create GitHub Release
 
 Users with Watchtower will auto-update within an hour.
+
+## GHCR Publishing
+
+- `main` pushes publish `ghcr.io/<owner>/<repo>:main` and `:sha-<short>` for smoke testing.
+- Version tags (`vX.Y.Z`) publish semver tags plus `:latest` for production.
 
 ## Environment Variables
 
