@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import packageInfo from '../../package.json';
 import './Help.css';
 
 interface FAQItem {
@@ -161,7 +162,7 @@ export function Help() {
           </p>
           <div className="help-links">
             <a 
-              href="https://github.com/chronoflow/chronoflow/issues" 
+              href="https://github.com/ajaykumarkannan/TimeTracker/issues" 
               target="_blank" 
               rel="noopener noreferrer"
               className="help-link"
@@ -174,7 +175,7 @@ export function Help() {
               Report an Issue
             </a>
             <a 
-              href="https://github.com/chronoflow/chronoflow" 
+              href="https://github.com/ajaykumarkannan/TimeTracker" 
               target="_blank" 
               rel="noopener noreferrer"
               className="help-link"
@@ -190,7 +191,7 @@ export function Help() {
 
       {/* Version Info */}
       <div className="help-version">
-        <p>ChronoFlow v1.0.0</p>
+        <p>ChronoFlow v{packageInfo.version}</p>
       </div>
     </div>
   );
