@@ -134,7 +134,7 @@ App runs on `http://localhost:4849`
 #### GHCR Publishing
 
 - `main` pushes publish `ghcr.io/<owner>/<repo>:main` and `:sha-<short>` (GHCR lowercases the repo name, e.g. `ghcr.io/owner/timetracker`).
-- Version tags publish semver tags plus `:latest` for production.
+- Version tags with patch=0 (minor/major only, e.g. `v1.0.0`, `v1.1.0`) publish semver tags plus `:latest` for production; patch tags (e.g. `v1.0.1`) do not trigger the release workflow.
 
 #### Data Persistence
 
