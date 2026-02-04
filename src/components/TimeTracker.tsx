@@ -585,7 +585,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                       ref={modalInputRef}
                       type="text"
                       className="task-prompt-input"
-                    value={switchTaskName}
+                      value={switchTaskName}
                       onChange={(e) => {
                         suppressModalSuggestionOpenRef.current = false;
                         setSwitchTaskName(e.target.value);
@@ -593,6 +593,9 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                       placeholder="What are you working on? (optional)"
                       autoFocus
                       autoComplete="off"
+                      data-lpignore="true"
+                      data-1p-ignore
+                      data-form-type="other"
                       onFocus={() => {
                         if (modalSuggestions.length > 0 && !suppressModalSuggestionOpenRef.current) {
                           setShowModalSuggestions(true);
@@ -674,6 +677,9 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                     }}
                     placeholder="Task name (optional)"
                     autoComplete="off"
+                    data-lpignore="true"
+                    data-1p-ignore
+                    data-form-type="other"
                     onFocus={() => {
                       if (suggestions.length > 0 && !suppressSuggestionOpenRef.current) {
                         setShowSuggestions(true);
@@ -846,6 +852,9 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                     placeholder="What are you working on? (optional)"
                     autoFocus
                     autoComplete="off"
+                    data-lpignore="true"
+                    data-1p-ignore
+                    data-form-type="other"
                       onFocus={() => {
                         if (modalSuggestions.length > 0 && !suppressModalSuggestionOpenRef.current) {
                           setShowModalSuggestions(true);
@@ -982,6 +991,9 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                     onKeyDown={handleDescriptionKeyDown}
                     placeholder="What are you working on?"
                     autoComplete="off"
+                    data-lpignore="true"
+                    data-1p-ignore
+                    data-form-type="other"
                   />
                   {showSuggestions && suggestions.length > 0 && (
                     <div className="description-suggestions" ref={suggestionsRef}>
