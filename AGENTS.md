@@ -106,7 +106,8 @@ main (production-ready)
 2. **Continue on the same branch**: If the user requests additional changes related to the feature, continue working on the same branch without renaming it
 3. **Update PR descriptions**: When adding new functionality to an existing feature branch, update the PR description to reflect all changes included
 4. **Keep documentation current**: Always update `AGENTS.md` and `README.md` when adding or modifying features
-5. **Create GitHub releases**: After merging a tagged patch release, create the corresponding GitHub release (e.g., `v0.7.2`) with a short changelog
+5. **Version bump on feature branches**: Update the app version on the feature branch before opening a PR. Use a **minor** bump for larger changes (new features, significant UX changes, or breaking behavior) and a **patch** bump for small fixes or low-impact tweaks.
+6. **Create GitHub releases**: After merging a tagged patch release, create the corresponding GitHub release (e.g., `v0.7.2`) with a short changelog
 
 #### Code Quality Standards
 
@@ -135,7 +136,7 @@ App runs on `http://localhost:4849`
 #### GHCR Publishing
 
 - `main` pushes publish `ghcr.io/<owner>/<repo>:main` and `:sha-<short>` (GHCR lowercases the repo name, e.g. `ghcr.io/owner/timetracker`).
-- Version tags with patch=0 (minor/major only, e.g. `v1.0.0`, `v1.1.0`) publish semver tags plus `:latest` for production; patch tags (e.g. `v1.0.1`) do not trigger the release workflow.
+- Version tags (including patch tags like `v1.0.1`) publish semver tags plus `:latest` for production.
 
 #### Data Persistence
 
@@ -269,3 +270,11 @@ When making changes to the database schema, follow these guidelines:
 - Update `README.md` when user-facing features, installation, or configuration changes (this is for end users)
 - Update `DEVELOPMENT.md` when development workflows, testing, or contribution guidelines change (this is for contributors)
 - Review all docs periodically to ensure accuracy
+
+## Release Process
+
+When bumping a minor or major version:
+
+1. **Create tags with the new version** (e.g., `vX.Y.Z`) after the release commit is ready.
+2. **Correct release notes once merged** (ensure the release is tied to the final merged commit).
+3. **List changes using short PR references** (e.g., `#47`) instead of full URLs in the release notes.

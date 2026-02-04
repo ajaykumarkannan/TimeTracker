@@ -73,7 +73,7 @@ The production setup includes:
 
 ### GitHub Container Registry (GHCR)
 
-Images are published to GHCR at `ghcr.io/ajaykumarkannan/timetracker` (repo name is lowercased by GHCR). If you fork the repo, set `GITHUB_REPO` to your owner/repo in lowercase (e.g. `youruser/timetracker`). The first publish may create the package as private; if so, open the package on GitHub → Package settings → Change visibility to **Public** so `docker pull` works without login.
+Images are published to GHCR at `ghcr.io/ajaykumarkannan/timetracker` (repo name is lowercased by GHCR). Version bumps (including patch versions like `v1.0.1`) publish semver tags plus `:latest`. If you fork the repo, set `GITHUB_REPO` to your owner/repo in lowercase (e.g. `youruser/timetracker`). The first publish may create the package as private; if so, open the package on GitHub → Package settings → Change visibility to **Public** so `docker pull` works without login.
 
 For private images, authenticate first:
 ```bash
