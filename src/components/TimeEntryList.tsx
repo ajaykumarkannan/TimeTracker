@@ -783,6 +783,9 @@ export function TimeEntryList({ categories, onEntryChange, onCategoryChange, ref
                     onKeyDown={handleManualDescriptionKeyDown}
                     placeholder="What were you working on?" 
                     autoComplete="off"
+                    data-lpignore="true"
+                    data-1p-ignore
+                    data-form-type="other"
                   />
                   {showManualSuggestions && manualSuggestions.length > 0 && (
                     <div className="description-suggestions" ref={suggestionsRef}>
