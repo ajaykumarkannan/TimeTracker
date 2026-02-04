@@ -9,7 +9,7 @@ services:
   chronoflow:
     # Use pre-built image from GitHub Container Registry (GHCR)
     # Override GITHUB_REPO to point at your fork
-    image: ghcr.io/${GITHUB_REPO:-my-user/chronoflow}:latest
+    image: ghcr.io/${GITHUB_REPO:-ajaykumarkannan/chronoflow}:latest
     container_name: chronoflow
     expose:
       - "4849"
