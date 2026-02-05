@@ -93,14 +93,14 @@
   --border-light: #1c1c1f;
   --border-focus: #818cf8;
   
-  --error: #fca5a5;
-  --error-bg: rgba(252, 165, 165, 0.15);
-  --success: #86efac;
-  --success-bg: rgba(134, 239, 172, 0.15);
-  --warning: #fcd34d;
-  --warning-bg: rgba(252, 211, 77, 0.15);
-  --info: #93c5fd;
-  --info-bg: rgba(147, 197, 253, 0.15);
+  --error: #f87171;
+  --error-bg: rgba(248, 113, 113, 0.15);
+  --success: #4ade80;
+  --success-bg: rgba(74, 222, 128, 0.15);
+  --warning: #fbbf24;
+  --warning-bg: rgba(251, 191, 36, 0.15);
+  --info: #60a5fa;
+  --info-bg: rgba(96, 165, 250, 0.15);
   
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
   --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.5), 0 4px 16px rgba(0, 0, 0, 0.3);
@@ -706,7 +706,7 @@ body {
 
 .btn-danger {
   background: var(--error);
-  color: white;
+  color: #450a0a;
 }
 
 .btn-danger:hover:not(:disabled) {
@@ -715,7 +715,7 @@ body {
 
 .btn-warning {
   background: var(--warning);
-  color: white;
+  color: #451a03;
 }
 
 .btn-warning:hover:not(:disabled) {
