@@ -159,7 +159,7 @@
 
 .suggestion-item:hover,
 .suggestion-item.selected {
-  background: var(--bg-secondary);
+  background: var(--bg-tertiary);
 }
 
 .suggestion-text {

@@ -558,7 +558,7 @@
 
 .description-suggestions .suggestion-item:hover,
 .description-suggestions .suggestion-item.selected {
-  background: var(--bg-secondary);
+  background: var(--bg-tertiary);
 }
 
 .description-suggestions .suggestion-item:not(:last-child) {

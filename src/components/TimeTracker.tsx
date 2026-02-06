@@ -247,9 +247,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   const handleSuggestionSelect = (suggestion: { task_name: string; categoryId: number }) => {
     suppressSuggestionOpenRef.current = true;
     setDescription(suggestion.task_name);
-    if (!selectedCategory) {
-      setSelectedCategory(suggestion.categoryId);
-    }
+    setSelectedCategory(suggestion.categoryId);
     setShowSuggestions(false);
     descriptionInputRef.current?.focus();
   };
