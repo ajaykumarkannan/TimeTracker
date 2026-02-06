@@ -634,33 +634,36 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
               </div>
             </div>
             <div className="timer-actions">
-              {activeEntry.scheduled_end_time ? (
-                <button 
-                  className="btn btn-scheduled" 
-                  onClick={handleClearScheduledStop}
-                  title="Click to cancel scheduled stop"
-                >
-                  <span className="schedule-icon">⏱</span>
-                  Stops in {scheduledRemaining}
-                </button>
-              ) : (
-                <button 
-                  className="btn btn-ghost" 
-                  onClick={handleOpenScheduleStop}
-                  title="Schedule auto-stop"
-                >
-                  <span className="schedule-icon">⏱</span>
-                  Schedule
-                </button>
-              )}
               <button className="btn btn-warning" onClick={handlePause} title="Pause">
                 <span className="pause-icon">❚❚</span>
                 Pause
               </button>
-              <button className="btn btn-danger" onClick={handleStop}>
-                <span className="stop-icon">■</span>
-                Stop
-              </button>
+              <div className="stop-button-group">
+                <button className="btn btn-danger stop-main" onClick={handleStop}>
+                  <span className="stop-icon">■</span>
+                  Stop
+                </button>
+                {activeEntry.scheduled_end_time ? (
+                  <button 
+                    className="btn btn-end-at scheduled" 
+                    onClick={handleClearScheduledStop}
+                    title="Click to cancel"
+                  >
+                    <span className="clock-icon">🕐</span>
+                    <span className="end-at-text">Ends in {scheduledRemaining}</span>
+                    <span className="cancel-icon">✕</span>
+                  </button>
+                ) : (
+                  <button 
+                    className="btn btn-end-at" 
+                    onClick={handleOpenScheduleStop}
+                    title="Schedule auto-stop"
+                  >
+                    <span className="clock-icon">🕐</span>
+                    <span className="end-at-text">End At</span>
+                  </button>
+                )}
+              </div>
             </div>
           </div>
           
