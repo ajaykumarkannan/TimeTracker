@@ -921,42 +921,43 @@
   .timer-actions {
     width: 100%;
     justify-content: center;
-    flex-direction: column;
+    flex-direction: row;
     gap: 0.5rem;
   }
   
   .timer-actions .btn {
-    min-height: 48px;
+    min-height: 44px;
   }
   
-  .timer-actions > .btn {
-    width: 100%;
+  /* Pause button takes less space on mobile */
+  .timer-actions > .btn-warning {
+    flex: 0 0 auto;
+    padding: 0.5rem 1rem;
   }
   
-  /* Split button on mobile - keep horizontal but adjust ratio */
+  /* Split button group takes remaining space */
   .stop-button-group {
-    width: 100%;
+    flex: 1;
   }
   
   .stop-button-group .stop-main {
-    flex: 3;
-    min-height: 48px;
+    flex: 1;
+    min-height: 44px;
     justify-content: center;
   }
   
   .stop-button-group .btn-end-at {
-    flex: 1;
-    min-height: 48px;
-    min-width: 48px;
+    flex: 0 0 44px;
+    min-height: 44px;
   }
   
-  /* When scheduled on mobile: flip ratio */
+  /* When scheduled on mobile: End At expands to show time */
   .stop-button-group.has-schedule .stop-main {
-    flex: 1;
+    flex: 0 0 44px;
   }
   
   .stop-button-group.has-schedule .btn-end-at {
-    flex: 3;
+    flex: 1;
   }
   
   .form-row {

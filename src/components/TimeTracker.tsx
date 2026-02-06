@@ -475,9 +475,44 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
     // Reset form state
     setDurationHours('');
     setDurationMinutes('');
-    setStopAtTime('');
+    // Default to current time
+    const now = new Date();
+    const hours = now.getHours().toString().padStart(2, '0');
+    const minutes = now.getMinutes().toString().padStart(2, '0');
+    setStopAtTime(`${hours}:${minutes}`);
     setScheduleMode('duration');
     setShowScheduleStopModal(true);
+  };
+
+  // Generate quick time options based on current time
+  const getQuickTimeOptions = () => {
+    const now = new Date();
+    const options: { label: string; time: string }[] = [];
+    
+    // Round up to next 30-minute mark
+    const currentMinutes = now.getMinutes();
+    const roundedMinutes = currentMinutes < 30 ? 30 : 0;
+    const roundedHours = currentMinutes < 30 ? now.getHours() : now.getHours() + 1;
+    
+    const baseTime = new Date();
+    baseTime.setHours(roundedHours, roundedMinutes, 0, 0);
+    
+    // Generate 3 options: next 30min mark, +30min, +1h from first
+    for (let i = 0; i < 3; i++) {
+      const optionTime = new Date(baseTime.getTime() + i * 30 * 60000);
+      const h = optionTime.getHours();
+      const m = optionTime.getMinutes();
+      const timeStr = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+      
+      // Format label as 12-hour time
+      const hour12 = h % 12 || 12;
+      const ampm = h < 12 ? 'am' : 'pm';
+      const label = m === 0 ? `${hour12}${ampm}` : `${hour12}:${m.toString().padStart(2, '0')}${ampm}`;
+      
+      options.push({ label, time: timeStr });
+    }
+    
+    return options;
   };
 
   const handleScheduleStop = async () => {
@@ -747,19 +782,32 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                 
                 <div className="schedule-quick-options">
                   <span className="quick-options-label">Quick:</span>
-                  {[15, 30, 45, 60, 90, 120].map(mins => (
-                    <button
-                      key={mins}
-                      className="quick-duration-btn"
-                      onClick={() => {
-                        setScheduleMode('duration');
-                        setDurationHours(Math.floor(mins / 60).toString());
-                        setDurationMinutes((mins % 60).toString());
-                      }}
-                    >
-                      {mins >= 60 ? `${mins / 60}h` : `${mins}m`}
-                    </button>
-                  ))}
+                  {scheduleMode === 'duration' ? (
+                    // Duration quick options: 5m, 10m, 15m, 30m, 1h
+                    [5, 10, 15, 30, 60].map(mins => (
+                      <button
+                        key={mins}
+                        className="quick-duration-btn"
+                        onClick={() => {
+                          setDurationHours(Math.floor(mins / 60).toString());
+                          setDurationMinutes((mins % 60).toString());
+                        }}
+                      >
+                        {mins >= 60 ? `${mins / 60}h` : `${mins}m`}
+                      </button>
+                    ))
+                  ) : (
+                    // Time quick options: next rounded times
+                    getQuickTimeOptions().map(opt => (
+                      <button
+                        key={opt.time}
+                        className="quick-duration-btn"
+                        onClick={() => setStopAtTime(opt.time)}
+                      >
+                        {opt.label}
+                      </button>
+                    ))
+                  )}
                 </div>
                 
                 <div className="task-prompt-actions">
