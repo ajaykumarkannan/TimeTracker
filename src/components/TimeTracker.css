@@ -91,65 +91,79 @@
   flex-wrap: wrap;
 }
 
-/* Split button group: Stop + End At */
+/* Split button group: Stop + End At (4:1 ratio, flips when scheduled) */
 .stop-button-group {
   display: flex;
   border-radius: var(--radius-md);
   overflow: hidden;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
 }
 
 .stop-button-group .stop-main {
+  flex: 4;
   border-radius: var(--radius-md) 0 0 var(--radius-md);
-  border-right: 1px solid rgba(255, 255, 255, 0.2);
+  background: #e57373;
+  color: #1a1a1a;
 }
 
 .stop-button-group .btn-end-at {
+  flex: 1;
   border-radius: 0 var(--radius-md) var(--radius-md) 0;
-  background: var(--primary);
-  color: white;
+  background: #e57373;
+  color: #1a1a1a;
   display: flex;
   align-items: center;
-  gap: 0.375rem;
+  justify-content: center;
+  gap: 0.5rem;
   padding: 0.5rem 0.75rem;
+  min-width: 3rem;
+  border: none;
+  cursor: pointer;
   font-weight: 500;
   transition: all 0.2s ease;
+  border-left: 1px solid rgba(0, 0, 0, 0.15);
 }
 
 .stop-button-group .btn-end-at:hover {
-  filter: brightness(1.1);
+  background: #ef5350;
 }
 
-.stop-button-group .btn-end-at.scheduled {
-  background: var(--primary);
+.stop-button-group .stop-main:hover {
+  background: #ef5350;
+}
+
+/* When scheduled: flip ratio - stop becomes small, end-at shows time */
+.stop-button-group.has-schedule .stop-main {
+  flex: 1;
+  min-width: 3rem;
+  padding: 0.5rem;
+}
+
+.stop-button-group.has-schedule .btn-end-at {
+  flex: 4;
   animation: pulse-glow 2s ease-in-out infinite;
 }
 
 @keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4); }
-  50% { box-shadow: 0 0 8px 2px rgba(99, 102, 241, 0.6); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(229, 115, 115, 0.4); }
+  50% { box-shadow: 0 0 10px 3px rgba(229, 115, 115, 0.5); }
 }
 
 .clock-icon {
-  font-size: 0.875rem;
+  width: 1.125rem;
+  height: 1.125rem;
+  flex-shrink: 0;
+  stroke: #1a1a1a;
 }
 
-.end-at-text {
-  font-size: 0.8125rem;
-}
-
-.cancel-icon {
-  font-size: 0.625rem;
-  opacity: 0.7;
-  margin-left: 0.25rem;
-}
-
-.stop-button-group .btn-end-at.scheduled:hover .cancel-icon {
-  opacity: 1;
+.scheduled-time {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #1a1a1a;
 }
 
 .stop-icon {
-  font-size: 0.5rem;
+  font-size: 0.625rem;
 }
 
 .pause-icon {
@@ -158,12 +172,12 @@
 }
 
 .btn-warning {
-  background: var(--warning);
+  background: #d97706;
   color: white;
 }
 
 .btn-warning:hover {
-  filter: brightness(1.1);
+  background: #b45309;
 }
 
 /* Switch task section */
@@ -919,25 +933,30 @@
     width: 100%;
   }
   
-  /* Split button on mobile - stack vertically */
+  /* Split button on mobile - keep horizontal but adjust ratio */
   .stop-button-group {
-    flex-direction: column;
     width: 100%;
   }
   
   .stop-button-group .stop-main {
-    border-radius: var(--radius-md) var(--radius-md) 0 0;
-    border-right: none;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-    width: 100%;
+    flex: 3;
+    min-height: 48px;
     justify-content: center;
   }
   
   .stop-button-group .btn-end-at {
-    border-radius: 0 0 var(--radius-md) var(--radius-md);
-    width: 100%;
-    justify-content: center;
+    flex: 1;
     min-height: 48px;
+    min-width: 48px;
+  }
+  
+  /* When scheduled on mobile: flip ratio */
+  .stop-button-group.has-schedule .stop-main {
+    flex: 1;
+  }
+  
+  .stop-button-group.has-schedule .btn-end-at {
+    flex: 3;
   }
   
   .form-row {

@@ -638,29 +638,33 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                 <span className="pause-icon">❚❚</span>
                 Pause
               </button>
-              <div className="stop-button-group">
+              <div className={`stop-button-group ${activeEntry.scheduled_end_time ? 'has-schedule' : ''}`}>
                 <button className="btn btn-danger stop-main" onClick={handleStop}>
                   <span className="stop-icon">■</span>
-                  Stop
+                  {activeEntry.scheduled_end_time ? null : 'Stop'}
                 </button>
                 {activeEntry.scheduled_end_time ? (
                   <button 
-                    className="btn btn-end-at scheduled" 
+                    className="btn btn-danger btn-end-at scheduled" 
                     onClick={handleClearScheduledStop}
-                    title="Click to cancel"
+                    title="Click to cancel scheduled stop"
                   >
-                    <span className="clock-icon">🕐</span>
-                    <span className="end-at-text">Ends in {scheduledRemaining}</span>
-                    <span className="cancel-icon">✕</span>
+                    <svg className="clock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="10"/>
+                      <polyline points="12 6 12 12 16 14"/>
+                    </svg>
+                    <span className="scheduled-time">{scheduledRemaining}</span>
                   </button>
                 ) : (
                   <button 
-                    className="btn btn-end-at" 
+                    className="btn btn-danger btn-end-at" 
                     onClick={handleOpenScheduleStop}
                     title="Schedule auto-stop"
                   >
-                    <span className="clock-icon">🕐</span>
-                    <span className="end-at-text">End At</span>
+                    <svg className="clock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="10"/>
+                      <polyline points="12 6 12 12 16 14"/>
+                    </svg>
                   </button>
                 )}
               </div>
