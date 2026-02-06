@@ -138,6 +138,7 @@ export interface TimeEntry {
   task_name: string | null;
   start_time: string;
   end_time: string | null;
+  scheduled_end_time: string | null;
   duration_minutes: number | null; // Cached value, computed from start_time and end_time
   created_at: string;
 }

@@ -13,6 +13,7 @@ A simple, beautiful time tracking app to understand where your hours go.
 - 📊 **Analytics** - Charts and insights on your time usage
 - 🌙 **Dark Mode** - Light, dark, or system theme
 - 👤 **Guest Mode** - No signup required, convert to account later
+- ⏰ **Scheduled Stop** - Auto-stop tracking after a duration or at a specific time
 - 📤 **Import/Export** - CSV and JSON data portability
 - 🔌 **Browser Extension** - Quick access from any tab
 

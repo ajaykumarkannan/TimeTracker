@@ -58,6 +58,20 @@ function getNextAvailableColor(usedColors: (string | null)[]): string {
   return COLOR_PALETTE[Math.floor(Math.random() * COLOR_PALETTE.length)];
 }
 
+// Format remaining time for scheduled stop display
+function formatRemainingTime(scheduledEndTime: string): string {
+  const remaining = new Date(scheduledEndTime).getTime() - Date.now();
+  if (remaining <= 0) return 'now';
+  
+  const hours = Math.floor(remaining / 3600000);
+  const minutes = Math.floor((remaining % 3600000) / 60000);
+  
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  }
+  return `${minutes}m`;
+}
+
 interface Props {
   categories: Category[];
   activeEntry: TimeEntry | null;
@@ -110,6 +124,14 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   const modalInputRef = useRef<HTMLInputElement>(null);
   const modalSuggestionsRef = useRef<HTMLDivElement>(null);
   const suppressModalSuggestionOpenRef = useRef(false);
+
+  // Scheduled stop state
+  const [showScheduleStopModal, setShowScheduleStopModal] = useState(false);
+  const [scheduleMode, setScheduleMode] = useState<'duration' | 'time'>('duration');
+  const [durationHours, setDurationHours] = useState('');
+  const [durationMinutes, setDurationMinutes] = useState('');
+  const [stopAtTime, setStopAtTime] = useState('');
+  const [scheduledRemaining, setScheduledRemaining] = useState<string | null>(null);
 
   // Fetch all suggestions once and cache them
   useEffect(() => {
@@ -374,12 +396,28 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
       const start = new Date(activeEntry.start_time).getTime();
       const now = Date.now();
       setElapsed(Math.floor((now - start) / 1000));
+      
+      // Update scheduled remaining time display
+      if (activeEntry.scheduled_end_time) {
+        const remaining = new Date(activeEntry.scheduled_end_time).getTime() - now;
+        if (remaining <= 0) {
+          // Time to auto-stop - trigger stop and refresh
+          api.stopEntry(activeEntry.id).then(() => {
+            onEntryChange();
+          }).catch(console.error);
+          setScheduledRemaining(null);
+        } else {
+          setScheduledRemaining(formatRemainingTime(activeEntry.scheduled_end_time));
+        }
+      } else {
+        setScheduledRemaining(null);
+      }
     };
 
     updateElapsed();
     const interval = setInterval(updateElapsed, 1000);
     return () => clearInterval(interval);
-  }, [activeEntry]);
+  }, [activeEntry, onEntryChange]);
 
   const handleStart = async () => {
     if (!selectedCategory) return;
@@ -430,6 +468,59 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
       onEntryChange();
     } catch (error) {
       console.error('Failed to stop entry:', error);
+    }
+  };
+
+  const handleOpenScheduleStop = () => {
+    // Reset form state
+    setDurationHours('');
+    setDurationMinutes('');
+    setStopAtTime('');
+    setScheduleMode('duration');
+    setShowScheduleStopModal(true);
+  };
+
+  const handleScheduleStop = async () => {
+    if (!activeEntry) return;
+    
+    let scheduledEndTime: Date;
+    
+    if (scheduleMode === 'duration') {
+      const hours = parseInt(durationHours) || 0;
+      const minutes = parseInt(durationMinutes) || 0;
+      if (hours === 0 && minutes === 0) return;
+      
+      scheduledEndTime = new Date(Date.now() + (hours * 60 + minutes) * 60000);
+    } else {
+      if (!stopAtTime) return;
+      
+      // Parse the time input and create a date for today (or tomorrow if time has passed)
+      const [hours, minutes] = stopAtTime.split(':').map(Number);
+      scheduledEndTime = new Date();
+      scheduledEndTime.setHours(hours, minutes, 0, 0);
+      
+      // If the time has already passed today, schedule for tomorrow
+      if (scheduledEndTime <= new Date()) {
+        scheduledEndTime.setDate(scheduledEndTime.getDate() + 1);
+      }
+    }
+    
+    try {
+      await api.scheduleStop(activeEntry.id, scheduledEndTime.toISOString());
+      setShowScheduleStopModal(false);
+      onEntryChange();
+    } catch (error) {
+      console.error('Failed to schedule stop:', error);
+    }
+  };
+
+  const handleClearScheduledStop = async () => {
+    if (!activeEntry) return;
+    try {
+      await api.clearScheduledStop(activeEntry.id);
+      onEntryChange();
+    } catch (error) {
+      console.error('Failed to clear scheduled stop:', error);
     }
   };
 
@@ -543,6 +634,25 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
               </div>
             </div>
             <div className="timer-actions">
+              {activeEntry.scheduled_end_time ? (
+                <button 
+                  className="btn btn-scheduled" 
+                  onClick={handleClearScheduledStop}
+                  title="Click to cancel scheduled stop"
+                >
+                  <span className="schedule-icon">⏱</span>
+                  Stops in {scheduledRemaining}
+                </button>
+              ) : (
+                <button 
+                  className="btn btn-ghost" 
+                  onClick={handleOpenScheduleStop}
+                  title="Schedule auto-stop"
+                >
+                  <span className="schedule-icon">⏱</span>
+                  Schedule
+                </button>
+              )}
               <button className="btn btn-warning" onClick={handlePause} title="Pause">
                 <span className="pause-icon">❚❚</span>
                 Pause
@@ -553,6 +663,117 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
               </button>
             </div>
           </div>
+          
+          {/* Schedule stop modal */}
+          {showScheduleStopModal && (
+            <div className="task-prompt-overlay" onClick={() => setShowScheduleStopModal(false)}>
+              <div className="task-prompt-modal schedule-stop-modal" onClick={e => e.stopPropagation()}>
+                <div className="task-prompt-header">
+                  <span className="task-prompt-title">Schedule Auto-Stop</span>
+                </div>
+                
+                <div className="schedule-mode-tabs">
+                  <button 
+                    className={`schedule-mode-tab ${scheduleMode === 'duration' ? 'active' : ''}`}
+                    onClick={() => setScheduleMode('duration')}
+                  >
+                    After duration
+                  </button>
+                  <button 
+                    className={`schedule-mode-tab ${scheduleMode === 'time' ? 'active' : ''}`}
+                    onClick={() => setScheduleMode('time')}
+                  >
+                    At specific time
+                  </button>
+                </div>
+                
+                {scheduleMode === 'duration' ? (
+                  <div className="schedule-duration-inputs">
+                    <div className="duration-input-group">
+                      <input
+                        type="number"
+                        min="0"
+                        max="23"
+                        value={durationHours}
+                        onChange={(e) => setDurationHours(e.target.value)}
+                        placeholder="0"
+                        className="duration-input"
+                        autoFocus
+                      />
+                      <span className="duration-label">hours</span>
+                    </div>
+                    <div className="duration-input-group">
+                      <input
+                        type="number"
+                        min="0"
+                        max="59"
+                        value={durationMinutes}
+                        onChange={(e) => setDurationMinutes(e.target.value)}
+                        placeholder="0"
+                        className="duration-input"
+                      />
+                      <span className="duration-label">minutes</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="schedule-time-input">
+                    <input
+                      type="time"
+                      value={stopAtTime}
+                      onChange={(e) => setStopAtTime(e.target.value)}
+                      className="time-input"
+                      autoFocus
+                    />
+                    <span className="time-hint">
+                      {stopAtTime && (() => {
+                        const [h, m] = stopAtTime.split(':').map(Number);
+                        const target = new Date();
+                        target.setHours(h, m, 0, 0);
+                        if (target <= new Date()) {
+                          return 'Tomorrow';
+                        }
+                        return 'Today';
+                      })()}
+                    </span>
+                  </div>
+                )}
+                
+                <div className="schedule-quick-options">
+                  <span className="quick-options-label">Quick:</span>
+                  {[15, 30, 45, 60, 90, 120].map(mins => (
+                    <button
+                      key={mins}
+                      className="quick-duration-btn"
+                      onClick={() => {
+                        setScheduleMode('duration');
+                        setDurationHours(Math.floor(mins / 60).toString());
+                        setDurationMinutes((mins % 60).toString());
+                      }}
+                    >
+                      {mins >= 60 ? `${mins / 60}h` : `${mins}m`}
+                    </button>
+                  ))}
+                </div>
+                
+                <div className="task-prompt-actions">
+                  <button className="btn btn-ghost" onClick={() => setShowScheduleStopModal(false)}>
+                    Cancel
+                  </button>
+                  <button 
+                    className="btn btn-primary" 
+                    onClick={handleScheduleStop}
+                    disabled={scheduleMode === 'duration' 
+                      ? (!durationHours && !durationMinutes) || (parseInt(durationHours || '0') === 0 && parseInt(durationMinutes || '0') === 0)
+                      : !stopAtTime
+                    }
+                  >
+                    <span className="schedule-icon">⏱</span>
+                    Schedule Stop
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
           
           {/* Switch task section while tracking */}
           <div className="switch-task-section">

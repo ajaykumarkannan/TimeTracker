@@ -20,6 +20,7 @@ describe('Query Helpers', () => {
         'Working on feature',       // task_name
         '2024-01-15T09:00:00Z',     // start_time
         '2024-01-15T11:00:00Z',     // end_time
+        null,                       // scheduled_end_time
         120,                        // duration_minutes
         '2024-01-15T09:00:00Z'      // created_at
       ];
@@ -35,6 +36,7 @@ describe('Query Helpers', () => {
         task_name: 'Working on feature',
         start_time: '2024-01-15T09:00:00Z',
         end_time: '2024-01-15T11:00:00Z',
+        scheduled_end_time: null,
         duration_minutes: 120,
         created_at: '2024-01-15T09:00:00Z'
       });
@@ -43,7 +45,7 @@ describe('Query Helpers', () => {
     it('handles null values correctly', () => {
       const row = [
         1, 100, 5, 'Development', null, null, 
-        '2024-01-15T09:00:00Z', null, null, '2024-01-15T09:00:00Z'
+        '2024-01-15T09:00:00Z', null, null, null, '2024-01-15T09:00:00Z'
       ];
 
       const entry = rowToTimeEntry(row);
@@ -51,6 +53,7 @@ describe('Query Helpers', () => {
       expect(entry.category_color).toBeNull();
       expect(entry.task_name).toBeNull();
       expect(entry.end_time).toBeNull();
+      expect(entry.scheduled_end_time).toBeNull();
       expect(entry.duration_minutes).toBeNull();
     });
   });
@@ -59,8 +62,8 @@ describe('Query Helpers', () => {
     it('converts multiple rows to TimeEntry array', () => {
       const result = [{
         values: [
-          [1, 100, 5, 'Dev', '#007bff', 'Task 1', '2024-01-15T09:00:00Z', '2024-01-15T10:00:00Z', 60, '2024-01-15T09:00:00Z'],
-          [2, 100, 5, 'Dev', '#007bff', 'Task 2', '2024-01-15T10:00:00Z', '2024-01-15T11:00:00Z', 60, '2024-01-15T10:00:00Z']
+          [1, 100, 5, 'Dev', '#007bff', 'Task 1', '2024-01-15T09:00:00Z', '2024-01-15T10:00:00Z', null, 60, '2024-01-15T09:00:00Z'],
+          [2, 100, 5, 'Dev', '#007bff', 'Task 2', '2024-01-15T10:00:00Z', '2024-01-15T11:00:00Z', null, 60, '2024-01-15T10:00:00Z']
         ]
       }];
 

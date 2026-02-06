@@ -319,6 +319,26 @@ export const api = {
     return res.json();
   },
 
+  async scheduleStop(id: number, scheduledEndTime: string): Promise<TimeEntry> {
+    const res = await apiFetch(`${API_BASE}/time-entries/${id}/schedule-stop`, {
+      method: 'POST',
+      body: JSON.stringify({ scheduled_end_time: scheduledEndTime })
+    });
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || 'Failed to schedule stop');
+    }
+    return res.json();
+  },
+
+  async clearScheduledStop(id: number): Promise<TimeEntry> {
+    const res = await apiFetch(`${API_BASE}/time-entries/${id}/schedule-stop`, {
+      method: 'DELETE'
+    });
+    if (!res.ok) throw new Error('Failed to clear scheduled stop');
+    return res.json();
+  },
+
   async updateEntry(id: number, data: Partial<TimeEntry>): Promise<TimeEntry> {
     const res = await apiFetch(`${API_BASE}/time-entries/${id}`, {
       method: 'PUT',

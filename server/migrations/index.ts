@@ -236,6 +236,22 @@ const migrations: Migration[] = [
       db.run(`CREATE INDEX IF NOT EXISTS idx_time_entries_user_task_name ON time_entries(user_id, task_name)`);
     }
   },
+  {
+    version: 7,
+    name: 'add_scheduled_end_time',
+    up: (db) => {
+      // Check if column already exists
+      const tableInfo = db.exec(`PRAGMA table_info(time_entries)`);
+      const columns = tableInfo[0]?.values.map(row => row[1] as string) || [];
+      
+      if (columns.includes('scheduled_end_time')) {
+        return; // Already migrated
+      }
+      
+      // Add scheduled_end_time column for auto-stop feature
+      db.run(`ALTER TABLE time_entries ADD COLUMN scheduled_end_time DATETIME`);
+    }
+  },
 ];
 
 export function runMigrations(db: SqlJsDatabase): void {
