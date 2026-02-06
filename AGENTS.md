@@ -15,6 +15,7 @@ ChronoFlow is a time tracking webapp that helps users understand where their wor
 - Dark/light/system theme support
 - Two usage modes: Guest (anonymous session) and Account (registered user)
 - Idle detection to pause tracking when inactive
+- Scheduled auto-stop: Set a timer to automatically stop tracking after a duration or at a specific time
 - Browser extension for quick access
 
 ### Usage Modes

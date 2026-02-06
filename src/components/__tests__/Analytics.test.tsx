@@ -44,6 +44,7 @@ const mockActiveEntry: TimeEntry = {
   category_name: 'Meetings',
   category_color: '#6366f1',
   task_name: 'Team sync',
+  scheduled_end_time: null,
   duration_minutes: null,
   created_at: new Date().toISOString()
 };

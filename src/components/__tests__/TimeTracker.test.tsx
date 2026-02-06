@@ -46,6 +46,7 @@ describe('TimeTracker', () => {
       task_name: 'Previous task',
       start_time: '2024-01-01T10:00:00Z',
       end_time: '2024-01-01T11:00:00Z',
+      scheduled_end_time: null,
       duration_minutes: 60,
       created_at: '2024-01-01'
     }
@@ -108,6 +109,7 @@ describe('TimeTracker', () => {
       task_name: 'Working on feature',
       start_time: new Date(Date.now() - 3661000).toISOString(),
       end_time: null,
+      scheduled_end_time: null,
       duration_minutes: null,
       created_at: '2024-01-01'
     };
@@ -137,6 +139,7 @@ describe('TimeTracker', () => {
       task_name: null,
       start_time: new Date().toISOString(),
       end_time: null,
+      scheduled_end_time: null,
       duration_minutes: null,
       created_at: '2024-01-01'
     };
@@ -186,6 +189,7 @@ describe('TimeTracker', () => {
       task_name: 'Working on feature',
       start_time: new Date().toISOString(),
       end_time: null,
+      scheduled_end_time: null,
       duration_minutes: null,
       created_at: '2024-01-01'
     };
@@ -221,6 +225,7 @@ describe('TimeTracker', () => {
       task_name: 'Working on feature',
       start_time: new Date().toISOString(),
       end_time: null,
+      scheduled_end_time: null,
       duration_minutes: null,
       created_at: '2024-01-01'
     };
@@ -267,7 +272,8 @@ describe('TimeTracker', () => {
         task_name: 'Bug fix',
         start_time: '2024-01-01T10:00:00Z',
         end_time: '2024-01-01T11:00:00Z',
-        duration_minutes: 60,
+        scheduled_end_time: null,
+      duration_minutes: 60,
         created_at: '2024-01-01'
       },
       {
@@ -278,7 +284,8 @@ describe('TimeTracker', () => {
         task_name: 'Bug fix',
         start_time: '2024-01-01T12:00:00Z',
         end_time: '2024-01-01T13:00:00Z',
-        duration_minutes: 60,
+        scheduled_end_time: null,
+      duration_minutes: 60,
         created_at: '2024-01-01'
       }
     ];
@@ -307,7 +314,8 @@ describe('TimeTracker', () => {
         task_name: 'Bug fix',
         start_time: '2024-01-01T10:00:00Z',
         end_time: '2024-01-01T11:00:00Z',
-        duration_minutes: 60,
+        scheduled_end_time: null,
+      duration_minutes: 60,
         created_at: '2024-01-01'
       }
     ];
@@ -432,6 +440,7 @@ describe('TimeTracker', () => {
       task_name: 'Current task',
       start_time: new Date().toISOString(),
       end_time: null,
+      scheduled_end_time: null,
       duration_minutes: null,
       created_at: '2024-01-01'
     };
@@ -458,6 +467,7 @@ describe('TimeTracker', () => {
       task_name: 'Current task',
       start_time: new Date().toISOString(),
       end_time: null,
+      scheduled_end_time: null,
       duration_minutes: null,
       created_at: '2024-01-01'
     };
@@ -661,6 +671,7 @@ describe('TimeTracker', () => {
       task_name: null,
       start_time: new Date(Date.now() - 3661000).toISOString(), // 1 hour, 1 minute, 1 second ago
       end_time: null,
+      scheduled_end_time: null,
       duration_minutes: null,
       created_at: '2024-01-01'
     };
@@ -705,6 +716,7 @@ describe('TimeTracker', () => {
       task_name: 'Current task',
       start_time: new Date().toISOString(),
       end_time: null,
+      scheduled_end_time: null,
       duration_minutes: null,
       created_at: '2024-01-01'
     };
@@ -735,6 +747,7 @@ describe('TimeTracker', () => {
       task_name: 'Current task',
       start_time: new Date().toISOString(),
       end_time: null,
+      scheduled_end_time: null,
       duration_minutes: null,
       created_at: '2024-01-01'
     };
@@ -773,6 +786,7 @@ describe('TimeTracker', () => {
       task_name: 'Current task',
       start_time: new Date().toISOString(),
       end_time: null,
+      scheduled_end_time: null,
       duration_minutes: null,
       created_at: '2024-01-01'
     };
@@ -828,6 +842,7 @@ describe('TimeTracker', () => {
       task_name: 'Current task',
       start_time: new Date().toISOString(),
       end_time: null,
+      scheduled_end_time: null,
       duration_minutes: null,
       created_at: '2024-01-01'
     };
@@ -877,6 +892,7 @@ describe('TimeTracker', () => {
       task_name: 'Current task',
       start_time: new Date().toISOString(),
       end_time: null,
+      scheduled_end_time: null,
       duration_minutes: null,
       created_at: '2024-01-01'
     };
@@ -1037,6 +1053,7 @@ describe('TimeTracker', () => {
       task_name: null,
       start_time: new Date().toISOString(),
       end_time: null,
+      scheduled_end_time: null,
       duration_minutes: null,
       created_at: '2024-01-01'
     };
@@ -1109,6 +1126,7 @@ describe('TimeTracker', () => {
       task_name: 'Working on feature X',
       start_time: new Date().toISOString(),
       end_time: null,
+      scheduled_end_time: null,
       duration_minutes: null,
       created_at: '2024-01-01'
     };
@@ -1177,6 +1195,7 @@ describe('TimeTracker', () => {
       task_name: 'Working on feature',
       start_time: new Date().toISOString(),
       end_time: null,
+      scheduled_end_time: null,
       duration_minutes: null,
       created_at: '2024-01-01'
     };
@@ -1227,6 +1246,7 @@ describe('TimeTracker', () => {
       task_name: 'Working on feature',
       start_time: new Date().toISOString(),
       end_time: null,
+      scheduled_end_time: null,
       duration_minutes: null,
       created_at: '2024-01-01'
     };
@@ -1280,6 +1300,7 @@ describe('TimeTracker', () => {
       task_name: 'Working on feature',
       start_time: new Date().toISOString(),
       end_time: null,
+      scheduled_end_time: null,
       duration_minutes: null,
       created_at: '2024-01-01'
     };
@@ -1485,7 +1506,8 @@ describe('TimeTracker', () => {
         task_name: 'Bug fix',
         start_time: '2024-01-01T10:00:00Z',
         end_time: '2024-01-01T11:00:00Z',
-        duration_minutes: 60,
+        scheduled_end_time: null,
+      duration_minutes: 60,
         created_at: '2024-01-01'
       }
     ];
@@ -1498,6 +1520,7 @@ describe('TimeTracker', () => {
       task_name: 'Current task',
       start_time: new Date().toISOString(),
       end_time: null,
+      scheduled_end_time: null,
       duration_minutes: null,
       created_at: '2024-01-01'
     };
@@ -1534,6 +1557,7 @@ describe('TimeTracker', () => {
       task_name: 'Current task',
       start_time: new Date().toISOString(),
       end_time: null,
+      scheduled_end_time: null,
       duration_minutes: null,
       created_at: '2024-01-01'
     };
@@ -1588,6 +1612,7 @@ describe('TimeTracker', () => {
       task_name: 'Current task',
       start_time: new Date().toISOString(),
       end_time: null,
+      scheduled_end_time: null,
       duration_minutes: null,
       created_at: '2024-01-01'
     };
@@ -1655,6 +1680,7 @@ describe('TimeTracker', () => {
       task_name: 'Current task',
       start_time: new Date().toISOString(),
       end_time: null,
+      scheduled_end_time: null,
       duration_minutes: null,
       created_at: '2024-01-01'
     };
@@ -1717,6 +1743,7 @@ describe('TimeTracker', () => {
       task_name: 'Current task',
       start_time: new Date().toISOString(),
       end_time: null,
+      scheduled_end_time: null,
       duration_minutes: null,
       created_at: '2024-01-01'
     };
@@ -2092,6 +2119,7 @@ describe('TimeTracker', () => {
       task_name: 'Current task',
       start_time: new Date().toISOString(),
       end_time: null,
+      scheduled_end_time: null,
       duration_minutes: null,
       created_at: '2024-01-01'
     };
@@ -2143,6 +2171,7 @@ describe('TimeTracker', () => {
       task_name: 'Current task',
       start_time: new Date().toISOString(),
       end_time: null,
+      scheduled_end_time: null,
       duration_minutes: null,
       created_at: '2024-01-01'
     };
@@ -2191,6 +2220,7 @@ describe('TimeTracker', () => {
       task_name: 'Working on feature',
       start_time: new Date().toISOString(),
       end_time: null,
+      scheduled_end_time: null,
       duration_minutes: null,
       created_at: '2024-01-01'
     };
@@ -2247,6 +2277,7 @@ describe('TimeTracker', () => {
       task_name: 'Current task',
       start_time: new Date().toISOString(),
       end_time: null,
+      scheduled_end_time: null,
       duration_minutes: null,
       created_at: '2024-01-01'
     };
@@ -2260,7 +2291,8 @@ describe('TimeTracker', () => {
         task_name: 'Bug fix',
         start_time: '2024-01-01T10:00:00Z',
         end_time: '2024-01-01T11:00:00Z',
-        duration_minutes: 60,
+        scheduled_end_time: null,
+      duration_minutes: 60,
         created_at: '2024-01-01'
       }
     ];
@@ -2300,6 +2332,7 @@ describe('TimeTracker', () => {
       task_name: 'Working',
       start_time: new Date().toISOString(),
       end_time: null,
+      scheduled_end_time: null,
       duration_minutes: null,
       created_at: '2024-01-01'
     };
@@ -2343,6 +2376,7 @@ describe('fuzzyMatch function coverage', () => {
       task_name: 'Previous task',
       start_time: '2024-01-01T10:00:00Z',
       end_time: '2024-01-01T11:00:00Z',
+      scheduled_end_time: null,
       duration_minutes: 60,
       created_at: '2024-01-01'
     }
@@ -2546,6 +2580,7 @@ describe('fuzzyMatch function coverage', () => {
       task_name: 'Previous task',
       start_time: '2024-01-01T10:00:00Z',
       end_time: '2024-01-01T11:00:00Z',
+      scheduled_end_time: null,
       duration_minutes: 60,
       created_at: '2024-01-01'
     }

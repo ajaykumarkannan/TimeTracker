@@ -11,7 +11,7 @@ import { TimeEntry } from '../database';
  */
 export const TIME_ENTRIES_WITH_CATEGORIES_QUERY = `
   SELECT te.id, te.user_id, te.category_id, c.name as category_name, c.color as category_color,
-         te.task_name, te.start_time, te.end_time, te.duration_minutes, te.created_at
+         te.task_name, te.start_time, te.end_time, te.scheduled_end_time, te.duration_minutes, te.created_at
   FROM time_entries te
   JOIN categories c ON te.category_id = c.id
 `;
@@ -30,8 +30,9 @@ export function rowToTimeEntry(row: unknown[]): TimeEntry & { category_name: str
     task_name: row[5] as string | null,
     start_time: row[6] as string,
     end_time: row[7] as string | null,
-    duration_minutes: row[8] as number | null,
-    created_at: row[9] as string
+    scheduled_end_time: row[8] as string | null,
+    duration_minutes: row[9] as number | null,
+    created_at: row[10] as string
   };
 }
 

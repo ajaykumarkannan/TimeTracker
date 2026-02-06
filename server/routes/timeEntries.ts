@@ -188,7 +188,7 @@ router.post('/:id/stop', (req: AuthRequest, res: Response) => {
     const duration = calculateDurationMinutes(startTime, endTime);
 
     db.run(
-      `UPDATE time_entries SET end_time = ?, duration_minutes = ? WHERE id = ?`,
+      `UPDATE time_entries SET end_time = ?, duration_minutes = ?, scheduled_end_time = NULL WHERE id = ?`,
       [endTime, duration, id]
     );
     saveDatabase();
@@ -205,6 +205,91 @@ router.post('/:id/stop', (req: AuthRequest, res: Response) => {
   } catch (error) {
     logger.error('Error stopping time entry', { error, userId: req.userId as number });
     res.status(500).json({ error: 'Failed to stop time entry' });
+  }
+});
+
+// Schedule auto-stop for active entry
+router.post('/:id/schedule-stop', (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { scheduled_end_time } = req.body;
+    const db = getDb();
+
+    // Verify entry exists and belongs to user
+    const existing = db.exec(
+      `SELECT id FROM time_entries WHERE id = ? AND user_id = ? AND end_time IS NULL`,
+      [id, req.userId as number]
+    );
+
+    if (existing.length === 0 || existing[0].values.length === 0) {
+      return res.status(404).json({ error: 'Active entry not found' });
+    }
+
+    // Validate scheduled_end_time
+    if (!scheduled_end_time || !isValidISODate(scheduled_end_time)) {
+      return res.status(400).json({ error: 'scheduled_end_time must be a valid ISO 8601 date' });
+    }
+
+    const scheduledTime = new Date(scheduled_end_time);
+    if (scheduledTime <= new Date()) {
+      return res.status(400).json({ error: 'scheduled_end_time must be in the future' });
+    }
+
+    db.run(
+      `UPDATE time_entries SET scheduled_end_time = ? WHERE id = ?`,
+      [scheduled_end_time, id]
+    );
+    saveDatabase();
+
+    const result = db.exec(
+      TIME_ENTRIES_WITH_CATEGORIES_QUERY + ` WHERE te.id = ?`,
+      [id]
+    );
+
+    const entry = rowToTimeEntry(result[0].values[0]);
+    logger.info('Scheduled stop time set', { entryId: id, scheduledEndTime: scheduled_end_time, userId: req.userId as number });
+
+    res.json(entry);
+  } catch (error) {
+    logger.error('Error scheduling stop time', { error, userId: req.userId as number });
+    res.status(500).json({ error: 'Failed to schedule stop time' });
+  }
+});
+
+// Clear scheduled stop for active entry
+router.delete('/:id/schedule-stop', (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const db = getDb();
+
+    // Verify entry exists and belongs to user
+    const existing = db.exec(
+      `SELECT id FROM time_entries WHERE id = ? AND user_id = ? AND end_time IS NULL`,
+      [id, req.userId as number]
+    );
+
+    if (existing.length === 0 || existing[0].values.length === 0) {
+      return res.status(404).json({ error: 'Active entry not found' });
+    }
+
+    db.run(
+      `UPDATE time_entries SET scheduled_end_time = NULL WHERE id = ?`,
+      [id]
+    );
+    saveDatabase();
+
+    const result = db.exec(
+      TIME_ENTRIES_WITH_CATEGORIES_QUERY + ` WHERE te.id = ?`,
+      [id]
+    );
+
+    const entry = rowToTimeEntry(result[0].values[0]);
+    logger.info('Scheduled stop time cleared', { entryId: id, userId: req.userId as number });
+
+    res.json(entry);
+  } catch (error) {
+    logger.error('Error clearing scheduled stop time', { error, userId: req.userId as number });
+    res.status(500).json({ error: 'Failed to clear scheduled stop time' });
   }
 });
 

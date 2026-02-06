@@ -28,6 +28,7 @@ export interface TimeEntry {
   task_name: string | null;
   start_time: string;
   end_time: string | null;
+  scheduled_end_time: string | null;
   duration_minutes: number | null;
   created_at: string;
 }
