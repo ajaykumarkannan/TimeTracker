@@ -114,8 +114,7 @@ main (production-ready)
 2. **Continue on the same branch**: If the user requests additional changes related to the feature, continue working on the same branch without renaming it
 3. **Update PR descriptions**: When adding new functionality to an existing feature branch, update the PR description to reflect all changes included
 4. **Keep documentation current**: Always update `AGENTS.md` and `README.md` when adding or modifying features
-5. **Version bump on feature branches**: Update the app version on the feature branch before opening a PR. Use a **minor** bump for larger changes (new features, significant UX changes, or breaking behavior) and a **patch** bump for small fixes or low-impact tweaks.
-6. **Create GitHub releases**: After merging a tagged patch release, create the corresponding GitHub release (e.g., `v0.7.2`) with a short changelog
+5. **No version bumps needed**: Version bumping is automatic - patch versions auto-bump on main merge, and only minor/major releases require manual tagging
 
 #### Code Quality Standards
 
@@ -281,8 +280,21 @@ When making changes to the database schema, follow these guidelines:
 
 ## Release Process
 
+### Automatic Patch Releases
+Every merge to `main` automatically triggers a patch version bump and Docker image publish. No manual intervention needed.
+
+### Manual Minor/Major Releases
 When bumping a minor or major version:
 
-1. **Create tags with the new version** (e.g., `vX.Y.Z`) after the release commit is ready.
-2. **Correct release notes once merged** (ensure the release is tied to the final merged commit).
-3. **List changes using short PR references** (e.g., `#47`) instead of full URLs in the release notes.
+1. **Create and push a version tag** (e.g., `v1.1.0` for minor, `v2.0.0` for major):
+   ```bash
+   npm version minor  # or major
+   git push && git push --tags
+   ```
+
+2. **CI will automatically**:
+   - Run comprehensive tests
+   - Build and publish multi-arch Docker image
+   - Create a GitHub Release with auto-generated notes
+
+3. **Manually update the release notes** with a proper changelog and feature summary using short PR references (e.g., `#47`).

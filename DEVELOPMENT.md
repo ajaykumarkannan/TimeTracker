@@ -145,30 +145,61 @@ curl http://localhost:4849/api/health
 
 The CI builds for `linux/amd64`, `linux/arm64`, and `linux/arm/v7` (Raspberry Pi).
 
+## CI/CD Workflows
+
+ChronoFlow has two GitHub Actions workflows:
+
+### `ci.yml` - Pull Request Validation
+Runs **only on PRs** to main, providing comprehensive validation:
+- Lint & type checking
+- Security audit
+- Unit tests with coverage reporting
+- Production build
+- E2E tests
+- Docker build test
+
+### `publish-and-release.yml` - Main Branch Publishing
+Runs on **pushes to main**, **version tags**, and **PRs**:
+- All CI checks (lint, test, build, e2e, docker)
+- Auto patch version bump (main only)
+- Multi-arch Docker build and publish to GHCR
+- GitHub Release creation (tags only)
+
+This design eliminates redundant workflow runs on main while ensuring all code is thoroughly tested.
+
 ## Releasing
 
-1. Update version:
-   ```bash
-   npm version patch  # or minor, major
-   ```
+### Automatic Patch Releases (Default)
+Every merge to `main` automatically:
+1. Runs all CI checks
+2. Bumps the patch version (e.g., `0.10.4` → `0.10.5`)
+3. Creates a git tag
+4. Builds and publishes a multi-arch Docker image to GHCR
 
-2. Push with tags:
+No manual intervention needed! Users with Watchtower auto-update within an hour.
+
+### Manual Minor/Major Releases
+For feature releases or breaking changes:
+
+1. Create and push a version tag:
    ```bash
+   npm version minor  # or major
    git push && git push --tags
    ```
 
-3. GitHub Actions will:
-    - Run tests
+2. GitHub Actions will:
+    - Run all CI checks
     - Build multi-arch Docker image
     - Push to GitHub Container Registry (ghcr.io)
-    - Create GitHub Release
+    - Create GitHub Release with auto-generated notes
 
-Users with Watchtower will auto-update within an hour.
+3. Manually create a GitHub Release for the new tag with a changelog
 
 ## GHCR Publishing
 
-- `main` pushes publish `ghcr.io/<owner>/<repo>:main` and `:sha-<short>` for smoke testing (GHCR lowercases the repo name, e.g. `ghcr.io/owner/timetracker`).
-- Version tags with patch=0 (`vX.Y.0`, e.g. `v1.0.0`, `v1.1.0`, `v2.0.0`) publish semver tags plus `:latest`; patch releases (e.g. `v1.0.1`) do not trigger the workflow.
+- **Main pushes** publish `ghcr.io/<owner>/<repo>:main` for continuous deployment
+- **Version tags** (e.g., `v1.0.0`) publish semver tags (`1.0.0`, `1.0`, `1`) plus `:latest`
+- GHCR lowercases repo names (e.g., `ghcr.io/ajaykumarkannan/timetracker`)
 
 **Package visibility:** New GHCR packages start as private. The workflows try to set visibility to public via the API so anyone can `docker pull` without logging in. If that step fails (e.g. token lacks permission), make the package public once manually: open the package page (e.g. **Your profile → Packages →** the container image), then **Package settings → Danger zone → Change visibility → Public**. This is irreversible.
 
