@@ -145,30 +145,73 @@ curl http://localhost:4849/api/health
 
 The CI builds for `linux/amd64`, `linux/arm64`, and `linux/arm/v7` (Raspberry Pi).
 
+## CI/CD Workflow
+
+ChronoFlow uses a single unified GitHub Actions workflow (`main.yml`) that handles all CI/CD needs:
+
+### Triggers
+- **Pull Requests** to main - Runs all validation checks
+- **Pushes to main** - Runs validation + auto patch bump + Docker publish
+- **Version tags** (e.g., `v1.0.0`) - Runs validation + Docker publish + GitHub release
+- **Manual dispatch** - Can be triggered manually when needed
+
+### Jobs
+All events run the core CI jobs:
+- **Lint & Type Check** - ESLint + TypeScript validation (client + server)
+- **Security Audit** - npm audit for vulnerabilities
+- **Unit Tests** - Comprehensive test suite with coverage reporting
+- **Build** - Production build validation
+- **E2E Tests** - Playwright end-to-end testing
+- **Docker Test** - Container build and health check
+
+Additional jobs based on event type:
+- **Patch Bump** (main only) - Auto-increments patch version
+- **Docker Publish** (main + tags) - Multi-arch build to GHCR
+- **Create Release** (tags only) - GitHub release with auto-generated notes
+
+### Workflow Behavior
+
+| Event | CI Jobs | Additional Actions |
+|-------|---------|-------------------|
+| PR to main | ✅ All validation | Coverage reporting |
+| Push to main | ✅ All validation | → Patch bump → Docker publish |
+| Version tag | ✅ All validation | → Docker publish → GitHub release |
+
+This unified approach eliminates code duplication while ensuring comprehensive testing for all code changes.
+
 ## Releasing
 
-1. Update version:
-   ```bash
-   npm version patch  # or minor, major
-   ```
+### Automatic Patch Releases (Default)
+Every merge to `main` automatically:
+1. Runs all CI checks
+2. Bumps the patch version (e.g., `0.10.4` → `0.10.5`)
+3. Creates a git tag
+4. Builds and publishes a multi-arch Docker image to GHCR
 
-2. Push with tags:
+No manual intervention needed! Users with Watchtower auto-update within an hour.
+
+### Manual Minor/Major Releases
+For feature releases or breaking changes:
+
+1. Create and push a version tag:
    ```bash
+   npm version minor  # or major
    git push && git push --tags
    ```
 
-3. GitHub Actions will:
-    - Run tests
+2. GitHub Actions will:
+    - Run all CI checks
     - Build multi-arch Docker image
     - Push to GitHub Container Registry (ghcr.io)
-    - Create GitHub Release
+    - Create GitHub Release with auto-generated notes
 
-Users with Watchtower will auto-update within an hour.
+3. Manually create a GitHub Release for the new tag with a changelog
 
 ## GHCR Publishing
 
-- `main` pushes publish `ghcr.io/<owner>/<repo>:main` and `:sha-<short>` for smoke testing (GHCR lowercases the repo name, e.g. `ghcr.io/owner/timetracker`).
-- Version tags with patch=0 (`vX.Y.0`, e.g. `v1.0.0`, `v1.1.0`, `v2.0.0`) publish semver tags plus `:latest`; patch releases (e.g. `v1.0.1`) do not trigger the workflow.
+- **Main pushes** publish `ghcr.io/<owner>/<repo>:main` for continuous deployment
+- **Version tags** (e.g., `v1.0.0`) publish semver tags (`1.0.0`, `1.0`, `1`) plus `:latest`
+- GHCR lowercases repo names (e.g., `ghcr.io/ajaykumarkannan/timetracker`)
 
 **Package visibility:** New GHCR packages start as private. The workflows try to set visibility to public via the API so anyone can `docker pull` without logging in. If that step fails (e.g. token lacks permission), make the package public once manually: open the package page (e.g. **Your profile → Packages →** the container image), then **Package settings → Danger zone → Change visibility → Public**. This is irreversible.
 
