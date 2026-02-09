@@ -41,6 +41,12 @@ jobs:
       new_version: ${{ steps.patch-bump.outputs.new_version }}
     steps:
       - uses: actions/checkout@v4
+      
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+      
       - name: Get Current Version
         id: current-version
         run: echo "version=$(node -p 'require("./package.json").version')" >> $GITHUB_OUTPUT
