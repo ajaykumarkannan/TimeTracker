@@ -43,13 +43,13 @@ jobs:
       - uses: actions/checkout@v4
       - name: Get Current Version
         id: current-version
-        run: echo "version=$(node -p \"require('./package.json').version\")" >> $GITHUB_OUTPUT
+        run: echo "version=$(node -p 'require("./package.json").version')" >> $GITHUB_OUTPUT
 
       - name: Bump Patch Version
         id: patch-bump
         run: |
           npm version patch -m "chore(release): %s [ci skip]"
-          echo "new_version=$(node -p \"require('./package.json').version\")" >> $GITHUB_OUTPUT
+          echo "new_version=$(node -p 'require("./package.json").version')" >> $GITHUB_OUTPUT
 
       - name: Push Bumped Version
         run: |
