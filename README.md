@@ -1,8 +1,7 @@
 # ChronoFlow ⏱️
 
-[![CI](https://github.com/ajaykumarkannan/TimeTracker/actions/workflows/ci.yml/badge.svg)](https://github.com/ajaykumarkannan/TimeTracker/actions/workflows/ci.yml)
+[![CI/CD Pipeline](https://github.com/ajaykumarkannan/TimeTracker/actions/workflows/main.yml/badge.svg)](https://github.com/ajaykumarkannan/TimeTracker/actions/workflows/main.yml)
 [![Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/ajaykumarkannan/9a5e749ae6f866ffafa27c92fb237cf7/raw/chronoflow-coverage-badge.json)](https://gist.github.com/ajaykumarkannan/9a5e749ae6f866ffafa27c92fb237cf7)
-[![Publish Docker Image (main)](https://github.com/ajaykumarkannan/TimeTracker/actions/workflows/publish-main.yml/badge.svg)](https://github.com/ajaykumarkannan/TimeTracker/actions/workflows/publish-main.yml)
 
 A simple, beautiful time tracking app to understand where your hours go.
 

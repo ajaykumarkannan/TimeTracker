@@ -145,27 +145,39 @@ curl http://localhost:4849/api/health
 
 The CI builds for `linux/amd64`, `linux/arm64`, and `linux/arm/v7` (Raspberry Pi).
 
-## CI/CD Workflows
+## CI/CD Workflow
 
-ChronoFlow has two GitHub Actions workflows:
+ChronoFlow uses a single unified GitHub Actions workflow (`main.yml`) that handles all CI/CD needs:
 
-### `ci.yml` - Pull Request Validation
-Runs **only on PRs** to main, providing comprehensive validation:
-- Lint & type checking
-- Security audit
-- Unit tests with coverage reporting
-- Production build
-- E2E tests
-- Docker build test
+### Triggers
+- **Pull Requests** to main - Runs all validation checks
+- **Pushes to main** - Runs validation + auto patch bump + Docker publish
+- **Version tags** (e.g., `v1.0.0`) - Runs validation + Docker publish + GitHub release
+- **Manual dispatch** - Can be triggered manually when needed
 
-### `publish-and-release.yml` - Main Branch Publishing
-Runs on **pushes to main**, **version tags**, and **PRs**:
-- All CI checks (lint, test, build, e2e, docker)
-- Auto patch version bump (main only)
-- Multi-arch Docker build and publish to GHCR
-- GitHub Release creation (tags only)
+### Jobs
+All events run the core CI jobs:
+- **Lint & Type Check** - ESLint + TypeScript validation (client + server)
+- **Security Audit** - npm audit for vulnerabilities
+- **Unit Tests** - Comprehensive test suite with coverage reporting
+- **Build** - Production build validation
+- **E2E Tests** - Playwright end-to-end testing
+- **Docker Test** - Container build and health check
 
-This design eliminates redundant workflow runs on main while ensuring all code is thoroughly tested.
+Additional jobs based on event type:
+- **Patch Bump** (main only) - Auto-increments patch version
+- **Docker Publish** (main + tags) - Multi-arch build to GHCR
+- **Create Release** (tags only) - GitHub release with auto-generated notes
+
+### Workflow Behavior
+
+| Event | CI Jobs | Additional Actions |
+|-------|---------|-------------------|
+| PR to main | ✅ All validation | Coverage reporting |
+| Push to main | ✅ All validation | → Patch bump → Docker publish |
+| Version tag | ✅ All validation | → Docker publish → GitHub release |
+
+This unified approach eliminates code duplication while ensuring comprehensive testing for all code changes.
 
 ## Releasing
 
