@@ -98,6 +98,7 @@ main (production-ready)
 1. **Check current branch first**: Before making changes, verify you're on a feature branch (not `main`)
 2. **Never commit directly to main**: All changes must go through a feature branch first
 3. **Create PRs for main merges**: Use `gh pr create --base main --head feature/your-branch` when ready to merge
+   - Ensure multiline bodies are passed with real newlines (not escaped `\n`) so PR descriptions render correctly.
 4. **Wait for human approval**: After creating a PR to main, stop and ask the human to review and approve
 5. **Run full CI checks locally before pushing**: Always run the following commands locally before pushing to a PR to catch issues early:
    - `npx tsc --noEmit` - TypeScript type checking (catches type errors that `npm test` may miss)

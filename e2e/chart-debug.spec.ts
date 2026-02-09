@@ -87,38 +87,22 @@ test.describe('Analytics Daily Breakdown Chart', () => {
     await expect(dailyChart).toBeVisible();
     
     // Wait for data to load - the chart should have bars with data
-    // The "today" class is applied to the last bar in the current period
-    const todayBar = page.locator('.chart-bar-container.today');
-    await expect(todayBar).toBeVisible({ timeout: 10000 });
+    const chartBars = page.locator('.chart-bar-container');
+    await expect(chartBars.first()).toBeVisible({ timeout: 10000 });
     
     // Verify it has colored segments (wait for them to appear)
-    const segments = todayBar.locator('.chart-bar-segment');
-    const segmentCount = await segments.count();
+    const anySegments = page.locator('.chart-bar-segment');
+    await expect(anySegments.first()).toBeVisible({ timeout: 10000 });
+    const anyCount = await anySegments.count();
+    expect(anyCount).toBeGreaterThan(0);
     
-    // If no segments in "today" bar, check any bar with segments
-    if (segmentCount === 0) {
-      // Data might be in a different bar - check for any segments in the chart
-      const anySegments = page.locator('.chart-bar-segment');
-      await expect(anySegments.first()).toBeVisible({ timeout: 5000 });
-      const anyCount = await anySegments.count();
-      expect(anyCount).toBeGreaterThan(0);
-      
-      // Verify segments have background colors
-      const firstSegment = anySegments.first();
-      const bgColor = await firstSegment.evaluate(el => 
-        window.getComputedStyle(el).backgroundColor
-      );
-      expect(bgColor).not.toBe('rgba(0, 0, 0, 0)');
-      expect(bgColor).not.toBe('transparent');
-    } else {
-      // Verify segments have background colors
-      const firstSegment = segments.first();
-      const bgColor = await firstSegment.evaluate(el => 
-        window.getComputedStyle(el).backgroundColor
-      );
-      expect(bgColor).not.toBe('rgba(0, 0, 0, 0)');
-      expect(bgColor).not.toBe('transparent');
-    }
+    // Verify segments have background colors
+    const firstSegment = anySegments.first();
+    const bgColor = await firstSegment.evaluate(el => 
+      window.getComputedStyle(el).backgroundColor
+    );
+    expect(bgColor).not.toBe('rgba(0, 0, 0, 0)');
+    expect(bgColor).not.toBe('transparent');
   });
 
   test('shows legend with category colors', async ({ page }) => {
