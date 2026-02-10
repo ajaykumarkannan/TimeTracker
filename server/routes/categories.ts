@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import { getDb, saveDatabase, Category } from '../database';
 import { logger } from '../logger';
 import { flexAuthMiddleware, AuthRequest } from '../middleware/auth';
+import { broadcastSyncEvent } from './sync';
 
 const router = Router();
 
@@ -50,6 +51,7 @@ router.post('/', (req: AuthRequest, res: Response) => {
       [req.userId as number, name, color || null]
     );
     saveDatabase();
+    broadcastSyncEvent(req.userId as number, 'categories');
 
     const result = db.exec(
       `SELECT id, user_id, name, color, created_at FROM categories WHERE user_id = ? AND name = ?`,
@@ -95,6 +97,7 @@ router.put('/:id', (req: AuthRequest, res: Response) => {
       [name, color || null, id, req.userId as number]
     );
     saveDatabase();
+    broadcastSyncEvent(req.userId as number, 'categories');
 
     const result = db.exec(
       `SELECT id, user_id, name, color, created_at FROM categories WHERE id = ?`,
@@ -179,6 +182,8 @@ router.delete('/:id', (req: AuthRequest, res: Response) => {
     // Delete the category
     db.run(`DELETE FROM categories WHERE id = ? AND user_id = ?`, [id, req.userId as number]);
     saveDatabase();
+    // Broadcast both categories and time-entries since entries may have been reassigned
+    broadcastSyncEvent(req.userId as number, 'all');
 
     logger.info('Category deleted', { 
       categoryId: id, 
