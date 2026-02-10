@@ -12,6 +12,7 @@ import categoriesRouter from './routes/categories';
 import analyticsRouter from './routes/analytics';
 import exportRouter from './routes/export';
 import settingsRouter from './routes/settings';
+import syncRouter from './routes/sync';
 import { readFileSync } from 'fs';
 
 // Validate configuration
@@ -66,6 +67,7 @@ app.use('/api/categories', categoriesRouter);
 app.use('/api/analytics', analyticsRouter);
 app.use('/api/export', exportRouter);
 app.use('/api/settings', settingsRouter);
+app.use('/api/sync', syncRouter);
 
 // Version endpoint
 app.get('/api/version', (req, res) => {

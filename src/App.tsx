@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from './contexts/AuthContext';
 import { TimezoneProvider, useTimezone } from './contexts/TimezoneContext';
 import { useTheme } from './contexts/ThemeContext';
@@ -13,6 +13,7 @@ import { Help } from './components/Help';
 import { ThemeToggle } from './components/ThemeToggle';
 import { SettingsIcon, LogoutIcon, HelpIcon, ClockIcon, TagIcon, ChartIcon } from './components/Icons';
 import { api } from './api';
+import { useSync } from './hooks/useSync';
 import { Category, TimeEntry } from './types';
 import './App.css';
 
@@ -80,6 +81,31 @@ function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLoggedIn: bo
   const mobileNavRef = useRef<HTMLDivElement>(null);
   const appVersion = __APP_VERSION__;
 
+  // Handle sync events from other tabs/devices
+  const handleSyncEvent = useCallback((event: { type: string; source: string }) => {
+    if (event.type === 'time-entries' || event.type === 'all') {
+      // Refresh time entries and active entry
+      Promise.all([
+        api.getRecentEntries(20),
+        api.getActiveEntry()
+      ]).then(([recentEnts, active]) => {
+        setEntries(recentEnts);
+        setActiveEntry(active);
+        setEntryRefreshKey(k => k + 1);
+      }).catch(console.error);
+    }
+    if (event.type === 'categories' || event.type === 'all') {
+      // Refresh categories
+      api.getCategories().then(setCategories).catch(console.error);
+    }
+  }, []);
+
+  // Set up real-time sync
+  const { broadcastChange } = useSync({
+    onSync: handleSyncEvent,
+    enabled: true
+  });
+
   // Update theme-color meta tag when theme changes
   useEffect(() => {
     const themeColor = resolvedTheme === 'dark' ? '#18181b' : '#ffffff';
@@ -129,6 +155,8 @@ function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLoggedIn: bo
   const handleCategoryChange = async () => {
     const cats = await api.getCategories();
     setCategories(cats);
+    // Broadcast to other tabs in same browser
+    broadcastChange('categories');
   };
 
   const handleEntryChange = async () => {
@@ -139,6 +167,8 @@ function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLoggedIn: bo
     setEntries(recentEnts);
     setActiveEntry(active);
     setEntryRefreshKey(k => k + 1);
+    // Broadcast to other tabs in same browser
+    broadcastChange('time-entries');
   };
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [

@@ -15,6 +15,7 @@ import {
   validateTaskName,
   isValidISODate
 } from '../utils/validation';
+import { broadcastSyncEvent } from './sync';
 
 const router = Router();
 
@@ -152,6 +153,7 @@ router.post('/start', (req: AuthRequest, res: Response) => {
       [req.userId as number, categoryId, taskName, startTime]
     );
     saveDatabase();
+    broadcastSyncEvent(req.userId as number, 'time-entries');
 
     const result = db.exec(
       TIME_ENTRIES_WITH_CATEGORIES_QUERY + ` WHERE te.user_id = ? AND te.end_time IS NULL`,
@@ -192,6 +194,7 @@ router.post('/:id/stop', (req: AuthRequest, res: Response) => {
       [endTime, duration, id]
     );
     saveDatabase();
+    broadcastSyncEvent(req.userId as number, 'time-entries');
 
     const result = db.exec(
       TIME_ENTRIES_WITH_CATEGORIES_QUERY + ` WHERE te.id = ?`,
@@ -240,6 +243,7 @@ router.post('/:id/schedule-stop', (req: AuthRequest, res: Response) => {
       [scheduled_end_time, id]
     );
     saveDatabase();
+    broadcastSyncEvent(req.userId as number, 'time-entries');
 
     const result = db.exec(
       TIME_ENTRIES_WITH_CATEGORIES_QUERY + ` WHERE te.id = ?`,
@@ -277,6 +281,7 @@ router.delete('/:id/schedule-stop', (req: AuthRequest, res: Response) => {
       [id]
     );
     saveDatabase();
+    broadcastSyncEvent(req.userId as number, 'time-entries');
 
     const result = db.exec(
       TIME_ENTRIES_WITH_CATEGORIES_QUERY + ` WHERE te.id = ?`,
@@ -338,6 +343,7 @@ router.put('/:id', (req: AuthRequest, res: Response) => {
       [category_id || null, task_name, start_time || null, newEnd, duration, id]
     );
     saveDatabase();
+    broadcastSyncEvent(req.userId as number, 'time-entries');
 
     const result = db.exec(
       TIME_ENTRIES_WITH_CATEGORIES_QUERY + ` WHERE te.id = ?`,
@@ -400,6 +406,7 @@ router.post('/', (req: AuthRequest, res: Response) => {
       [req.userId as number, categoryId, taskName, startTime, endTime, duration]
     );
     saveDatabase();
+    broadcastSyncEvent(req.userId as number, 'time-entries');
 
     const result = db.exec(`SELECT last_insert_rowid() as id`);
     const newId = result[0].values[0][0] as number;
@@ -436,6 +443,7 @@ router.delete('/:id', (req: AuthRequest, res: Response) => {
 
     db.run(`DELETE FROM time_entries WHERE id = ?`, [id]);
     saveDatabase();
+    broadcastSyncEvent(req.userId as number, 'time-entries');
 
     logger.info('Time entry deleted', { entryId: id, userId: req.userId as number });
     res.status(204).send();
@@ -550,6 +558,7 @@ router.post('/merge-task-names', (req: AuthRequest, res: Response) => {
       );
     }
     saveDatabase();
+    broadcastSyncEvent(userId, 'time-entries');
 
     logger.info('Task names merged', { 
       sourceTaskNames, 
@@ -637,6 +646,7 @@ router.post('/update-task-name-bulk', (req: AuthRequest, res: Response) => {
       [finalTaskName, finalCategoryId, userId, oldTaskName.trim(), oldCategoryId]
     );
     saveDatabase();
+    broadcastSyncEvent(userId, 'time-entries');
 
     logger.info('Task names updated in bulk', { 
       oldTaskName, 
@@ -687,6 +697,7 @@ router.delete('/by-date/:date', (req: AuthRequest, res: Response) => {
       [req.userId as number, startOfDay, endOfDay]
     );
     saveDatabase();
+    broadcastSyncEvent(req.userId as number, 'time-entries');
 
     logger.info('Time entries deleted for date', { date, count, userId: req.userId as number });
     res.json({ deleted: count });
