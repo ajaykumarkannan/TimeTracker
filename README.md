@@ -63,8 +63,34 @@ CLOUDFLARE_TUNNEL_TOKEN=your-tunnel-token
 CORS_ORIGIN=https://chronoflow.yourdomain.com
 EOF
 
-# Deploy
+# Deploy with Docker named volumes (default, recommended)
 docker-compose -f docker-compose.prod.yml up -d
+
+# Or deploy with local bind mounts (easier backup access)
+docker-compose -f docker-compose.prod.yml --profile local up -d
+```
+
+#### Volume Profiles
+
+| Profile | Command | Description |
+|---------|---------|-------------|
+| (default) | (none) | Docker named volumes (recommended, managed by Docker) |
+| `local` | `--profile local` | Local bind mounts (`./data`, `./logs` - easier direct access) |
+| `tunnel` | `--profile tunnel` | Adds Cloudflare Tunnel (combine with default or local) |
+
+Combine profiles as needed:
+```bash
+# Docker volumes + Cloudflare Tunnel
+docker-compose -f docker-compose.prod.yml --profile tunnel up -d
+
+# Local bind mounts + Cloudflare Tunnel
+docker-compose -f docker-compose.prod.yml --profile local --profile tunnel up -d
+```
+
+For local profile, customize paths in `.env`:
+```bash
+DATA_PATH=/mnt/storage/chronoflow/data
+LOGS_PATH=/mnt/storage/chronoflow/logs
 ```
 
 The production setup includes:
