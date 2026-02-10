@@ -1,54 +1,71 @@
 # Production deployment for Raspberry Pi
 # Auto-updates enabled via Watchtower
 #
-# Usage:
+# Usage (Docker named volumes - default):
 #   docker-compose -f docker-compose.prod.yml up -d
 #
-# With Cloudflare Tunnel:
+# Usage (local bind mounts for easy backup access):
+#   docker-compose -f docker-compose.prod.yml --profile local up -d
+#   Optionally set DATA_PATH and LOGS_PATH in .env to customize paths
+#
+# With Cloudflare Tunnel (combine with either):
 #   docker-compose -f docker-compose.prod.yml --profile tunnel up -d
+#   docker-compose -f docker-compose.prod.yml --profile local --profile tunnel up -d
 #   (requires CLOUDFLARE_TUNNEL_TOKEN in .env)
 
+x-chronoflow-common: &chronoflow-common
+  image: ghcr.io/${GITHUB_REPO:-ajaykumarkannan/timetracker}:latest
+  ports:
+    - "${HOST_PORT:-4849}:4849"
+  environment:
+    - NODE_ENV=production
+    - PORT=4849
+    - DB_PATH=/app/data/timetracker.db
+    - TRUST_PROXY=true
+    - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
+    - CORS_ORIGIN=${CORS_ORIGIN:-*}
+    - RATE_LIMIT_MAX=${RATE_LIMIT_MAX:-100}
+  restart: unless-stopped
+  deploy:
+    resources:
+      limits:
+        memory: 256M
+      reservations:
+        memory: 128M
+  healthcheck:
+    test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4849/api/health"]
+    interval: 30s
+    timeout: 10s
+    retries: 3
+    start_period: 10s
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "10m"
+      max-file: "3"
+  labels:
+    - "com.centurylinklabs.watchtower.enable=true"
+  networks:
+    - chronoflow-net
+
 services:
+  # Default: Docker named volumes (no profile needed)
   chronoflow:
-    # Use pre-built image from GitHub Container Registry (GHCR)
-    # Override GITHUB_REPO to point at your fork
-    image: ghcr.io/${GITHUB_REPO:-ajaykumarkannan/timetracker}:latest
+    <<: *chronoflow-common
     container_name: chronoflow
-    ports:
-      - "${HOST_PORT:-4849}:4849"
     volumes:
-      - ./data:/app/data
-      - ./logs:/app/logs
-    environment:
-      - NODE_ENV=production
-      - PORT=4849
-      - DB_PATH=/app/data/timetracker.db
-      - TRUST_PROXY=true
-      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
-      - CORS_ORIGIN=${CORS_ORIGIN:-*}
-      - RATE_LIMIT_MAX=${RATE_LIMIT_MAX:-100}
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-        reservations:
-          memory: 128M
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4849/api/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-    labels:
-      - "com.centurylinklabs.watchtower.enable=true"
-    networks:
-      - chronoflow-net
+      - chronoflow-data:/app/data
+      - chronoflow-logs:/app/logs
+
+  # Alternative: Local bind mounts (--profile local)
+  chronoflow-local:
+    <<: *chronoflow-common
+    container_name: chronoflow
+    profiles:
+      - local
+    volumes:
+      - ${DATA_PATH:-./data}:/app/data
+      - ${LOGS_PATH:-./logs}:/app/logs
 
   # Cloudflare Tunnel (enable with: --profile tunnel)
   cloudflared:
@@ -58,10 +75,8 @@ services:
       - tunnel
     command: tunnel --no-autoupdate run
     environment:
-      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN:?CLOUDFLARE_TUNNEL_TOKEN is required when using tunnel profile}
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN:-}
     restart: unless-stopped
-    depends_on:
-      - chronoflow
     networks:
       - chronoflow-net
 
@@ -72,19 +87,16 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
-      # Force a modern Docker API version for compatibility with newer daemons
       - DOCKER_API_VERSION=1.44
-      # Check for updates every hour
       - WATCHTOWER_POLL_INTERVAL=3600
-      # Only update containers with the enable label
       - WATCHTOWER_LABEL_ENABLE=true
-      # Clean up old images
       - WATCHTOWER_CLEANUP=true
-      # Send notifications (optional - configure as needed)
-      # - WATCHTOWER_NOTIFICATIONS=slack
-      # - WATCHTOWER_NOTIFICATION_SLACK_HOOK_URL=https://hooks.slack.com/...
     restart: unless-stopped
 
 networks:
   chronoflow-net:
     driver: bridge
+
+volumes:
+  chronoflow-data:
+  chronoflow-logs:
