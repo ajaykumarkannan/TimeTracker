@@ -110,6 +110,11 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   const [switchTaskPrompt, setSwitchTaskPrompt] = useState<{ categoryId: number; categoryName: string; categoryColor: string | null } | null>(null);
   const [switchTaskName, setSwitchTaskName] = useState('');
   
+  // State for inline category creation in switch task modal
+  const [showSwitchNewCategory, setShowSwitchNewCategory] = useState(false);
+  const [switchNewCategoryName, setSwitchNewCategoryName] = useState('');
+  const [switchNewCategoryColor, setSwitchNewCategoryColor] = useState(nextColor);
+  
   // Cached suggestions - fetched once, filtered locally
   const [cachedSuggestions, setCachedSuggestions] = useState<{ task_name: string; categoryId: number; count: number; totalMinutes: number; lastUsed: string }[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -265,6 +270,22 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Manage body scroll lock when any modal is open
+  useEffect(() => {
+    const isAnyModalOpen = !!taskNamePrompt || !!switchTaskPrompt || showScheduleStopModal;
+    
+    if (isAnyModalOpen) {
+      document.body.classList.add('modal-open');
+    } else {
+      document.body.classList.remove('modal-open');
+    }
+    
+    // Cleanup on unmount
+    return () => {
+      document.body.classList.remove('modal-open');
+    };
+  }, [taskNamePrompt, switchTaskPrompt, showScheduleStopModal]);
 
   const handleSuggestionSelect = (suggestion: { task_name: string; categoryId: number }) => {
     suppressSuggestionOpenRef.current = true;
@@ -622,6 +643,26 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
     }
   };
 
+  // Handler for creating category in switch task modal context
+  const handleCreateSwitchCategory = async () => {
+    if (!switchNewCategoryName.trim()) return;
+    try {
+      const category = await api.createCategory(switchNewCategoryName, switchNewCategoryColor);
+      // Auto-select the newly created category in the switch task modal
+      setSwitchTaskPrompt({
+        categoryId: category.id,
+        categoryName: category.name,
+        categoryColor: category.color
+      });
+      setSwitchNewCategoryName('');
+      setSwitchNewCategoryColor(nextColor);
+      setShowSwitchNewCategory(false);
+      onCategoryChange();
+    } catch (error) {
+      console.error('Failed to create category:', error);
+    }
+  };
+
   const formatTime = (seconds: number) => {
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);
@@ -834,7 +875,12 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
           <div className="switch-task-section">
             {/* Switch task prompt modal */}
             {switchTaskPrompt && (
-              <div className="task-prompt-overlay" onClick={() => setSwitchTaskPrompt(null)}>
+              <div className="task-prompt-overlay" onClick={() => {
+                setSwitchTaskPrompt(null);
+                setShowSwitchNewCategory(false);
+                setSwitchNewCategoryName('');
+                setSwitchNewCategoryColor(nextColor);
+              }}>
                 <div className="task-prompt-modal" onClick={e => e.stopPropagation()}>
                   <div className="task-prompt-header">
                     <span className="task-prompt-title">Switch to</span>
@@ -854,6 +900,80 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                       );
                     })()}
                   </div>
+                  
+                  {/* Category selector with add option */}
+                  <div className="form-group modal-category-selector">
+                    <label>Category</label>
+                    <select
+                      value={switchTaskPrompt.categoryId}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === 'new') {
+                          setShowSwitchNewCategory(true);
+                        } else {
+                          const cat = categories.find(c => c.id === Number(val));
+                          if (cat) {
+                            setSwitchTaskPrompt({
+                              categoryId: cat.id,
+                              categoryName: cat.name,
+                              categoryColor: cat.color
+                            });
+                          }
+                          setShowSwitchNewCategory(false);
+                        }
+                      }}
+                    >
+                      {categories.map(cat => (
+                        <option key={cat.id} value={cat.id}>{cat.name}</option>
+                      ))}
+                      <option value="new">+ Add category</option>
+                    </select>
+                  </div>
+                  
+                  {/* Inline category creation form */}
+                  {showSwitchNewCategory && (
+                    <div className="new-category-form animate-slide-in">
+                      <input
+                        type="text"
+                        value={switchNewCategoryName}
+                        onChange={(e) => setSwitchNewCategoryName(e.target.value)}
+                        placeholder="Category name"
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleCreateSwitchCategory();
+                          if (e.key === 'Escape') {
+                            setShowSwitchNewCategory(false);
+                            setSwitchNewCategoryName('');
+                            setSwitchNewCategoryColor(nextColor);
+                          }
+                        }}
+                      />
+                      <input
+                        type="color"
+                        value={switchNewCategoryColor}
+                        onChange={(e) => setSwitchNewCategoryColor(e.target.value)}
+                        className="color-picker"
+                      />
+                      <button 
+                        className="btn btn-ghost" 
+                        onClick={() => {
+                          setShowSwitchNewCategory(false);
+                          setSwitchNewCategoryName('');
+                          setSwitchNewCategoryColor(nextColor);
+                        }}
+                      >
+                        Cancel
+                      </button>
+                      <button 
+                        className="btn btn-primary" 
+                        onClick={handleCreateSwitchCategory}
+                        disabled={!switchNewCategoryName.trim()}
+                      >
+                        Create
+                      </button>
+                    </div>
+                  )}
+                  
                   <div className="description-input-wrapper">
                     <input
                       ref={modalInputRef}
@@ -865,7 +985,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                         setSwitchTaskName(e.target.value);
                       }}
                       placeholder="What are you working on? (optional)"
-                      autoFocus
+                      autoFocus={!showSwitchNewCategory}
                       autoComplete="off"
                       data-lpignore="true"
                       data-1p-ignore
@@ -875,7 +995,12 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                           setShowModalSuggestions(true);
                         }
                       }}
-                      onKeyDown={(e) => handleModalKeyDown(e, true, handlePromptedSwitch, () => setSwitchTaskPrompt(null))}
+                      onKeyDown={(e) => handleModalKeyDown(e, true, handlePromptedSwitch, () => {
+                        setSwitchTaskPrompt(null);
+                        setShowSwitchNewCategory(false);
+                        setSwitchNewCategoryName('');
+                        setSwitchNewCategoryColor(nextColor);
+                      })}
                     />
                   {showModalSuggestions && modalSuggestions.length > 0 && (
                     <div className="description-suggestions modal-suggestions" ref={modalSuggestionsRef}>
@@ -902,7 +1027,12 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                   )}
                   </div>
                   <div className="task-prompt-actions">
-                    <button className="btn btn-ghost" onClick={() => setSwitchTaskPrompt(null)}>
+                    <button className="btn btn-ghost" onClick={() => {
+                      setSwitchTaskPrompt(null);
+                      setShowSwitchNewCategory(false);
+                      setSwitchNewCategoryName('');
+                      setSwitchNewCategoryColor(nextColor);
+                    }}>
                       Cancel
                     </button>
                     <button className="btn btn-success" onClick={handlePromptedSwitch}>

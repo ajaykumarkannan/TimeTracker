@@ -81,7 +81,7 @@ router.post('/register', async (req: Request, res: Response) => {
 // Login
 router.post('/login', async (req: Request, res: Response) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, rememberMe } = req.body;
 
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password are required' });
@@ -112,15 +112,20 @@ router.post('/login', async (req: Request, res: Response) => {
     const accessToken = generateAccessToken(user.id, user.email);
     const refreshToken = generateRefreshToken(user.id, user.email);
 
-    // Store refresh token
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    // Calculate token expiry: 30 days if rememberMe is true, 7 days otherwise
+    const tokenExpiry = rememberMe 
+      ? 30 * 24 * 60 * 60 * 1000  // 30 days
+      : 7 * 24 * 60 * 60 * 1000;  // 7 days (default)
+    const expiresAt = new Date(Date.now() + tokenExpiry).toISOString();
+
+    // Store refresh token with calculated expiry
     db.run(
       `INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES (?, ?, ?)`,
       [user.id, refreshToken, expiresAt]
     );
     saveDatabase();
 
-    logger.info('User logged in', { userId: user.id });
+    logger.info('User logged in', { userId: user.id, rememberMe: !!rememberMe });
 
     res.json({
       user: { id: user.id, email: user.email, name: user.name },
@@ -188,16 +193,28 @@ router.post('/refresh', (req: Request, res: Response) => {
     const newAccessToken = generateAccessToken(user.id, user.email);
     const newRefreshToken = generateRefreshToken(user.id, user.email);
 
+    // Determine if original token was a "remember me" token (30-day)
+    // by checking if remaining time is greater than 7 days
+    const originalExpiresAt = new Date(tokenData.expires_at);
+    const now = new Date();
+    const remainingMs = originalExpiresAt.getTime() - now.getTime();
+    const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+    const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+    
+    // If remaining time > 7 days, it was a 30-day token, maintain extended expiration
+    const isExtendedToken = remainingMs > sevenDaysMs;
+    const tokenExpiry = isExtendedToken ? thirtyDaysMs : sevenDaysMs;
+    const newExpiresAt = new Date(Date.now() + tokenExpiry).toISOString();
+
     // Rotate refresh token
     db.run(`DELETE FROM refresh_tokens WHERE id = ?`, [tokenData.id]);
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
     db.run(
       `INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES (?, ?, ?)`,
-      [user.id, newRefreshToken, expiresAt]
+      [user.id, newRefreshToken, newExpiresAt]
     );
     saveDatabase();
 
-    logger.info('Token refreshed', { userId: user.id });
+    logger.info('Token refreshed', { userId: user.id, extendedExpiration: isExtendedToken });
 
     res.json({
       user,

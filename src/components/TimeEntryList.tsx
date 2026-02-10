@@ -118,6 +118,14 @@ export function TimeEntryList({ categories, onEntryChange, onCategoryChange, ref
   const [manualError, setManualError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   
+  // State for inline category creation in Add Entry modal
+  const [showManualNewCategory, setShowManualNewCategory] = useState(false);
+  const [manualNewCategoryName, setManualNewCategoryName] = useState('');
+  const [manualNewCategoryColor, setManualNewCategoryColor] = useState('#6366f1');
+  
+  // Track if user has manually edited end date (for date defaulting feature)
+  const [endDateManuallySet, setEndDateManuallySet] = useState(false);
+  
   // Cleanup suggestions state
   const [showCleanupBanner, setShowCleanupBanner] = useState(true);
   const [dismissedMerges, setDismissedMerges] = useState<Set<string>>(new Set());
@@ -441,6 +449,7 @@ export function TimeEntryList({ categories, onEntryChange, onCategoryChange, ref
     setManualError('');
     setShowManualSuggestions(false);
     setSelectedSuggestionIndex(-1);
+    setEndDateManuallySet(false);
     setShowManualEntry(true);
   };
 
@@ -449,7 +458,46 @@ export function TimeEntryList({ categories, onEntryChange, onCategoryChange, ref
     setManualError('');
     setShowManualSuggestions(false);
     setSelectedSuggestionIndex(-1);
+    // Reset inline category creation state
+    setShowManualNewCategory(false);
+    setManualNewCategoryName('');
+    setManualNewCategoryColor('#6366f1');
   };
+
+  // Handler for creating category in manual entry context
+  const handleCreateManualCategory = async () => {
+    if (!manualNewCategoryName.trim()) return;
+    try {
+      const category = await api.createCategory(manualNewCategoryName.trim(), manualNewCategoryColor);
+      // Auto-select the newly created category
+      setManualCategory(category.id);
+      // Reset inline category creation state
+      setManualNewCategoryName('');
+      setManualNewCategoryColor('#6366f1');
+      setShowManualNewCategory(false);
+      // Notify parent to refresh categories
+      onCategoryChange();
+    } catch (error) {
+      console.error('Failed to create category:', error);
+    }
+  };
+
+  // Handler for start date change - auto-syncs end date if not manually edited
+  const handleStartDateChange = (newStartDate: string) => {
+    setManualStartDate(newStartDate);
+    
+    // Auto-set end date if not manually edited (preserves end time value)
+    if (!endDateManuallySet) {
+      setManualEndDate(newStartDate);
+    }
+  };
+
+  // Handler for end date change - marks as manually set
+  const handleEndDateChange = (newEndDate: string) => {
+    setManualEndDate(newEndDate);
+    setEndDateManuallySet(true);
+  };
+
 
   const handleManualSuggestionSelect = (suggestion: { task_name: string; categoryId: number }) => {
     setManualDescription(suggestion.task_name);
@@ -764,11 +812,67 @@ export function TimeEntryList({ categories, onEntryChange, onCategoryChange, ref
             <div className="manual-entry-form">
               <div className="form-group">
                 <label>Category</label>
-                <select value={manualCategory} onChange={(e) => setManualCategory(e.target.value ? Number(e.target.value) : '')}>
+                <select 
+                  value={manualCategory} 
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === 'new') {
+                      setShowManualNewCategory(true);
+                    } else {
+                      setManualCategory(val ? Number(val) : '');
+                      setShowManualNewCategory(false);
+                    }
+                  }}
+                >
                   <option value="">Select category...</option>
                   {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
+                  <option value="new">+ Add category</option>
                 </select>
               </div>
+              
+              {/* Inline category creation form */}
+              {showManualNewCategory && (
+                <div className="new-category-form animate-slide-in">
+                  <input
+                    type="text"
+                    value={manualNewCategoryName}
+                    onChange={(e) => setManualNewCategoryName(e.target.value)}
+                    placeholder="Category name"
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleCreateManualCategory();
+                      if (e.key === 'Escape') {
+                        setShowManualNewCategory(false);
+                        setManualNewCategoryName('');
+                        setManualNewCategoryColor('#6366f1');
+                      }
+                    }}
+                  />
+                  <input
+                    type="color"
+                    value={manualNewCategoryColor}
+                    onChange={(e) => setManualNewCategoryColor(e.target.value)}
+                    className="color-picker"
+                  />
+                  <button 
+                    className="btn btn-ghost" 
+                    onClick={() => {
+                      setShowManualNewCategory(false);
+                      setManualNewCategoryName('');
+                      setManualNewCategoryColor('#6366f1');
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    className="btn btn-primary" 
+                    onClick={handleCreateManualCategory}
+                    disabled={!manualNewCategoryName.trim()}
+                  >
+                    Create
+                  </button>
+                </div>
+              )}
               <div className="form-group">
                 <label>Task <span className="optional">(optional)</span></label>
                 <div className="description-input-wrapper">
@@ -818,7 +922,7 @@ export function TimeEntryList({ categories, onEntryChange, onCategoryChange, ref
               <div className="form-row-datetime">
                 <div className="form-group">
                   <label>Start Date</label>
-                  <input type="date" value={manualStartDate} onChange={(e) => setManualStartDate(e.target.value)} />
+                  <input type="date" value={manualStartDate} onChange={(e) => handleStartDateChange(e.target.value)} />
                 </div>
                 <div className="form-group">
                   <label>Start Time</label>
@@ -828,7 +932,7 @@ export function TimeEntryList({ categories, onEntryChange, onCategoryChange, ref
               <div className="form-row-datetime">
                 <div className="form-group">
                   <label>End Date</label>
-                  <input type="date" value={manualEndDate} onChange={(e) => setManualEndDate(e.target.value)} />
+                  <input type="date" value={manualEndDate} onChange={(e) => handleEndDateChange(e.target.value)} />
                 </div>
                 <div className="form-group">
                   <label>End Time</label>
