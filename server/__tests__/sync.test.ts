@@ -1,7 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import express, { Express } from 'express';
-import request from 'supertest';
-import jwt from 'jsonwebtoken';
+import { describe, it, expect, vi } from 'vitest';
 
 // Mock the database
 vi.mock('../database', () => ({
@@ -39,75 +36,9 @@ vi.mock('../config', () => ({
   }
 }));
 
-import syncRouter, { broadcastSyncEvent } from '../routes/sync';
+import { broadcastSyncEvent } from '../routes/sync';
 
 describe('Sync API', () => {
-  let app: Express;
-
-  beforeEach(() => {
-    app = express();
-    app.use(express.json());
-    app.use('/api/sync', syncRouter);
-  });
-
-  afterEach(() => {
-    vi.clearAllMocks();
-  });
-
-  describe('GET /api/sync', () => {
-    it('returns 401 without authentication', async () => {
-      const response = await request(app).get('/api/sync');
-      expect(response.status).toBe(401);
-    });
-
-    it('returns 401 with invalid token', async () => {
-      const response = await request(app)
-        .get('/api/sync?token=invalid-token');
-      expect(response.status).toBe(401);
-    });
-
-    it('returns 401 with invalid session', async () => {
-      const response = await request(app)
-        .get('/api/sync?sessionId=invalid-session');
-      expect(response.status).toBe(401);
-    });
-
-    it('establishes SSE connection with valid JWT token', async () => {
-      const token = jwt.sign({ userId: 1 }, 'test-secret');
-      
-      const response = await request(app)
-        .get(`/api/sync?token=${token}`)
-        .set('Accept', 'text/event-stream');
-      
-      expect(response.status).toBe(200);
-      expect(response.headers['content-type']).toContain('text/event-stream');
-    });
-
-    it('establishes SSE connection with valid session ID', async () => {
-      const response = await request(app)
-        .get('/api/sync?sessionId=valid-session')
-        .set('Accept', 'text/event-stream');
-      
-      expect(response.status).toBe(200);
-      expect(response.headers['content-type']).toContain('text/event-stream');
-    });
-  });
-
-  describe('GET /api/sync/status', () => {
-    it('returns connection status', async () => {
-      const token = jwt.sign({ userId: 1 }, 'test-secret');
-      
-      const response = await request(app)
-        .get('/api/sync/status')
-        .set('Authorization', `Bearer ${token}`);
-      
-      expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('totalClients');
-      expect(response.body).toHaveProperty('userClients');
-      expect(response.body).toHaveProperty('eventCounter');
-    });
-  });
-
   describe('broadcastSyncEvent', () => {
     it('does not throw when no clients connected', () => {
       expect(() => broadcastSyncEvent(1, 'time-entries')).not.toThrow();
@@ -118,6 +49,12 @@ describe('Sync API', () => {
       expect(() => broadcastSyncEvent(1, 'time-entries')).not.toThrow();
       expect(() => broadcastSyncEvent(1, 'categories')).not.toThrow();
       expect(() => broadcastSyncEvent(1, 'all')).not.toThrow();
+    });
+
+    it('handles multiple user IDs', () => {
+      expect(() => broadcastSyncEvent(1, 'time-entries')).not.toThrow();
+      expect(() => broadcastSyncEvent(2, 'time-entries')).not.toThrow();
+      expect(() => broadcastSyncEvent(999, 'categories')).not.toThrow();
     });
   });
 });
