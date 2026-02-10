@@ -1,9 +1,12 @@
-# Production deployment for Raspberry Pi with Cloudflare Tunnel
+# Production deployment for Raspberry Pi
 # Auto-updates enabled via Watchtower
 #
-# Usage: docker-compose -f docker-compose.prod.yml up -d
-
-version: '3.8'
+# Usage:
+#   docker-compose -f docker-compose.prod.yml up -d
+#
+# With Cloudflare Tunnel:
+#   docker-compose -f docker-compose.prod.yml --profile tunnel up -d
+#   (requires CLOUDFLARE_TUNNEL_TOKEN in .env)
 
 services:
   chronoflow:
@@ -11,8 +14,8 @@ services:
     # Override GITHUB_REPO to point at your fork
     image: ghcr.io/${GITHUB_REPO:-ajaykumarkannan/timetracker}:latest
     container_name: chronoflow
-    expose:
-      - "4849"
+    ports:
+      - "${HOST_PORT:-4849}:4849"
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs
@@ -47,13 +50,15 @@ services:
     networks:
       - chronoflow-net
 
-  # Cloudflare Tunnel
+  # Cloudflare Tunnel (enable with: --profile tunnel)
   cloudflared:
     image: cloudflare/cloudflared:latest
     container_name: cloudflared
+    profiles:
+      - tunnel
     command: tunnel --no-autoupdate run
     environment:
-      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN:?CLOUDFLARE_TUNNEL_TOKEN is required}
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN:?CLOUDFLARE_TUNNEL_TOKEN is required when using tunnel profile}
     restart: unless-stopped
     depends_on:
       - chronoflow
