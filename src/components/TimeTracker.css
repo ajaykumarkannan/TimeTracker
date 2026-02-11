@@ -427,8 +427,6 @@
 /* Prevent body scroll when modal is open */
 body.modal-open {
   overflow: hidden;
-  position: fixed;
-  width: 100%;
 }
 
 /* Modal overlay - ensure highest z-index */
