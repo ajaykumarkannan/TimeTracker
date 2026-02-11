@@ -404,19 +404,43 @@ test.describe('Mobile UI', () => {
     const header = page.locator('.app-header');
     await expect(header).toBeVisible();
     
-    // Scroll down
-    await page.evaluate(() => window.scrollTo(0, 300));
-    await page.waitForTimeout(500);
+    // Ensure page has enough content to scroll by checking document height
+    // and inject extra content if needed
+    const canScroll = await page.evaluate(() => {
+      const docHeight = document.documentElement.scrollHeight;
+      const viewportHeight = window.innerHeight;
+      return docHeight > viewportHeight + 300;
+    });
+    
+    if (!canScroll) {
+      // Add temporary spacer to enable scrolling
+      await page.evaluate(() => {
+        const spacer = document.createElement('div');
+        spacer.id = 'test-spacer';
+        spacer.style.height = '1000px';
+        document.body.appendChild(spacer);
+      });
+    }
+    
+    // Scroll down using wheel event which is more reliable
+    await page.mouse.wheel(0, 400);
+    await page.waitForTimeout(600);
     
     // Header should be hidden (has header-hidden class)
     await expect(header).toHaveClass(/header-hidden/);
     
     // Scroll back up
-    await page.evaluate(() => window.scrollTo(0, 0));
-    await page.waitForTimeout(500);
+    await page.mouse.wheel(0, -500);
+    await page.waitForTimeout(600);
     
     // Header should be visible again
     await expect(header).not.toHaveClass(/header-hidden/);
+    
+    // Clean up spacer if added
+    await page.evaluate(() => {
+      const spacer = document.getElementById('test-spacer');
+      if (spacer) spacer.remove();
+    });
   });
 
   test('inputs do not trigger zoom on focus', async ({ page }) => {

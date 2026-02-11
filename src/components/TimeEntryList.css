@@ -905,47 +905,24 @@
     text-align: center;
   }
 
+  /* Mobile entry layout - single row with inline times */
   .entry-content {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.5rem;
-  }
-  
-  .entry-meta {
-    width: 100%;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-  }
-  
-  .delete-btn {
-    opacity: 1;
-    min-width: 44px;
-    min-height: 44px;
-    display: flex;
+    flex-direction: row;
     align-items: center;
-    justify-content: center;
-  }
-  
-  .delete-day-btn {
-    opacity: 1;
-    min-width: 44px;
-    min-height: 44px;
-  }
-  
-  /* Touch-friendly entry items */
-  .entry-item {
-    padding: 1rem 0.75rem;
-    min-height: 60px;
+    gap: 0.5rem;
+    flex-wrap: nowrap;
   }
   
   .entry-main {
-    flex-wrap: wrap;
-    gap: 0.5rem;
+    flex: 1;
+    min-width: 0;
+    flex-wrap: nowrap;
+    gap: 0.375rem;
   }
   
   .entry-category {
     font-size: 0.8125rem;
+    flex-shrink: 0;
   }
   
   .entry-description {
@@ -956,22 +933,66 @@
     text-overflow: ellipsis;
   }
   
-  /* Touch-friendly time buttons */
+  .entry-meta {
+    flex-shrink: 0;
+    gap: 0.25rem;
+  }
+  
+  /* Compact time display on mobile */
   .entry-time-btn {
-    min-width: 44px;
-    min-height: 44px;
-    padding: 0.5rem 0.75rem;
+    min-width: auto;
+    min-height: auto;
+    padding: 0.125rem 0.25rem;
     margin: 0;
-    font-size: 0.875rem;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    background: var(--bg-secondary);
+    font-size: 0.75rem;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
   }
   
   .entry-time-btn:hover:not(:disabled),
   .entry-time-btn:active:not(:disabled) {
     background: var(--bg-tertiary);
-    border-color: var(--primary);
+  }
+  
+  .time-separator {
+    font-size: 0.625rem;
+  }
+  
+  .entry-duration {
+    font-size: 0.75rem;
+    min-width: 2.5rem;
+  }
+  
+  .delete-btn {
+    opacity: 1;
+    min-width: 32px;
+    min-height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+  }
+  
+  .delete-day-btn {
+    opacity: 1;
+    min-width: 44px;
+    min-height: 44px;
+  }
+  
+  /* Compact entry items */
+  .entry-item {
+    padding: 0.625rem 0.5rem;
+    min-height: auto;
+  }
+  
+  .entry-indicator {
+    height: 2rem;
+    width: 3px;
+  }
+  
+  .entry-item:hover .entry-indicator {
+    height: 2rem;
   }
   
   /* Inline edit time form on mobile */
