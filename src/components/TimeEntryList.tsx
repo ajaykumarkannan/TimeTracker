@@ -182,6 +182,18 @@ export function TimeEntryList({ categories, onEntryChange, onCategoryChange, ref
     setSelectedSuggestionIndex(-1);
   }, [showManualEntry, manualSuggestions]);
 
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    if (showManualEntry) {
+      document.body.classList.add('modal-open');
+    } else {
+      document.body.classList.remove('modal-open');
+    }
+    return () => {
+      document.body.classList.remove('modal-open');
+    };
+  }, [showManualEntry]);
+
   // Close suggestions when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
