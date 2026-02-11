@@ -41,18 +41,18 @@ describe('auth middleware helpers', () => {
     getDbMock.mockReset();
   });
 
-  it('generates access token with 15m expiry', () => {
+  it('generates access token with 1h expiry', () => {
     signMock.mockReturnValue('access-token');
     const token = auth.generateAccessToken(1, 'user@example.com');
     expect(token).toBe('access-token');
     expect(signMock).toHaveBeenCalledWith(
       { userId: 1, email: 'user@example.com' },
       'test-secret',
-      { expiresIn: '15m' }
+      { expiresIn: '1h' }
     );
   });
 
-  it('generates refresh token with 7d expiry and type', () => {
+  it('generates refresh token with 7d expiry by default', () => {
     signMock.mockReturnValue('refresh-token');
     const token = auth.generateRefreshToken(2, 'refresh@example.com');
     expect(token).toBe('refresh-token');
@@ -60,6 +60,17 @@ describe('auth middleware helpers', () => {
       { userId: 2, email: 'refresh@example.com', type: 'refresh' },
       'test-secret',
       { expiresIn: '7d' }
+    );
+  });
+
+  it('generates refresh token with 30d expiry when rememberMe is true', () => {
+    signMock.mockReturnValue('refresh-token-extended');
+    const token = auth.generateRefreshToken(2, 'refresh@example.com', true);
+    expect(token).toBe('refresh-token-extended');
+    expect(signMock).toHaveBeenCalledWith(
+      { userId: 2, email: 'refresh@example.com', type: 'refresh' },
+      'test-secret',
+      { expiresIn: '30d' }
     );
   });
 

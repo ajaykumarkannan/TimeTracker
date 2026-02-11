@@ -16,11 +16,12 @@ export interface JwtPayload {
 }
 
 export function generateAccessToken(userId: number, email: string): string {
-  return jwt.sign({ userId, email }, config.jwtSecret, { expiresIn: '15m' });
+  return jwt.sign({ userId, email }, config.jwtSecret, { expiresIn: '1h' });
 }
 
-export function generateRefreshToken(userId: number, email: string): string {
-  return jwt.sign({ userId, email, type: 'refresh' }, config.jwtSecret, { expiresIn: '7d' });
+export function generateRefreshToken(userId: number, email: string, rememberMe?: boolean): string {
+  const expiresIn = rememberMe ? '30d' : '7d';
+  return jwt.sign({ userId, email, type: 'refresh' }, config.jwtSecret, { expiresIn });
 }
 
 export function verifyToken(token: string): JwtPayload | null {

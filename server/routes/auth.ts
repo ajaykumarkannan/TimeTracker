@@ -110,7 +110,7 @@ router.post('/login', async (req: Request, res: Response) => {
     }
 
     const accessToken = generateAccessToken(user.id, user.email);
-    const refreshToken = generateRefreshToken(user.id, user.email);
+    const refreshToken = generateRefreshToken(user.id, user.email, rememberMe);
 
     // Calculate token expiry: 30 days if rememberMe is true, 7 days otherwise
     const tokenExpiry = rememberMe 
@@ -191,8 +191,7 @@ router.post('/refresh', (req: Request, res: Response) => {
     };
 
     const newAccessToken = generateAccessToken(user.id, user.email);
-    const newRefreshToken = generateRefreshToken(user.id, user.email);
-
+    
     // Determine if original token was a "remember me" token (30-day)
     // by checking if remaining time is greater than 7 days
     const originalExpiresAt = new Date(tokenData.expires_at);
@@ -203,6 +202,7 @@ router.post('/refresh', (req: Request, res: Response) => {
     
     // If remaining time > 7 days, it was a 30-day token, maintain extended expiration
     const isExtendedToken = remainingMs > sevenDaysMs;
+    const newRefreshToken = generateRefreshToken(user.id, user.email, isExtendedToken);
     const tokenExpiry = isExtendedToken ? thirtyDaysMs : sevenDaysMs;
     const newExpiresAt = new Date(Date.now() + tokenExpiry).toISOString();
 
