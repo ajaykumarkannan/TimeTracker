@@ -13,15 +13,18 @@ on:
 
 permissions:
   contents: write
+  packages: write
+  actions: write
 
 jobs:
-  bump:
-    name: Bump Version
+  bump-and-release:
+    name: Bump Version & Trigger Release
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Ensure main branch
         run: |
@@ -39,8 +42,13 @@ jobs:
         id: bump
         run: |
           npm version ${{ inputs.bump }} -m "chore(release): %s [ci skip]"
-          echo "new_version=$(node -p 'require("./package.json").version')" >> $GITHUB_OUTPUT
+          echo "new_version=v$(node -p 'require("./package.json").version')" >> $GITHUB_OUTPUT
 
-      - name: Push version tag
+      - name: Push version and tag
+        run: git push origin HEAD:main --tags
+
+      - name: Trigger main workflow for tag
         run: |
-          git push origin HEAD:main --tags
+          gh workflow run main.yml --ref ${{ steps.bump.outputs.new_version }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
