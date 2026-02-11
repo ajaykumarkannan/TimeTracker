@@ -102,6 +102,12 @@ The production setup includes:
 
 Images are published to GHCR at `ghcr.io/ajaykumarkannan/timetracker` (repo name is lowercased by GHCR). Version bumps (including patch versions like `v1.0.1`) publish semver tags plus `:latest`. If you fork the repo, set `GITHUB_REPO` to your owner/repo in lowercase (e.g. `youruser/timetracker`). The first publish may create the package as private; if so, open the package on GitHub → Package settings → Change visibility to **Public** so `docker pull` works without login.
 
+### Manual Minor/Major Releases
+
+Use the `manual-version-bump` GitHub Actions workflow and select `minor` or `major`:
+- Minor bumps reset patch to `0` (e.g., `1.4.2` → `1.5.0`).
+- Major bumps reset minor and patch to `0` (e.g., `1.4.2` → `2.0.0`).
+
 For private images, authenticate first:
 ```bash
 echo "$GITHUB_TOKEN" | docker login ghcr.io -u YOUR_GITHUB_USERNAME --password-stdin

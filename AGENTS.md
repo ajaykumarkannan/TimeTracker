@@ -284,13 +284,11 @@ When making changes to the database schema, follow these guidelines:
 Every merge to `main` automatically triggers a patch version bump and Docker image publish. No manual intervention needed.
 
 ### Manual Minor/Major Releases
-When bumping a minor or major version:
+When bumping a minor or major version, use the manual workflow so the tag is created on `main`:
 
-1. **Create and push a version tag** (e.g., `v1.1.0` for minor, `v2.0.0` for major):
-   ```bash
-   npm version minor  # or major
-   git push && git push --tags
-   ```
+1. **Run the workflow**: Trigger the `manual-version-bump` workflow in GitHub Actions and choose `minor` or `major`.
+   - Minor bumps reset patch to `0` (e.g., `1.4.2` → `1.5.0`).
+   - Major bumps reset minor and patch to `0` (e.g., `1.4.2` → `2.0.0`).
 
 2. **CI will automatically**:
    - Run comprehensive tests

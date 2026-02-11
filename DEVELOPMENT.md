@@ -193,11 +193,9 @@ No manual intervention needed! Users with Watchtower auto-update within an hour.
 ### Manual Minor/Major Releases
 For feature releases or breaking changes:
 
-1. Create and push a version tag:
-   ```bash
-   npm version minor  # or major
-   git push && git push --tags
-   ```
+1. Run the `manual-version-bump` workflow in GitHub Actions and select `minor` or `major`.
+   - Minor bumps reset patch to `0` (e.g., `1.4.2` → `1.5.0`).
+   - Major bumps reset minor and patch to `0` (e.g., `1.4.2` → `2.0.0`).
 
 2. GitHub Actions will:
     - Run all CI checks
