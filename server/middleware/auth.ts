@@ -16,7 +16,7 @@ export interface JwtPayload {
 }
 
 export function generateAccessToken(userId: number, email: string): string {
-  return jwt.sign({ userId, email }, config.jwtSecret, { expiresIn: '1h' });
+  return jwt.sign({ userId, email }, config.jwtSecret, { expiresIn: config.jwtExpiresIn });
 }
 
 export function generateRefreshToken(userId: number, email: string, rememberMe?: boolean): string {

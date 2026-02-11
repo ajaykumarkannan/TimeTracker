@@ -5,10 +5,14 @@ const API_BASE = '/api';
 // Request timeout configuration (30 seconds default)
 const DEFAULT_TIMEOUT_MS = 30000;
 
+// Proactive refresh threshold - refresh token when less than this time remains (5 minutes)
+const PROACTIVE_REFRESH_THRESHOLD_MS = 5 * 60 * 1000;
+
 // Session management
 let accessToken: string | null = localStorage.getItem('accessToken');
 let refreshToken: string | null = localStorage.getItem('refreshToken');
 let sessionId: string | null = localStorage.getItem('sessionId');
+let refreshPromise: Promise<boolean> | null = null; // Prevent concurrent refresh attempts
 
 // Auth state change listeners - used to notify when a logged-in user gets logged out unexpectedly
 type AuthStateChangeCallback = (reason: 'session_expired' | 'refresh_failed') => void;
@@ -78,6 +82,76 @@ export function isLoggedIn(): boolean {
 }
 
 /**
+ * Decode JWT payload without verification (client-side only for expiration check)
+ */
+function decodeJwtPayload(token: string): { exp?: number } | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const payload = JSON.parse(atob(parts[1]));
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Check if access token is expired or about to expire
+ */
+function isTokenExpiringSoon(): boolean {
+  if (!accessToken) return false;
+  
+  const payload = decodeJwtPayload(accessToken);
+  if (!payload?.exp) return false;
+  
+  const expiresAt = payload.exp * 1000; // Convert to milliseconds
+  const now = Date.now();
+  
+  return expiresAt - now < PROACTIVE_REFRESH_THRESHOLD_MS;
+}
+
+/**
+ * Proactively refresh the access token if it's about to expire
+ * Returns true if refresh was successful or not needed, false if refresh failed
+ */
+async function proactiveRefresh(): Promise<boolean> {
+  if (!refreshToken || !isTokenExpiringSoon()) {
+    return true; // No refresh needed
+  }
+  
+  // Prevent concurrent refresh attempts
+  if (refreshPromise) {
+    return refreshPromise;
+  }
+  
+  refreshPromise = (async () => {
+    try {
+      const refreshRes = await fetchWithTimeout(`${API_BASE}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken })
+      });
+
+      if (refreshRes.ok) {
+        const data: AuthResponse = await refreshRes.json();
+        setTokens(data.accessToken, data.refreshToken);
+        setStoredUser(data.user);
+        return true;
+      } else {
+        // Refresh failed - don't clear tokens yet, let the actual request handle it
+        return false;
+      }
+    } catch {
+      return false;
+    } finally {
+      refreshPromise = null;
+    }
+  })();
+  
+  return refreshPromise;
+}
+
+/**
  * Fetch with timeout support
  */
 async function fetchWithTimeout(
@@ -105,6 +179,11 @@ async function fetchWithTimeout(
 }
 
 async function apiFetch(url: string, options: RequestInit = {}): Promise<Response> {
+  // Proactively refresh token if it's about to expire (prevents failed requests)
+  if (accessToken && refreshToken) {
+    await proactiveRefresh();
+  }
+
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
     ...(options.headers || {})

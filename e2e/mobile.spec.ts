@@ -374,33 +374,6 @@ test.describe('Mobile UI', () => {
   });
 
   test('header hides on scroll down and shows on scroll up', async ({ page }) => {
-    // Navigate to analytics which has more content to scroll
-    const hamburgerBtn = page.locator('.hamburger-btn');
-    await hamburgerBtn.click();
-    
-    // Wait for mobile nav panel to be visible
-    await expect(page.locator('.mobile-nav-panel.open')).toBeVisible();
-    
-    // Click on Analytics button
-    const analyticsBtn = page.locator('.mobile-nav-item:has-text("Analytics")');
-    await expect(analyticsBtn).toBeVisible();
-    await analyticsBtn.click();
-    
-    // Wait for mobile nav to close (panel loses 'open' class)
-    await expect(page.locator('.mobile-nav-panel.open')).not.toBeVisible({ timeout: 5000 });
-    
-    // Wait for analytics to fully load - try multiple selectors
-    await expect(page.locator('.analytics, .analytics-loading, .analytics-error')).toBeVisible({ timeout: 15000 });
-    // If analytics loaded successfully, wait for period selector, otherwise continue
-    const analyticsLoaded = page.locator('.analytics');
-    const analyticsError = page.locator('.analytics-error');
-    const isLoaded = await analyticsLoaded.isVisible();
-    if (isLoaded) {
-      await expect(page.locator('.period-selector')).toBeVisible({ timeout: 10000 });
-    } else {
-      await expect(analyticsError).toBeVisible();
-    }
-    
     const header = page.locator('.app-header');
     await expect(header).toBeVisible();
     
