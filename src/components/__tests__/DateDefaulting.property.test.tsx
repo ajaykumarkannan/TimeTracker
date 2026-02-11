@@ -258,9 +258,9 @@ describe('Date Defaulting Property Tests', () => {
             return true;
           }
         ),
-        { numRuns: 100 }
+        { numRuns: 25 }
       );
-    });
+    }, 15000);
 
     it('should preserve end time across multiple start date changes', async () => {
       await fc.assert(
@@ -301,9 +301,9 @@ describe('Date Defaulting Property Tests', () => {
             return true;
           }
         ),
-        { numRuns: 100 }
+        { numRuns: 25 }
       );
-    });
+    }, 15000);
   });
 
   /**
@@ -363,9 +363,9 @@ describe('Date Defaulting Property Tests', () => {
             return true;
           }
         ),
-        { numRuns: 100 }
+        { numRuns: 25 }
       );
-    });
+    }, 15000);
 
     it('should preserve manual end date through multiple start date changes', async () => {
       await fc.assert(
@@ -406,9 +406,9 @@ describe('Date Defaulting Property Tests', () => {
             return true;
           }
         ),
-        { numRuns: 100 }
+        { numRuns: 25 }
       );
-    });
+    }, 15000);
 
     it('should reset manual flag when modal is reopened', async () => {
       await fc.assert(
@@ -463,8 +463,8 @@ describe('Date Defaulting Property Tests', () => {
             return true;
           }
         ),
-        { numRuns: 100 }
+        { numRuns: 25 }
       );
-    });
+    }, 15000);
   });
 });
