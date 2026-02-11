@@ -57,7 +57,7 @@ function useHideOnScroll() {
   return hidden;
 }
 
-function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLoggedIn: boolean; onLogout: () => void; onConvertSuccess: () => void }) {
+export function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLoggedIn: boolean; onLogout: () => void; onConvertSuccess: () => void }) {
   const { user } = useAuth();
   const { resolvedTheme } = useTheme();
   const { showTimezonePrompt, detectedTimezone, acceptDetectedTimezone, dismissTimezonePrompt, timezone } = useTimezone();
@@ -137,6 +137,20 @@ function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLoggedIn: bo
     setShowMobileNav(false);
   };
 
+  const refreshTrackerData = useCallback(async () => {
+    try {
+      const [recentEnts, active] = await Promise.all([
+        api.getRecentEntries(20),
+        api.getActiveEntry()
+      ]);
+      setEntries(recentEnts);
+      setActiveEntry(active);
+      setEntryRefreshKey(k => k + 1);
+    } catch (error) {
+      console.error('Failed to refresh tracker data:', error);
+    }
+  }, []);
+
   const loadData = async () => {
     try {
       const [cats, recentEnts, active] = await Promise.all([
@@ -151,6 +165,38 @@ function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLoggedIn: bo
       console.error('Failed to load data:', error);
     }
   };
+
+  useEffect(() => {
+    const intervalMs = 15000;
+
+    const handleInterval = () => {
+      if (document.visibilityState === 'visible') {
+        refreshTrackerData();
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshTrackerData();
+      }
+    };
+
+    const handleFocus = () => {
+      if (document.visibilityState === 'visible') {
+        refreshTrackerData();
+      }
+    };
+
+    const intervalId = window.setInterval(handleInterval, intervalMs);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [refreshTrackerData]);
 
   const handleCategoryChange = async () => {
     const cats = await api.getCategories();

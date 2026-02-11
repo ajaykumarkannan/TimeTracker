@@ -5,10 +5,9 @@
  * Validates: Requirements 3.2, 3.3, 3.4, 3.5
  */
 
-import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
+import { describe, it, beforeAll, beforeEach, vi } from 'vitest';
 import * as fc from 'fast-check';
 import initSqlJs, { Database } from 'sql.js';
-import bcrypt from 'bcryptjs';
 
 vi.mock('../logger', () => ({
   logger: {

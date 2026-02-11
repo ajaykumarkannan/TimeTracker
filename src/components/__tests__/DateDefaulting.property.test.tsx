@@ -13,7 +13,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, act, cleanup } from '@testing-library/react';
+import { render, fireEvent, waitFor, act, cleanup } from '@testing-library/react';
 import * as fc from 'fast-check';
 import { TimeEntryList } from '../TimeEntryList';
 import { ThemeProvider } from '../../contexts/ThemeContext';
@@ -87,8 +87,11 @@ describe('Date Defaulting Property Tests', () => {
    * Helper function to open the Add Entry modal using container-scoped query
    */
   const openAddEntryModal = async (container: HTMLElement) => {
-    const addButton = container.querySelector('.btn.btn-primary.btn-sm') as HTMLButtonElement;
-    expect(addButton).toBeInTheDocument();
+    const addButton = await waitFor(() => {
+      const button = container.querySelector('.btn.btn-primary.btn-sm') as HTMLButtonElement | null;
+      expect(button).toBeInTheDocument();
+      return button as HTMLButtonElement;
+    });
     
     await act(async () => {
       fireEvent.click(addButton);
@@ -426,7 +429,7 @@ describe('Date Defaulting Property Tests', () => {
 
             // First session: manually set end date
             await openAddEntryModal(container);
-            let { endDateInput } = getDateInputs(container);
+            const { endDateInput } = getDateInputs(container);
             
             await act(async () => {
               fireEvent.change(endDateInput, { target: { value: manualEndDate } });

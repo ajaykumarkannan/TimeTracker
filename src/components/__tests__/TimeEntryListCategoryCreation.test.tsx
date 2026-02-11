@@ -16,8 +16,8 @@ import { Category } from '../../types';
 vi.mock('../../api', () => ({
   api: {
     getTimeEntries: vi.fn().mockResolvedValue([]),
-    createCategory: vi.fn().mockImplementation((name: string, color: string) => 
-      Promise.resolve({ id: Date.now(), name, color, created_at: new Date().toISOString() })
+    createCategory: vi.fn().mockImplementation((name: string, color?: string) => 
+      Promise.resolve({ id: Date.now(), name, color: color ?? '#6366f1', created_at: new Date().toISOString() })
     ),
     createManualEntry: vi.fn().mockResolvedValue({ id: 1 }),
     getTaskNameSuggestions: vi.fn().mockResolvedValue([]),
@@ -39,8 +39,8 @@ describe('TimeEntryList - Category Creation in Add Entry Modal', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(api.createCategory).mockImplementation((name: string, color: string) => 
-      Promise.resolve({ id: Date.now(), name, color, created_at: new Date().toISOString() })
+    vi.mocked(api.createCategory).mockImplementation((name: string, color?: string) => 
+      Promise.resolve({ id: Date.now(), name, color: color ?? '#6366f1', created_at: new Date().toISOString() })
     );
   });
 
