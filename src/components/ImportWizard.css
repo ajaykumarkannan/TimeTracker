@@ -8,7 +8,7 @@
   justify-content: center;
   z-index: 1000;
   padding: 1rem;
-  animation: fadeIn 0.2s ease;
+  animation: fadeIn 0.15s ease;
 }
 
 .import-wizard {
@@ -21,7 +21,7 @@
   display: flex;
   flex-direction: column;
   box-shadow: var(--shadow-xl);
-  animation: modalSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: scaleIn 0.2s ease;
 }
 
 .import-wizard-header {
@@ -54,7 +54,6 @@
   align-items: center;
   gap: 0.5rem;
   color: var(--text-muted);
-  transition: color 0.25s ease;
 }
 
 .progress-step.active {
@@ -75,13 +74,11 @@
   justify-content: center;
   font-size: 0.75rem;
   font-weight: 600;
-  transition: background-color 0.25s ease, color 0.25s ease, transform 0.25s ease;
 }
 
 .progress-step.active .step-number {
   background: var(--primary);
   color: white;
-  transform: scale(1.1);
 }
 
 .progress-step.done .step-number {
@@ -169,12 +166,10 @@
   border-radius: var(--radius-md);
   background: var(--input-bg);
   color: var(--text-primary);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .mapping-row select:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px var(--primary-alpha);
   outline: none;
 }
 
@@ -322,7 +317,6 @@
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-primary);
-  transition: border-color 0.2s ease, background-color 0.2s ease;
 }
 
 .entries-table input[type="text"]:focus {
@@ -402,15 +396,9 @@
   to { opacity: 1; }
 }
 
-@keyframes modalSlideIn {
-  from { 
-    opacity: 0; 
-    transform: translateY(-20px) scale(0.98); 
-  }
-  to { 
-    opacity: 1; 
-    transform: translateY(0) scale(1); 
-  }
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
 }
 
 @media (max-width: 640px) {

@@ -36,7 +36,6 @@
   background: var(--input-bg);
   color: var(--text-primary);
   font-size: 0.875rem;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
 }
 
 .form-group input:focus {
@@ -81,17 +80,11 @@
   font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.15s ease;
 }
 
 .btn-primary:hover:not(:disabled) {
   background: var(--primary-hover);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
-}
-
-.btn-primary:active:not(:disabled) {
-  transform: translateY(0);
 }
 
 .btn-primary:disabled {
@@ -108,17 +101,12 @@
   font-size: 0.8125rem;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.15s ease;
 }
 
 .btn-secondary:hover:not(:disabled) {
   background: var(--bg-tertiary);
   border-color: var(--text-muted);
-  transform: translateY(-1px);
-}
-
-.btn-secondary:active:not(:disabled) {
-  transform: translateY(0);
 }
 
 .btn-danger {
@@ -130,17 +118,11 @@
   font-size: 0.8125rem;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.15s ease;
 }
 
 .btn-danger:hover:not(:disabled) {
   filter: brightness(1.1);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
-}
-
-.btn-danger:active:not(:disabled) {
-  transform: translateY(0);
 }
 
 .btn-danger:disabled {
@@ -163,11 +145,6 @@
   background: var(--bg-secondary);
   border-radius: var(--radius-lg);
   flex-wrap: wrap;
-  transition: background-color 0.25s ease, transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s ease;
-}
-
-.settings-action:hover {
-  background: var(--bg-tertiary);
 }
 
 .settings-action.danger {
@@ -273,7 +250,6 @@
   color: var(--text-primary);
   font-size: 0.875rem;
   cursor: pointer;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
 }
 
 .form-group select:focus {

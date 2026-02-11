@@ -10,25 +10,15 @@
   border-radius: var(--radius-md);
   cursor: pointer;
   color: var(--text-secondary);
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.15s ease;
 }
 
 .theme-toggle-btn:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
-  transform: rotate(15deg);
-}
-
-.theme-toggle-btn:active {
-  transform: rotate(0deg) scale(0.95);
 }
 
 .theme-toggle-btn svg {
   width: 18px;
   height: 18px;
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.theme-toggle-btn:hover svg {
-  transform: scale(1.1);
 }
