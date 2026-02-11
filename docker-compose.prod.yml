@@ -1,15 +1,15 @@
 # Production deployment for Raspberry Pi
 # Auto-updates enabled via Watchtower
 #
-# Usage (Docker named volumes - default):
-#   docker-compose -f docker-compose.prod.yml up -d
+# Usage (Docker named volumes):
+#   docker-compose -f docker-compose.prod.yml --profile default up -d
 #
 # Usage (local bind mounts for easy backup access):
 #   docker-compose -f docker-compose.prod.yml --profile local up -d
 #   Optionally set DATA_PATH and LOGS_PATH in .env to customize paths
 #
 # With Cloudflare Tunnel (combine with either):
-#   docker-compose -f docker-compose.prod.yml --profile tunnel up -d
+#   docker-compose -f docker-compose.prod.yml --profile default --profile tunnel up -d
 #   docker-compose -f docker-compose.prod.yml --profile local --profile tunnel up -d
 #   (requires CLOUDFLARE_TUNNEL_TOKEN in .env)
 
@@ -53,6 +53,8 @@ services:
   chronoflow:
     <<: *chronoflow-common
     container_name: chronoflow
+    profiles:
+      - default
     volumes:
       - chronoflow-data:/app/data
       - chronoflow-logs:/app/logs
@@ -60,7 +62,7 @@ services:
   # Alternative: Local bind mounts (--profile local)
   chronoflow-local:
     <<: *chronoflow-common
-    container_name: chronoflow
+    container_name: chronoflow-local
     profiles:
       - local
     volumes:
