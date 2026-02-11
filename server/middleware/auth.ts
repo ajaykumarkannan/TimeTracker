@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
+import jwt, { SignOptions } from 'jsonwebtoken';
 import { getDb, saveDatabase } from '../database';
 import { logger } from '../logger';
 import { config } from '../config';
@@ -16,7 +16,8 @@ export interface JwtPayload {
 }
 
 export function generateAccessToken(userId: number, email: string): string {
-  return jwt.sign({ userId, email }, config.jwtSecret, { expiresIn: config.jwtExpiresIn });
+  const options: SignOptions = { expiresIn: config.jwtExpiresIn as SignOptions['expiresIn'] };
+  return jwt.sign({ userId, email }, config.jwtSecret, options);
 }
 
 export function generateRefreshToken(userId: number, email: string, rememberMe?: boolean): string {
