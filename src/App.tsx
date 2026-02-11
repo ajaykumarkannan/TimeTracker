@@ -14,7 +14,6 @@ import { ThemeToggle } from './components/ThemeToggle';
 import { SettingsIcon, LogoutIcon, HelpIcon, ClockIcon, TagIcon, ChartIcon } from './components/Icons';
 import { api } from './api';
 import { useSync } from './hooks/useSync';
-import { useScrollLock } from './hooks/useScrollLock';
 import { Category, TimeEntry } from './types';
 import './App.css';
 
@@ -205,9 +204,6 @@ export function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLogge
     // Broadcast to other tabs in same browser
     broadcastChange('categories');
   };
-
-  // Lock scroll when settings or help modal is open
-  useScrollLock(showSettingsModal || showHelpModal);
 
   const handleEntryChange = async () => {
     const [recentEnts, active] = await Promise.all([

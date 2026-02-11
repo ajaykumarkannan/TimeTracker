@@ -3,7 +3,6 @@ import { Category, TimeEntry } from '../types';
 import { api } from '../api';
 import { useTheme } from '../contexts/ThemeContext';
 import { getAdaptiveCategoryColors } from '../hooks/useAdaptiveColors';
-import { useScrollLock } from '../hooks/useScrollLock';
 import './TimeTracker.css';
 
 // Simple fuzzy match - checks if all characters in query appear in order in target
@@ -271,10 +270,6 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-
-  // Manage scroll lock when any modal is open
-  const isAnyModalOpen = !!taskNamePrompt || !!switchTaskPrompt || showScheduleStopModal;
-  useScrollLock(isAnyModalOpen);
 
   const handleSuggestionSelect = (suggestion: { task_name: string; categoryId: number }) => {
     suppressSuggestionOpenRef.current = true;

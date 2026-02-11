@@ -59,17 +59,6 @@ body {
   font-size: 15px;
 }
 
-/* Prevent body scroll when modal is open */
-html.modal-open,
-html.modal-open body {
-  overflow: hidden;
-}
-
-/* Compensate for scrollbar width to prevent layout shift */
-html.modal-open {
-  padding-right: var(--scrollbar-width, 0px);
-}
-
 #root {
   min-height: 100vh;
 }

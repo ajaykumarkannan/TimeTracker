@@ -2,7 +2,6 @@ import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { TimeEntry, Category } from '../types';
 import { api } from '../api';
 import { formatTime, formatDuration, formatDate, formatDateTimeLocal, formatDateOnly, formatTimeOnly, combineDateAndTime } from '../utils/timeUtils';
-import { useScrollLock } from '../hooks/useScrollLock';
 import './TimeEntryList.css';
 
 // Debounce hook for search input
@@ -182,9 +181,6 @@ export function TimeEntryList({ categories, onEntryChange, onCategoryChange, ref
     }
     setSelectedSuggestionIndex(-1);
   }, [showManualEntry, manualSuggestions]);
-
-  // Lock scroll when modal is open
-  useScrollLock(showManualEntry);
 
   // Close suggestions when clicking outside
   useEffect(() => {

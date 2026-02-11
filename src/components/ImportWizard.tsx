@@ -1,7 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { api } from '../api';
 import { ColumnMapping, ImportEntry } from '../types';
-import { useScrollLock } from '../hooks/useScrollLock';
 import './ImportWizard.css';
 
 interface Props {
@@ -63,9 +62,6 @@ export function ImportWizard({ csv, onClose, onSuccess }: Props) {
   const [error, setError] = useState('');
   // Default to browser's current timezone offset (negative because JS returns offset from UTC)
   const [timeOffset, setTimeOffset] = useState(() => -new Date().getTimezoneOffset());
-
-  // Lock scroll when modal is open
-  useScrollLock(true);
 
   // Load initial preview on mount
   useEffect(() => {
