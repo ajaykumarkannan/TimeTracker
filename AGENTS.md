@@ -101,12 +101,13 @@ main (production-ready)
    - Ensure multiline bodies are passed with real newlines (not escaped `\n`) so PR descriptions render correctly.
 4. **Wait for human approval**: After creating a PR to main, stop and ask the human to review and approve
 5. **Run full CI checks locally before pushing**: Always run the following commands locally before pushing to a PR to catch issues early:
-   - `npx tsc --noEmit` - TypeScript type checking (catches type errors that `npm test` may miss)
+   - `npx tsc --noEmit` - TypeScript type checking for client code
+   - `npx tsc -p tsconfig.server.json --noEmit` - TypeScript type checking for server code
    - `npm run lint` - ESLint checks
    - `npm test` - Unit tests
    - `npm run test:e2e` - E2E tests (when UI changes are involved)
    
-   **Note**: `npm test` uses Vitest which has its own TypeScript handling and may not catch all type errors. Always run `tsc --noEmit` separately to ensure strict type compliance.
+   **Note**: `npm test` uses Vitest which has its own TypeScript handling and may not catch all type errors. Always run both `tsc` commands separately to ensure strict type compliance. The CI runs both client and server type checks.
 
 #### Feature Branch Guidelines
 
