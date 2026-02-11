@@ -3,6 +3,7 @@ import { Category, TimeEntry } from '../types';
 import { api } from '../api';
 import { useTheme } from '../contexts/ThemeContext';
 import { getAdaptiveCategoryColors } from '../hooks/useAdaptiveColors';
+import { useScrollLock } from '../hooks/useScrollLock';
 import './TimeTracker.css';
 
 // Simple fuzzy match - checks if all characters in query appear in order in target
@@ -271,21 +272,9 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Manage scroll lock when any modal is open - use html element to avoid layout shift
-  useEffect(() => {
-    const isAnyModalOpen = !!taskNamePrompt || !!switchTaskPrompt || showScheduleStopModal;
-    
-    if (isAnyModalOpen) {
-      document.documentElement.classList.add('modal-open');
-    } else {
-      document.documentElement.classList.remove('modal-open');
-    }
-    
-    // Cleanup on unmount
-    return () => {
-      document.documentElement.classList.remove('modal-open');
-    };
-  }, [taskNamePrompt, switchTaskPrompt, showScheduleStopModal]);
+  // Manage scroll lock when any modal is open
+  const isAnyModalOpen = !!taskNamePrompt || !!switchTaskPrompt || showScheduleStopModal;
+  useScrollLock(isAnyModalOpen);
 
   const handleSuggestionSelect = (suggestion: { task_name: string; categoryId: number }) => {
     suppressSuggestionOpenRef.current = true;

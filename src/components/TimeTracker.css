@@ -423,13 +423,6 @@
   transform: translateY(0);
 }
 
-/* Task name prompt modal */
-/* Prevent body scroll when modal is open - applied to html to avoid layout shift */
-html.modal-open,
-html.modal-open body {
-  overflow: hidden;
-}
-
 /* Modal overlay - ensure highest z-index above header (z-index: 100) */
 .task-prompt-overlay {
   position: fixed;

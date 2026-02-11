@@ -14,6 +14,7 @@ import { ThemeToggle } from './components/ThemeToggle';
 import { SettingsIcon, LogoutIcon, HelpIcon, ClockIcon, TagIcon, ChartIcon } from './components/Icons';
 import { api } from './api';
 import { useSync } from './hooks/useSync';
+import { useScrollLock } from './hooks/useScrollLock';
 import { Category, TimeEntry } from './types';
 import './App.css';
 
@@ -206,16 +207,7 @@ export function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLogge
   };
 
   // Lock scroll when settings or help modal is open
-  useEffect(() => {
-    if (showSettingsModal || showHelpModal) {
-      document.documentElement.classList.add('modal-open');
-    } else {
-      document.documentElement.classList.remove('modal-open');
-    }
-    return () => {
-      document.documentElement.classList.remove('modal-open');
-    };
-  }, [showSettingsModal, showHelpModal]);
+  useScrollLock(showSettingsModal || showHelpModal);
 
   const handleEntryChange = async () => {
     const [recentEnts, active] = await Promise.all([

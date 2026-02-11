@@ -1,6 +1,7 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { Category } from '../types';
 import { api } from '../api';
+import { useScrollLock } from '../hooks/useScrollLock';
 import './CategoryManager.css';
 
 // Primary color palette - visually distinct colors
@@ -56,16 +57,7 @@ export function CategoryManager({ categories, onCategoryChange }: Props) {
   }, [nextColor, editingId]);
 
   // Lock scroll when delete modal is open
-  useEffect(() => {
-    if (deletingCategory) {
-      document.documentElement.classList.add('modal-open');
-    } else {
-      document.documentElement.classList.remove('modal-open');
-    }
-    return () => {
-      document.documentElement.classList.remove('modal-open');
-    };
-  }, [deletingCategory]);
+  useScrollLock(!!deletingCategory);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

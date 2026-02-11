@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { api } from '../api';
 import { AnalyticsData, Period, DailyTotal, TimeEntry, CategoryDrilldown, Category, TopTask } from '../types';
+import { useScrollLock } from '../hooks/useScrollLock';
 import './Analytics.css';
 
 type AggregatedTotal = {
@@ -93,16 +94,7 @@ export function Analytics() {
   }, []);
 
   // Lock scroll when merge modal is open
-  useEffect(() => {
-    if (showMergeModal) {
-      document.documentElement.classList.add('modal-open');
-    } else {
-      document.documentElement.classList.remove('modal-open');
-    }
-    return () => {
-      document.documentElement.classList.remove('modal-open');
-    };
-  }, [showMergeModal]);
+  useScrollLock(showMergeModal);
 
   // Close menus when clicking outside
   useEffect(() => {
