@@ -63,6 +63,14 @@ export function ImportWizard({ csv, onClose, onSuccess }: Props) {
   // Default to browser's current timezone offset (negative because JS returns offset from UTC)
   const [timeOffset, setTimeOffset] = useState(() => -new Date().getTimezoneOffset());
 
+  // Lock scroll when modal is open - use html element to avoid layout shift
+  useEffect(() => {
+    document.documentElement.classList.add('modal-open');
+    return () => {
+      document.documentElement.classList.remove('modal-open');
+    };
+  }, []);
+
   // Load initial preview on mount
   useEffect(() => {
     loadPreview();

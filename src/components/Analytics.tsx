@@ -92,6 +92,18 @@ export function Analytics() {
     loadCategories();
   }, []);
 
+  // Lock scroll when merge modal is open
+  useEffect(() => {
+    if (showMergeModal) {
+      document.documentElement.classList.add('modal-open');
+    } else {
+      document.documentElement.classList.remove('modal-open');
+    }
+    return () => {
+      document.documentElement.classList.remove('modal-open');
+    };
+  }, [showMergeModal]);
+
   // Close menus when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {

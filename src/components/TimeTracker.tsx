@@ -271,19 +271,19 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Manage body scroll lock when any modal is open
+  // Manage scroll lock when any modal is open - use html element to avoid layout shift
   useEffect(() => {
     const isAnyModalOpen = !!taskNamePrompt || !!switchTaskPrompt || showScheduleStopModal;
     
     if (isAnyModalOpen) {
-      document.body.classList.add('modal-open');
+      document.documentElement.classList.add('modal-open');
     } else {
-      document.body.classList.remove('modal-open');
+      document.documentElement.classList.remove('modal-open');
     }
     
     // Cleanup on unmount
     return () => {
-      document.body.classList.remove('modal-open');
+      document.documentElement.classList.remove('modal-open');
     };
   }, [taskNamePrompt, switchTaskPrompt, showScheduleStopModal]);
 

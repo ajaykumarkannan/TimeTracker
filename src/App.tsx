@@ -205,6 +205,18 @@ export function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLogge
     broadcastChange('categories');
   };
 
+  // Lock scroll when settings or help modal is open
+  useEffect(() => {
+    if (showSettingsModal || showHelpModal) {
+      document.documentElement.classList.add('modal-open');
+    } else {
+      document.documentElement.classList.remove('modal-open');
+    }
+    return () => {
+      document.documentElement.classList.remove('modal-open');
+    };
+  }, [showSettingsModal, showHelpModal]);
+
   const handleEntryChange = async () => {
     const [recentEnts, active] = await Promise.all([
       api.getRecentEntries(20),

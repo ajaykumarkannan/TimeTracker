@@ -424,12 +424,13 @@
 }
 
 /* Task name prompt modal */
-/* Prevent body scroll when modal is open */
-body.modal-open {
+/* Prevent body scroll when modal is open - applied to html to avoid layout shift */
+html.modal-open,
+html.modal-open body {
   overflow: hidden;
 }
 
-/* Modal overlay - ensure highest z-index */
+/* Modal overlay - ensure highest z-index above header (z-index: 100) */
 .task-prompt-overlay {
   position: fixed;
   inset: 0;
@@ -438,8 +439,8 @@ body.modal-open {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 9999; /* Increased from 1000 */
-  overflow-y: auto; /* Allow scrolling */
+  z-index: 10000;
+  overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   padding: 1rem;
   animation: fadeIn 0.15s ease;

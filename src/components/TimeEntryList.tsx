@@ -182,15 +182,15 @@ export function TimeEntryList({ categories, onEntryChange, onCategoryChange, ref
     setSelectedSuggestionIndex(-1);
   }, [showManualEntry, manualSuggestions]);
 
-  // Lock body scroll when modal is open
+  // Lock scroll when modal is open - use html element to avoid layout shift
   useEffect(() => {
     if (showManualEntry) {
-      document.body.classList.add('modal-open');
+      document.documentElement.classList.add('modal-open');
     } else {
-      document.body.classList.remove('modal-open');
+      document.documentElement.classList.remove('modal-open');
     }
     return () => {
-      document.body.classList.remove('modal-open');
+      document.documentElement.classList.remove('modal-open');
     };
   }, [showManualEntry]);
 
