@@ -22,6 +22,7 @@ export function Login({ onBack, onSuccess, sessionExpired }: Props) {
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const [showSessionExpiredMessage, setShowSessionExpiredMessage] = useState(sessionExpired || false);
+  const [rememberMe, setRememberMe] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,7 +35,7 @@ export function Login({ onBack, onSuccess, sessionExpired }: Props) {
         await register(email, name, password);
         onSuccess?.();
       } else if (mode === 'login') {
-        await login(email, password);
+        await login(email, password, rememberMe);
         onSuccess?.();
       } else if (mode === 'forgot') {
         const result = await api.forgotPassword(email);
@@ -187,6 +188,18 @@ export function Login({ onBack, onSuccess, sessionExpired }: Props) {
                 autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
               />
             </div>
+            {mode === 'login' && (
+              <div className="remember-me-group">
+                <label className="remember-me-label">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                  />
+                  <span>Remember me for 30 days</span>
+                </label>
+              </div>
+            )}
             {mode === 'login' && (
               <button type="button" className="forgot-link" onClick={() => { setMode('forgot'); setError(''); setSuccess(''); }}>
                 Forgot password?

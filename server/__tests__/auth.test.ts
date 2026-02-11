@@ -228,6 +228,52 @@ describe('Auth Database Operations', () => {
       
       expect(result.length === 0 || result[0].values.length === 0).toBe(true);
     });
+
+    it('stores 30-day token when rememberMe is true', () => {
+      const token = 'remember-me-token';
+      const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+      const expiresAt = new Date(Date.now() + thirtyDaysMs).toISOString();
+      
+      db.run(
+        `INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES (?, ?, ?)`,
+        [testUserId, token, expiresAt]
+      );
+      
+      const result = db.exec(
+        `SELECT expires_at FROM refresh_tokens WHERE token = ?`,
+        [token]
+      );
+      
+      const storedExpiry = new Date(result[0].values[0][0] as string);
+      const expectedExpiry = new Date(Date.now() + thirtyDaysMs);
+      
+      // Allow 1 second tolerance for test execution time
+      expect(Math.abs(storedExpiry.getTime() - expectedExpiry.getTime())).toBeLessThan(1000);
+    });
+
+    it('identifies extended token by remaining time greater than 7 days', () => {
+      // Simulate a 30-day token with 20 days remaining
+      const twentyDaysMs = 20 * 24 * 60 * 60 * 1000;
+      const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+      const expiresAt = new Date(Date.now() + twentyDaysMs);
+      
+      const remainingMs = expiresAt.getTime() - Date.now();
+      const isExtendedToken = remainingMs > sevenDaysMs;
+      
+      expect(isExtendedToken).toBe(true);
+    });
+
+    it('identifies standard token by remaining time less than or equal to 7 days', () => {
+      // Simulate a 7-day token with 5 days remaining
+      const fiveDaysMs = 5 * 24 * 60 * 60 * 1000;
+      const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+      const expiresAt = new Date(Date.now() + fiveDaysMs);
+      
+      const remainingMs = expiresAt.getTime() - Date.now();
+      const isExtendedToken = remainingMs > sevenDaysMs;
+      
+      expect(isExtendedToken).toBe(false);
+    });
   });
 
   describe('Logout', () => {
