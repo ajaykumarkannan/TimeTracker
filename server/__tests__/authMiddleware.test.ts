@@ -22,7 +22,8 @@ vi.mock('../logger', () => ({
 
 vi.mock('../config', () => ({
   config: {
-    jwtSecret: 'test-secret'
+    jwtSecret: 'test-secret',
+    jwtExpiresIn: '4h'
   }
 }));
 
@@ -41,14 +42,14 @@ describe('auth middleware helpers', () => {
     getDbMock.mockReset();
   });
 
-  it('generates access token with 1h expiry', () => {
+  it('generates access token with configured expiry', () => {
     signMock.mockReturnValue('access-token');
     const token = auth.generateAccessToken(1, 'user@example.com');
     expect(token).toBe('access-token');
     expect(signMock).toHaveBeenCalledWith(
       { userId: 1, email: 'user@example.com' },
       'test-secret',
-      { expiresIn: '1h' }
+      { expiresIn: '4h' }
     );
   });
 
