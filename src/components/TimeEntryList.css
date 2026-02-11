@@ -63,7 +63,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 10000;
+  z-index: 1000;
   padding: 1rem;
   animation: fadeIn 0.15s ease;
 }
@@ -159,7 +159,7 @@
 
 .suggestion-item:hover,
 .suggestion-item.selected {
-  background: var(--bg-tertiary);
+  background: var(--bg-secondary);
 }
 
 .suggestion-text {
@@ -260,52 +260,6 @@
   justify-content: flex-end;
   gap: 0.5rem;
   padding-top: 0.5rem;
-}
-
-/* New category form in manual entry modal */
-.manual-entry-form .new-category-form {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-  flex-wrap: wrap;
-  padding: 0.75rem;
-  background: var(--bg-secondary);
-  border-radius: var(--radius-md);
-  animation: slideIn 0.2s ease;
-}
-
-.manual-entry-form .new-category-form input[type="text"] {
-  flex: 1 1 150px;
-  min-width: 0;
-}
-
-.manual-entry-form .new-category-form .color-picker {
-  width: 2.5rem;
-  height: 2.5rem;
-  padding: 0;
-  border: 1.5px solid var(--border);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  background: none;
-  flex-shrink: 0;
-}
-
-.manual-entry-form .new-category-form .color-picker::-webkit-color-swatch-wrapper {
-  padding: 3px;
-}
-
-.manual-entry-form .new-category-form .color-picker::-webkit-color-swatch {
-  border-radius: 4px;
-  border: none;
-}
-
-.manual-entry-form .new-category-form .btn {
-  flex-shrink: 0;
-}
-
-@keyframes slideIn {
-  from { opacity: 0; transform: translateY(-8px); }
-  to { opacity: 1; transform: translateY(0); }
 }
 
 /* Date Presets */
@@ -527,16 +481,6 @@
   gap: 1.5rem;
 }
 
-/* Smooth entry list animations */
-.date-group {
-  animation: contentFadeIn 0.3s ease-out;
-}
-
-@keyframes contentFadeIn {
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
 .date-header {
   display: flex;
   justify-content: space-between;
@@ -577,18 +521,16 @@
   gap: 0.875rem;
   padding: 0.875rem;
   border-radius: var(--radius-lg);
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background 0.15s ease;
   cursor: pointer;
 }
 
 .entry-item:hover {
   background: var(--bg-secondary);
-  transform: translateX(2px);
 }
 
 .entry-item.selected {
   background: var(--primary-alpha);
-  transform: translateX(4px);
 }
 
 .entry-item:hover .delete-btn {
@@ -600,11 +542,6 @@
   height: 2.5rem;
   border-radius: 2px;
   flex-shrink: 0;
-  transition: height 0.2s ease, background-color 0.2s ease;
-}
-
-.entry-item:hover .entry-indicator {
-  height: 3rem;
 }
 
 .entry-content {
@@ -839,18 +776,11 @@
   border: none;
   cursor: pointer;
   padding: 0.25rem;
-  transition: all 0.2s ease;
-  transform: scale(0.9);
-}
-
-.entry-item:hover .delete-btn {
-  opacity: 1;
-  transform: scale(1);
+  transition: all 0.15s ease;
 }
 
 .delete-btn:hover {
   color: var(--error);
-  transform: scale(1.1);
 }
 
 /* Animations */
@@ -905,24 +835,47 @@
     text-align: center;
   }
 
-  /* Mobile entry layout - single row with inline times */
   .entry-content {
-    flex-direction: row;
-    align-items: center;
+    flex-direction: column;
+    align-items: flex-start;
     gap: 0.5rem;
-    flex-wrap: nowrap;
+  }
+  
+  .entry-meta {
+    width: 100%;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  
+  .delete-btn {
+    opacity: 1;
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .delete-day-btn {
+    opacity: 1;
+    min-width: 44px;
+    min-height: 44px;
+  }
+  
+  /* Touch-friendly entry items */
+  .entry-item {
+    padding: 1rem 0.75rem;
+    min-height: 60px;
   }
   
   .entry-main {
-    flex: 1;
-    min-width: 0;
-    flex-wrap: nowrap;
-    gap: 0.375rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
   }
   
   .entry-category {
     font-size: 0.8125rem;
-    flex-shrink: 0;
   }
   
   .entry-description {
@@ -933,66 +886,22 @@
     text-overflow: ellipsis;
   }
   
-  .entry-meta {
-    flex-shrink: 0;
-    gap: 0.25rem;
-  }
-  
-  /* Compact time display on mobile */
+  /* Touch-friendly time buttons */
   .entry-time-btn {
-    min-width: auto;
-    min-height: auto;
-    padding: 0.125rem 0.25rem;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0.5rem 0.75rem;
     margin: 0;
-    font-size: 0.75rem;
-    border: none;
-    border-radius: var(--radius-sm);
-    background: transparent;
+    font-size: 0.875rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--bg-secondary);
   }
   
   .entry-time-btn:hover:not(:disabled),
   .entry-time-btn:active:not(:disabled) {
     background: var(--bg-tertiary);
-  }
-  
-  .time-separator {
-    font-size: 0.625rem;
-  }
-  
-  .entry-duration {
-    font-size: 0.75rem;
-    min-width: 2.5rem;
-  }
-  
-  .delete-btn {
-    opacity: 1;
-    min-width: 32px;
-    min-height: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1rem;
-  }
-  
-  .delete-day-btn {
-    opacity: 1;
-    min-width: 44px;
-    min-height: 44px;
-  }
-  
-  /* Compact entry items */
-  .entry-item {
-    padding: 0.625rem 0.5rem;
-    min-height: auto;
-  }
-  
-  .entry-indicator {
-    height: 2rem;
-    width: 3px;
-  }
-  
-  .entry-item:hover .entry-indicator {
-    height: 2rem;
+    border-color: var(--primary);
   }
   
   /* Inline edit time form on mobile */

@@ -4,63 +4,6 @@
   gap: 1rem;
 }
 
-/* Smooth transition when updating data */
-.analytics-updating {
-  position: relative;
-}
-
-.analytics-updating::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: var(--bg-primary);
-  opacity: 0.5;
-  pointer-events: none;
-  animation: fadeInOut 0.3s ease;
-  z-index: 10;
-}
-
-@keyframes fadeInOut {
-  0% { opacity: 0; }
-  50% { opacity: 0.5; }
-  100% { opacity: 0; }
-}
-
-/* Content transitions for smooth updates */
-.summary-card,
-.card,
-.active-task-card {
-  transition: opacity 0.2s ease, transform 0.2s ease;
-}
-
-.analytics-updating .summary-card,
-.analytics-updating .card,
-.analytics-updating .active-task-card {
-  opacity: 0.7;
-}
-
-/* Chart bar transitions */
-.chart-bar-stack {
-  transition: flex 0.3s ease;
-}
-
-.chart-bar-segment {
-  transition: flex 0.3s ease, background-color 0.2s ease;
-}
-
-/* Category bar transitions */
-.category-bar {
-  transition: width 0.3s ease, background-color 0.2s ease;
-}
-
-/* Summary value transitions */
-.summary-value {
-  transition: opacity 0.2s ease;
-}
-
 .analytics-loading,
 .analytics-error {
   text-align: center;
@@ -1317,7 +1260,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 10000;
+  z-index: 1000;
   padding: 1rem;
 }
 
