@@ -389,7 +389,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
     
     return Array.from(taskMap.values())
       .sort((a, b) => b.count - a.count)
-      .slice(0, 4);
+      .slice(0, 5);
   }, [entries]);
 
   useEffect(() => {
@@ -1122,7 +1122,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
             ) : (
               <>
               <div className="switch-quick-options">
-                {recentTasks.slice(0, 3).map((task, idx) => {
+                {recentTasks.slice(0, 5).map((task, idx) => {
                   const colors = getCategoryColors(task.categoryColor);
                   return (
                     <button
