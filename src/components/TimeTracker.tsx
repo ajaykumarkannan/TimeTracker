@@ -1122,7 +1122,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
             ) : (
               <>
               <div className="switch-quick-options">
-                {recentTasks.slice(0, 5).map((task, idx) => {
+                {recentTasks.slice(0, 4).map((task, idx) => {
                   const colors = getCategoryColors(task.categoryColor);
                   return (
                     <button
