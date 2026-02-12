@@ -596,15 +596,6 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
     }
   };
 
-  const handleCategorySwitchPrompt = (cat: Category) => {
-    setSwitchTaskPrompt({
-      categoryId: cat.id,
-      categoryName: cat.name,
-      categoryColor: cat.color
-    });
-    setSwitchTaskName('');
-  };
-
   const handlePromptedSwitch = async () => {
     if (!switchTaskPrompt) return;
     await handleSwitchTask(switchTaskPrompt.categoryId, switchTaskName || undefined);
@@ -845,6 +836,8 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
           
           {/* Switch task section while tracking */}
           <div className="switch-task-section">
+            <span className="switch-label">Switch to:</span>
+            
             {/* Switch task prompt modal */}
             {switchTaskPrompt && (
               <div className="task-prompt-overlay" onClick={() => {
@@ -1016,30 +1009,28 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
               </div>
             )}
 
-            <div className="switch-task-header">
-              <span className="switch-label">Switch to:</span>
-              <button 
-                className="btn btn-ghost btn-sm"
-                onClick={() => setShowNewTaskForm(!showNewTaskForm)}
-              >
-                {showNewTaskForm ? 'Cancel' : '+ New task'}
-              </button>
-            </div>
-            
             {showNewTaskForm ? (
               <div className="new-task-inline">
                 <select 
                   className="switch-category-select"
                   value={selectedCategory || ''} 
                   onChange={(e) => {
-                    suppressSuggestionOpenRef.current = false;
-                    setSelectedCategory(Number(e.target.value));
+                    const val = e.target.value;
+                    if (val === 'new') {
+                      setShowNewCategory(true);
+                      setSelectedCategory(null);
+                    } else {
+                      suppressSuggestionOpenRef.current = false;
+                      setSelectedCategory(Number(val));
+                      setShowNewCategory(false);
+                    }
                   }}
                 >
                   <option value="">Category...</option>
                   {categories.map(cat => (
                     <option key={cat.id} value={cat.id}>{cat.name}</option>
                   ))}
+                  <option value="new">+ New category</option>
                 </select>
                 <div className="description-input-wrapper switch-description-wrapper">
                   <input 
@@ -1126,10 +1117,42 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                 >
                   Start
                 </button>
+                {showNewCategory && (
+                  <div className="new-category-form animate-slide-in">
+                    <input
+                      type="text"
+                      value={newCategoryName}
+                      onChange={(e) => setNewCategoryName(e.target.value)}
+                      placeholder="Category name"
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleCreateCategory();
+                        if (e.key === 'Escape') setShowNewCategory(false);
+                      }}
+                    />
+                    <input
+                      type="color"
+                      value={newCategoryColor}
+                      onChange={(e) => setNewCategoryColor(e.target.value)}
+                      className="color-picker"
+                    />
+                    <button className="btn btn-ghost" onClick={() => setShowNewCategory(false)}>
+                      Cancel
+                    </button>
+                    <button 
+                      className="btn btn-primary" 
+                      onClick={handleCreateCategory}
+                      disabled={!newCategoryName.trim()}
+                    >
+                      Create
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
+              <>
               <div className="switch-quick-options">
-                {recentTasks.slice(0, 3).map((task, idx) => {
+                {recentTasks.slice(0, 4).map((task, idx) => {
                   const colors = getCategoryColors(task.categoryColor);
                   return (
                     <button
@@ -1143,21 +1166,14 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                     </button>
                   );
                 })}
-                {displayCategories.slice(0, 2).map(cat => {
-                  const colors = getCategoryColors(cat.color);
-                  return (
-                    <button
-                      key={cat.id}
-                      className="switch-category-btn"
-                      style={{ borderColor: colors.textColor, color: colors.textColor }}
-                      onClick={() => handleCategorySwitchPrompt(cat)}
-                    >
-                      <span className="category-dot" style={{ backgroundColor: colors.dotColor }} />
-                      {cat.name}
-                    </button>
-                  );
-                })}
               </div>
+              <button 
+                className="btn btn-ghost btn-sm switch-add-btn"
+                onClick={() => setShowNewTaskForm(true)}
+              >
+                +
+              </button>
+              </>
             )}
           </div>
         </div>
