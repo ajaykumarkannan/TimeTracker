@@ -52,6 +52,14 @@
   letter-spacing: -0.01em;
 }
 
+.remember-me-label {
+  margin-right: 0.2em;
+}
+
+.remember-me-checkbox {
+  margin-right: 0.4em;
+}
+
 .error-message {
   background: var(--error-bg);
   color: var(--error);
@@ -79,7 +87,7 @@
   cursor: pointer;
   margin-bottom: 1rem;
   padding: 0;
-  text-align: right;
+  text-align: center;
 }
 
 .forgot-link:hover {
