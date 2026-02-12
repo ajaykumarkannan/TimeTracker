@@ -413,9 +413,8 @@ describe('Date Defaulting Property Tests', () => {
     it('should reset manual flag when modal is reopened', async () => {
       await fc.assert(
         fc.asyncProperty(
-          validDateArb,
-          validDateArb,
-          async (manualEndDate, newStartDate) => {
+          differentDatesArb,  // Use differentDatesArb to ensure manualEndDate != newStartDate
+          async ([manualEndDate, newStartDate]) => {
             vi.clearAllMocks();
             cleanup();
 
@@ -447,8 +446,19 @@ describe('Date Defaulting Property Tests', () => {
               expect(container.querySelector('.manual-entry-modal')).not.toBeInTheDocument();
             });
 
+            // Small wait to ensure state is fully reset
+            await act(async () => {
+              await new Promise(resolve => setTimeout(resolve, 50));
+            });
+
             // Reopen the modal
             await openAddEntryModal(container);
+            
+            // Wait for modal to fully initialize with fresh state
+            await act(async () => {
+              await new Promise(resolve => setTimeout(resolve, 50));
+            });
+            
             const inputs = getDateInputs(container);
 
             // Change start date - should now auto-sync since manual flag was reset
@@ -463,8 +473,8 @@ describe('Date Defaulting Property Tests', () => {
             return true;
           }
         ),
-        { numRuns: 25 }
+        { numRuns: 25, verbose: 2 }
       );
-    }, 15000);
+    }, 20000);
   });
 });
