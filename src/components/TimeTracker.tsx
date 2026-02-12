@@ -389,7 +389,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
     
     return Array.from(taskMap.values())
       .sort((a, b) => b.count - a.count)
-      .slice(0, 5);
+      .slice(0, 4);
   }, [entries]);
 
   useEffect(() => {
