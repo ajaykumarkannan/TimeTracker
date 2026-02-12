@@ -57,6 +57,7 @@ This starts both the Vite dev server (frontend) and Express server (backend) wit
 | `npm test` | Run unit tests |
 | `npm run test:e2e` | Run Playwright E2E tests |
 | `npm run lint` | Run ESLint |
+| `npm run test:all` | Run lint, unit, and E2E tests | 
 | `npm run build` | Production build |
 | `npm start` | Run production build |
 

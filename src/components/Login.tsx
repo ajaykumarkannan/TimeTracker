@@ -195,6 +195,7 @@ export function Login({ onBack, onSuccess, sessionExpired }: Props) {
                     type="checkbox"
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
+                    className='remember-me-checkbox'
                   />
                   <span>Remember me for 30 days</span>
                 </label>
