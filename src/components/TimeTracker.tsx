@@ -845,6 +845,8 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
           
           {/* Switch task section while tracking */}
           <div className="switch-task-section">
+            <span className="switch-label">Switch to:</span>
+            
             {/* Switch task prompt modal */}
             {switchTaskPrompt && (
               <div className="task-prompt-overlay" onClick={() => {
@@ -1016,16 +1018,6 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
               </div>
             )}
 
-            <div className="switch-task-header">
-              <span className="switch-label">Switch to:</span>
-              <button 
-                className="btn btn-ghost btn-sm"
-                onClick={() => setShowNewTaskForm(!showNewTaskForm)}
-              >
-                {showNewTaskForm ? 'Cancel' : '+'}
-              </button>
-            </div>
-            
             {showNewTaskForm ? (
               <div className="new-task-inline">
                 <select 
@@ -1128,6 +1120,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                 </button>
               </div>
             ) : (
+              <>
               <div className="switch-quick-options">
                 {recentTasks.slice(0, 3).map((task, idx) => {
                   const colors = getCategoryColors(task.categoryColor);
@@ -1143,21 +1136,14 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                     </button>
                   );
                 })}
-                {displayCategories.slice(0, 2).map(cat => {
-                  const colors = getCategoryColors(cat.color);
-                  return (
-                    <button
-                      key={cat.id}
-                      className="switch-category-btn"
-                      style={{ borderColor: colors.textColor, color: colors.textColor }}
-                      onClick={() => handleCategorySwitchPrompt(cat)}
-                    >
-                      <span className="category-dot" style={{ backgroundColor: colors.dotColor }} />
-                      {cat.name}
-                    </button>
-                  );
-                })}
               </div>
+              <button 
+                className="btn btn-ghost btn-sm switch-add-btn"
+                onClick={() => setShowNewTaskForm(true)}
+              >
+                +
+              </button>
+              </>
             )}
           </div>
         </div>
