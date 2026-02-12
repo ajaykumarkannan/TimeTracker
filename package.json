@@ -15,6 +15,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
+    "test:all": "npm run lint && npm run test && npm run test:e2e",
     "lint": "eslint .",
     "docker:build": "docker build -t chronoflow:latest .",
     "docker:run": "docker-compose up -d",
