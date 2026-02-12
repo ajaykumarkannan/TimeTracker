@@ -521,7 +521,11 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
     return options;
   };
 
-  const getTodayDateString = () => new Date().toISOString().split('T')[0];
+  const getTodayDateString = () => {
+    const now = new Date();
+    const localMidnight = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+    return localMidnight.toISOString().split('T')[0];
+  };
 
   useEffect(() => {
     if (showScheduleStopModal && scheduleMode === 'time' && !stopAtDate) {
