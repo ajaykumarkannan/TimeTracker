@@ -82,6 +82,191 @@
   flex-wrap: wrap;
 }
 
+.stop-button-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.stop-main {
+  min-width: 88px;
+}
+
+.btn-end-at {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  min-width: 38px;
+  height: 38px;
+  padding: 0 0.75rem;
+}
+
+.btn-end-at.scheduled {
+  padding: 0 0.875rem;
+}
+
+.clock-icon {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  display: block;
+}
+
+.scheduled-time {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.schedule-stop-modal {
+  max-width: 420px;
+}
+
+.schedule-mode-tabs {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.25rem;
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+}
+
+.schedule-mode-tab {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.schedule-mode-tab.active {
+  background: var(--card-bg);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.schedule-duration-inputs {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.duration-input-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.duration-input {
+  width: 72px;
+  height: 48px;
+  padding: 0 0.5rem;
+  border-radius: var(--radius-md);
+  border: 1.5px solid var(--border);
+  background: var(--input-bg);
+  color: var(--text-primary);
+  font-size: 1.125rem;
+  text-align: center;
+  color-scheme: dark;
+}
+
+.duration-input::-webkit-outer-spin-button,
+.duration-input::-webkit-inner-spin-button {
+  appearance: none;
+  margin: 0;
+  filter: invert(1);
+}
+
+.duration-input {
+  appearance: textfield;
+}
+
+.duration-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-alpha);
+}
+
+.duration-label {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.schedule-time-input {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.time-input {
+  height: 48px;
+  padding: 0 0.75rem;
+  border-radius: var(--radius-md);
+  border: 1.5px solid var(--border);
+  background: var(--input-bg);
+  color: var(--text-primary);
+  font-size: 1rem;
+}
+
+.time-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-alpha);
+}
+
+.time-hint {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.schedule-quick-options {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.quick-options-label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.quick-duration-btn {
+  padding: 0.375rem 0.625rem;
+  border-radius: var(--radius-md);
+  border: 1.5px solid var(--border);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.quick-duration-btn:hover {
+  background: var(--bg-tertiary);
+}
+
+.schedule-icon {
+  font-size: 1rem;
+}
+
+.task-prompt-actions .btn {
+  min-width: 120px;
+}
+
+.task-prompt-actions .btn-success,
+.task-prompt-actions .btn-ghost {
+  justify-content: center;
+}
+
 .stop-icon {
   font-size: 0.5rem;
 }

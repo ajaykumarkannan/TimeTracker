@@ -694,10 +694,6 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
               </div>
             </div>
             <div className="timer-actions">
-              <button className="btn btn-warning" onClick={handlePause} title="Pause">
-                <span className="pause-icon">❚❚</span>
-                Pause
-              </button>
               <div className={`stop-button-group ${activeEntry.scheduled_end_time ? 'has-schedule' : ''}`}>
                 <button className="btn btn-danger stop-main" onClick={handleStop}>
                   <span className="stop-icon">■</span>
