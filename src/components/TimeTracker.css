@@ -216,8 +216,7 @@
   background: var(--input-bg);
   color: var(--text-primary);
   font-size: 1rem;
-  min-width: 180px;
-  padding-right: 2.25rem;
+  min-width: 165px;
 }
 
 .date-input:focus {
