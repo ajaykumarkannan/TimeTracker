@@ -434,7 +434,12 @@ jobs:
           if [[ "${{ github.ref }}" == refs/tags/* ]]; then
             echo "version=${{ github.ref_name }}" >> $GITHUB_OUTPUT
           else
-            echo "version=v${{ needs.patch-bump.outputs.new_version }}" >> $GITHUB_OUTPUT
+            VERSION="${{ needs.patch-bump.outputs.new_version }}"
+            if [[ -z "$VERSION" ]]; then
+              # Fallback to package.json when patch-bump was skipped
+              VERSION=$(node -p 'require("./package.json").version')
+            fi
+            echo "version=v${VERSION}" >> $GITHUB_OUTPUT
           fi
       
       - name: Set image name (lowercase)
@@ -496,13 +501,20 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
+      - uses: actions/checkout@v4
+      
       - name: Determine version
         id: version
         run: |
           if [[ "${{ github.ref }}" == refs/tags/* ]]; then
             echo "version=${{ github.ref_name }}" >> $GITHUB_OUTPUT
           else
-            echo "version=v${{ needs.patch-bump.outputs.new_version }}" >> $GITHUB_OUTPUT
+            VERSION="${{ needs.patch-bump.outputs.new_version }}"
+            if [[ -z "$VERSION" ]]; then
+              # Fallback to package.json when patch-bump was skipped
+              VERSION=$(node -p 'require("./package.json").version')
+            fi
+            echo "version=v${VERSION}" >> $GITHUB_OUTPUT
           fi
       
       - name: Download digests
