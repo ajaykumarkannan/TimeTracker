@@ -448,7 +448,9 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          platforms: linux/amd64,linux/arm64,linux/arm/v7
+          # Note: ARM builds disabled due to sql.js WASM incompatibility with QEMU emulation
+          # See: https://github.com/nickvdyck/sql.js/issues/593
+          platforms: linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
