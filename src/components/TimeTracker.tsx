@@ -1022,7 +1022,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                 className="btn btn-ghost btn-sm"
                 onClick={() => setShowNewTaskForm(!showNewTaskForm)}
               >
-                {showNewTaskForm ? 'Cancel' : '+ New task'}
+                {showNewTaskForm ? 'Cancel' : '+'}
               </button>
             </div>
             
