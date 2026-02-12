@@ -298,6 +298,7 @@ body {
   flex-shrink: 0;
   color: var(--primary);
   display: block;
+  margin-bottom: 0rem;
 }
 
 .logo-text {
