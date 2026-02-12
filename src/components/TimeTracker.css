@@ -24,12 +24,15 @@
 }
 
 .timer-time {
+    display: flex;
   font-family: 'JetBrains Mono', monospace;
   font-size: clamp(2rem, 6vw, 3rem);
   font-weight: 600;
   color: var(--text-primary);
   letter-spacing: -0.02em;
   line-height: 1;
+  justify-content: center; /* Centers horizontally */
+  align-items: center;
 }
 
 .timer-digits {
@@ -849,12 +852,12 @@
   .time-tracker {
     padding: 1rem;
   }
-  
+
   /* #3: Reduce section gaps */
   .active-tracker-container {
     gap: 0.75rem;
   }
-  
+
   /* Mobile grid: timer+stop on row 1, category+task on row 2 */
   .active-tracker {
     display: grid;
@@ -863,24 +866,24 @@
     gap: 0.5rem 0.75rem;
     align-items: center;
   }
-  
+
   /* Make timer-display children participate in parent grid */
   .timer-display {
     display: contents;
   }
-  
+
   .timer-time {
     grid-column: 1;
     grid-row: 1;
     font-size: 1.75rem;
   }
-  
+
   .timer-actions {
     grid-column: 2;
     grid-row: 1;
     justify-self: end;
   }
-  
+
   .timer-info {
     grid-column: 1 / -1;
     grid-row: 2;
@@ -888,76 +891,76 @@
     flex-wrap: wrap;
     gap: 0.375rem;
   }
-  
+
   /* #5: Compact Stop/Schedule buttons */
   .timer-actions {
     flex-shrink: 0;
   }
-  
+
   .timer-actions .btn {
     min-height: 40px;
     padding: 0 0.75rem;
   }
-  
+
   .stop-main {
     min-width: 70px;
     min-height: 40px;
   }
-  
+
   .btn-end-at {
     height: 40px;
     min-width: 40px;
     padding: 0 0.5rem;
   }
-  
+
   /* #2: Hide "SWITCH TO:" label on mobile */
   .switch-label {
     display: none;
   }
-  
+
   /* #7: Inline "+" with task buttons */
   .switch-task-section {
     justify-content: center;
   }
-  
+
   .switch-add-btn {
     margin-left: 0;
   }
-  
+
   .form-row {
     grid-template-columns: 1fr;
   }
-  
+
   .start-btn {
     width: 100%;
     min-height: 48px;
   }
-  
+
   .new-task-inline {
     flex-direction: column;
   }
-  
+
   .switch-category-select,
   .switch-description-input {
     width: 100%;
     min-height: 44px;
   }
-  
+
   /* Quick start buttons - better touch targets */
   .quick-start-btn {
     min-height: 44px;
     padding: 0.625rem 1rem;
   }
-  
+
   .quick-start-buttons {
     gap: 0.625rem;
   }
-  
+
   .switch-task-btn,
   .switch-category-btn {
     min-height: 44px;
   }
-  
+
   /* Prevent iOS zoom on input focus */
   .form-group input[type="text"],
   .form-group select,
@@ -966,7 +969,7 @@
   .task-prompt-input {
     font-size: 16px;
   }
-  
+
   /* Paused tracker mobile layout */
   .paused-tracker {
     flex-direction: column;
@@ -974,20 +977,20 @@
     gap: 1rem;
     text-align: center;
   }
-  
+
   .paused-info {
     justify-content: center;
   }
-  
+
   /* Task prompt modal mobile */
   .task-prompt-modal {
     padding: 1.25rem;
   }
-  
+
   .task-prompt-actions {
     flex-direction: column;
   }
-  
+
   .task-prompt-actions .btn {
     width: 100%;
     min-height: 48px;
