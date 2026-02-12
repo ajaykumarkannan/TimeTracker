@@ -66,9 +66,10 @@ function sseAuthMiddleware(req: Request, res: Response, next: () => void) {
   } else if (sessionId) {
     // Session auth - look up user by session
     const db = getDb();
+    const guestEmail = `anon_${sessionId}@local`;
     const result = db.exec(
-      `SELECT id FROM users WHERE session_id = ?`,
-      [sessionId]
+      `SELECT id FROM users WHERE email = ?`,
+      [guestEmail]
     );
     
     if (result.length > 0 && result[0].values.length > 0) {

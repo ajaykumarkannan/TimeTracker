@@ -73,6 +73,7 @@ export function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLogge
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [activeEntry, setActiveEntry] = useState<TimeEntry | null>(null);
   const [entryRefreshKey, setEntryRefreshKey] = useState(0);
+  const isRefreshingRef = useRef(false);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
@@ -138,6 +139,8 @@ export function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLogge
   };
 
   const refreshTrackerData = useCallback(async () => {
+    if (isRefreshingRef.current) return;
+    isRefreshingRef.current = true;
     try {
       const [recentEnts, active] = await Promise.all([
         api.getRecentEntries(20),
@@ -145,9 +148,10 @@ export function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLogge
       ]);
       setEntries(recentEnts);
       setActiveEntry(active);
-      setEntryRefreshKey(k => k + 1);
     } catch (error) {
       console.error('Failed to refresh tracker data:', error);
+    } finally {
+      isRefreshingRef.current = false;
     }
   }, []);
 
@@ -168,33 +172,24 @@ export function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLogge
 
   useEffect(() => {
     const intervalMs = 15000;
+    const lastRefreshRef = { current: 0 };
 
-    const handleInterval = () => {
-      if (document.visibilityState === 'visible') {
-        refreshTrackerData();
-      }
+    const refreshIfVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      const now = Date.now();
+      if (now - lastRefreshRef.current < intervalMs) return;
+      lastRefreshRef.current = now;
+      refreshTrackerData();
     };
 
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        refreshTrackerData();
-      }
-    };
-
-    const handleFocus = () => {
-      if (document.visibilityState === 'visible') {
-        refreshTrackerData();
-      }
-    };
-
-    const intervalId = window.setInterval(handleInterval, intervalMs);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', handleFocus);
+    const intervalId = window.setInterval(refreshIfVisible, intervalMs);
+    document.addEventListener('visibilitychange', refreshIfVisible);
+    window.addEventListener('focus', refreshIfVisible);
 
     return () => {
       window.clearInterval(intervalId);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', refreshIfVisible);
+      window.removeEventListener('focus', refreshIfVisible);
     };
   }, [refreshTrackerData]);
 

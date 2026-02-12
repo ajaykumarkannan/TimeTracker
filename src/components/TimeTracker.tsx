@@ -136,6 +136,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   const [durationHours, setDurationHours] = useState('');
   const [durationMinutes, setDurationMinutes] = useState('');
   const [stopAtTime, setStopAtTime] = useState('');
+  const [stopAtDate, setStopAtDate] = useState('');
   const [scheduledRemaining, setScheduledRemaining] = useState<string | null>(null);
 
   // Fetch all suggestions once and cache them
@@ -520,6 +521,14 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
     return options;
   };
 
+  const getTodayDateString = () => new Date().toISOString().split('T')[0];
+
+  useEffect(() => {
+    if (showScheduleStopModal && scheduleMode === 'time' && !stopAtDate) {
+      setStopAtDate(getTodayDateString());
+    }
+  }, [showScheduleStopModal, scheduleMode, stopAtDate]);
+
   const handleScheduleStop = async () => {
     if (!activeEntry) return;
     
@@ -533,16 +542,11 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
       scheduledEndTime = new Date(Date.now() + (hours * 60 + minutes) * 60000);
     } else {
       if (!stopAtTime) return;
-      
-      // Parse the time input and create a date for today (or tomorrow if time has passed)
+
+      const targetDate = stopAtDate || getTodayDateString();
       const [hours, minutes] = stopAtTime.split(':').map(Number);
-      scheduledEndTime = new Date();
+      scheduledEndTime = new Date(`${targetDate}T00:00:00`);
       scheduledEndTime.setHours(hours, minutes, 0, 0);
-      
-      // If the time has already passed today, schedule for tomorrow
-      if (scheduledEndTime <= new Date()) {
-        scheduledEndTime.setDate(scheduledEndTime.getDate() + 1);
-      }
     }
     
     try {
@@ -561,17 +565,6 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
       onEntryChange();
     } catch (error) {
       console.error('Failed to clear scheduled stop:', error);
-    }
-  };
-
-  const handlePause = async () => {
-    if (!activeEntry) return;
-    try {
-      await api.stopEntry(activeEntry.id);
-      setPausedEntry({ ...activeEntry, end_time: new Date().toISOString() });
-      onEntryChange();
-    } catch (error) {
-      console.error('Failed to pause entry:', error);
     }
   };
 
@@ -694,10 +687,6 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
               </div>
             </div>
             <div className="timer-actions">
-              <button className="btn btn-warning" onClick={handlePause} title="Pause">
-                <span className="pause-icon">❚❚</span>
-                Pause
-              </button>
               <div className={`stop-button-group ${activeEntry.scheduled_end_time ? 'has-schedule' : ''}`}>
                 <button className="btn btn-danger stop-main" onClick={handleStop}>
                   <span className="stop-icon">■</span>
@@ -785,23 +774,18 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                 ) : (
                   <div className="schedule-time-input">
                     <input
+                      type="date"
+                      value={stopAtDate || getTodayDateString()}
+                      onChange={(e) => setStopAtDate(e.target.value)}
+                      className="date-input"
+                    />
+                    <input
                       type="time"
                       value={stopAtTime}
                       onChange={(e) => setStopAtTime(e.target.value)}
                       className="time-input"
                       autoFocus
                     />
-                    <span className="time-hint">
-                      {stopAtTime && (() => {
-                        const [h, m] = stopAtTime.split(':').map(Number);
-                        const target = new Date();
-                        target.setHours(h, m, 0, 0);
-                        if (target <= new Date()) {
-                          return 'Tomorrow';
-                        }
-                        return 'Today';
-                      })()}
-                    </span>
                   </div>
                 )}
                 

@@ -180,7 +180,7 @@ describe('TimeTracker', () => {
     expect(startButton).toBeDisabled();
   });
 
-  it('pauses timer when pause button clicked', async () => {
+  it('does not render a pause button while tracking', async () => {
     const activeEntry = {
       id: 1,
       category_id: 1,
@@ -203,63 +203,8 @@ describe('TimeTracker', () => {
         onCategoryChange={mockOnCategoryChange}
       />
     );
-    
-    const pauseButton = screen.getByRole('button', { name: /pause/i });
-    await act(async () => {
-      fireEvent.click(pauseButton);
-    });
-    
-    await waitFor(() => {
-      expect(api.stopEntry).toHaveBeenCalledWith(1);
-      expect(mockOnEntryChange).toHaveBeenCalled();
-    });
-  });
 
-  it('shows paused state and allows resume', async () => {
-    // First render with active entry
-    const activeEntry = {
-      id: 1,
-      category_id: 1,
-      category_name: 'Development',
-      category_color: '#007bff',
-      task_name: 'Working on feature',
-      start_time: new Date().toISOString(),
-      end_time: null,
-      scheduled_end_time: null,
-      duration_minutes: null,
-      created_at: '2024-01-01'
-    };
-
-    const { rerender } = await renderWithTheme(
-      <TimeTracker 
-        categories={mockCategories} 
-        activeEntry={activeEntry}
-        entries={mockEntries}
-        onEntryChange={mockOnEntryChange}
-        onCategoryChange={mockOnCategoryChange}
-      />
-    );
-    
-    // Click pause
-    const pauseButton = screen.getByRole('button', { name: /pause/i });
-    await act(async () => {
-      fireEvent.click(pauseButton);
-    });
-
-    // Rerender with no active entry (simulating paused state)
-    await act(async () => {
-      rerender(
-        <ThemeProvider>
-          <TimeTracker 
-            categories={mockCategories} 
-            activeEntry={null}
-            entries={mockEntries}
-            onEntryChange={mockOnEntryChange}
-            onCategoryChange={mockOnCategoryChange}
-          />
-        </ThemeProvider>
-      );
-    });
+    expect(screen.queryByRole('button', { name: /pause/i })).not.toBeInTheDocument();
   });
 
   it('shows quick start buttons for recent tasks', async () => {
@@ -1186,166 +1131,6 @@ describe('TimeTracker', () => {
     expect(descInput).toHaveValue('Bug fix');
   });
 
-  it('shows paused state with resume and discard buttons', async () => {
-    const activeEntry = {
-      id: 1,
-      category_id: 1,
-      category_name: 'Development',
-      category_color: '#007bff',
-      task_name: 'Working on feature',
-      start_time: new Date().toISOString(),
-      end_time: null,
-      scheduled_end_time: null,
-      duration_minutes: null,
-      created_at: '2024-01-01'
-    };
-
-    const { rerender } = await renderWithTheme(
-      <TimeTracker 
-        categories={mockCategories} 
-        activeEntry={activeEntry}
-        entries={mockEntries}
-        onEntryChange={mockOnEntryChange}
-        onCategoryChange={mockOnCategoryChange}
-      />
-    );
-    
-    // Click pause
-    const pauseButton = screen.getByRole('button', { name: /pause/i });
-    await act(async () => {
-      fireEvent.click(pauseButton);
-    });
-
-    // Rerender with no active entry to show paused state
-    await act(async () => {
-      rerender(
-        <ThemeProvider>
-          <TimeTracker 
-            categories={mockCategories} 
-            activeEntry={null}
-            entries={mockEntries}
-            onEntryChange={mockOnEntryChange}
-            onCategoryChange={mockOnCategoryChange}
-          />
-        </ThemeProvider>
-      );
-    });
-    
-    // Should show paused state with Resume and Discard buttons
-    expect(screen.getByText('⏸ Paused')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /resume/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /discard/i })).toBeInTheDocument();
-  });
-
-  it('resumes paused entry when clicking Resume', async () => {
-    const activeEntry = {
-      id: 1,
-      category_id: 1,
-      category_name: 'Development',
-      category_color: '#007bff',
-      task_name: 'Working on feature',
-      start_time: new Date().toISOString(),
-      end_time: null,
-      scheduled_end_time: null,
-      duration_minutes: null,
-      created_at: '2024-01-01'
-    };
-
-    const { rerender } = await renderWithTheme(
-      <TimeTracker 
-        categories={mockCategories} 
-        activeEntry={activeEntry}
-        entries={mockEntries}
-        onEntryChange={mockOnEntryChange}
-        onCategoryChange={mockOnCategoryChange}
-      />
-    );
-    
-    // Click pause
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /pause/i }));
-    });
-
-    // Rerender with no active entry
-    await act(async () => {
-      rerender(
-        <ThemeProvider>
-          <TimeTracker 
-            categories={mockCategories} 
-            activeEntry={null}
-            entries={mockEntries}
-            onEntryChange={mockOnEntryChange}
-            onCategoryChange={mockOnCategoryChange}
-          />
-        </ThemeProvider>
-      );
-    });
-    
-    // Click Resume
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /resume/i }));
-    });
-    
-    await waitFor(() => {
-      expect(api.startEntry).toHaveBeenCalledWith(1, 'Working on feature');
-    });
-  });
-
-  it('discards paused entry when clicking Discard', async () => {
-    const activeEntry = {
-      id: 1,
-      category_id: 1,
-      category_name: 'Development',
-      category_color: '#007bff',
-      task_name: 'Working on feature',
-      start_time: new Date().toISOString(),
-      end_time: null,
-      scheduled_end_time: null,
-      duration_minutes: null,
-      created_at: '2024-01-01'
-    };
-
-    const { rerender } = await renderWithTheme(
-      <TimeTracker 
-        categories={mockCategories} 
-        activeEntry={activeEntry}
-        entries={mockEntries}
-        onEntryChange={mockOnEntryChange}
-        onCategoryChange={mockOnCategoryChange}
-      />
-    );
-    
-    // Click pause
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /pause/i }));
-    });
-
-    // Rerender with no active entry
-    await act(async () => {
-      rerender(
-        <ThemeProvider>
-          <TimeTracker 
-            categories={mockCategories} 
-            activeEntry={null}
-            entries={mockEntries}
-            onEntryChange={mockOnEntryChange}
-            onCategoryChange={mockOnCategoryChange}
-          />
-        </ThemeProvider>
-      );
-    });
-    
-    // Click Discard
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /discard/i }));
-    });
-    
-    // Should no longer show paused state
-    await waitFor(() => {
-      expect(screen.queryByText('⏸ Paused')).not.toBeInTheDocument();
-    });
-  });
-
   it('handles ArrowUp in suggestions to deselect', async () => {
     await renderWithTheme(
       <TimeTracker 
@@ -2209,63 +1994,6 @@ describe('TimeTracker', () => {
     }
   });
 
-  it('handles resume error gracefully', async () => {
-    vi.mocked(api.startEntry).mockRejectedValueOnce(new Error('Network error'));
-    
-    const activeEntry = {
-      id: 1,
-      category_id: 1,
-      category_name: 'Development',
-      category_color: '#007bff',
-      task_name: 'Working on feature',
-      start_time: new Date().toISOString(),
-      end_time: null,
-      scheduled_end_time: null,
-      duration_minutes: null,
-      created_at: '2024-01-01'
-    };
-
-    const { rerender } = await renderWithTheme(
-      <TimeTracker 
-        categories={mockCategories} 
-        activeEntry={activeEntry}
-        entries={mockEntries}
-        onEntryChange={mockOnEntryChange}
-        onCategoryChange={mockOnCategoryChange}
-      />
-    );
-    
-    // Click pause
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /pause/i }));
-    });
-
-    // Rerender with no active entry
-    await act(async () => {
-      rerender(
-        <ThemeProvider>
-          <TimeTracker 
-            categories={mockCategories} 
-            activeEntry={null}
-            entries={mockEntries}
-            onEntryChange={mockOnEntryChange}
-            onCategoryChange={mockOnCategoryChange}
-          />
-        </ThemeProvider>
-      );
-    });
-    
-    // Click Resume (will fail)
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /resume/i }));
-    });
-    
-    // Should have called API
-    await waitFor(() => {
-      expect(api.startEntry).toHaveBeenCalled();
-    });
-  });
-
   it('handles switch task error gracefully', async () => {
     vi.mocked(api.startEntry).mockRejectedValueOnce(new Error('Network error'));
     
@@ -2321,42 +2049,6 @@ describe('TimeTracker', () => {
     }
   });
 
-  it('handles pause error gracefully', async () => {
-    vi.mocked(api.stopEntry).mockRejectedValueOnce(new Error('Network error'));
-    
-    const activeEntry = {
-      id: 1,
-      category_id: 1,
-      category_name: 'Development',
-      category_color: '#007bff',
-      task_name: 'Working',
-      start_time: new Date().toISOString(),
-      end_time: null,
-      scheduled_end_time: null,
-      duration_minutes: null,
-      created_at: '2024-01-01'
-    };
-
-    await renderWithTheme(
-      <TimeTracker 
-        categories={mockCategories} 
-        activeEntry={activeEntry}
-        entries={mockEntries}
-        onEntryChange={mockOnEntryChange}
-        onCategoryChange={mockOnCategoryChange}
-      />
-    );
-    
-    // Click pause
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /pause/i }));
-    });
-    
-    // Should have called API
-    await waitFor(() => {
-      expect(api.stopEntry).toHaveBeenCalled();
-    });
-  });
 });
 
 

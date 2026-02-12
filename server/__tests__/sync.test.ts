@@ -5,9 +5,9 @@ vi.mock('../database', () => ({
   getDb: vi.fn(() => ({
     exec: vi.fn((query: string, params?: unknown[]) => {
       // Mock user lookup by session
-      if (query.includes('SELECT id FROM users WHERE session_id')) {
+      if (query.includes('SELECT id FROM users WHERE email')) {
         const sessionId = params?.[0];
-        if (sessionId === 'valid-session') {
+        if (sessionId === 'anon_valid-session@local') {
           return [{ values: [[1]] }];
         }
         return [];
