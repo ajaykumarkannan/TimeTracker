@@ -568,17 +568,6 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
     }
   };
 
-  const handlePause = async () => {
-    if (!activeEntry) return;
-    try {
-      await api.stopEntry(activeEntry.id);
-      setPausedEntry({ ...activeEntry, end_time: new Date().toISOString() });
-      onEntryChange();
-    } catch (error) {
-      console.error('Failed to pause entry:', error);
-    }
-  };
-
   const handleResume = async () => {
     if (!pausedEntry) return;
     try {
