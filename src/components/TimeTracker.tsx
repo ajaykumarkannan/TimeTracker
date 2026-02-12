@@ -1015,14 +1015,22 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                   className="switch-category-select"
                   value={selectedCategory || ''} 
                   onChange={(e) => {
-                    suppressSuggestionOpenRef.current = false;
-                    setSelectedCategory(Number(e.target.value));
+                    const val = e.target.value;
+                    if (val === 'new') {
+                      setShowNewCategory(true);
+                      setSelectedCategory(null);
+                    } else {
+                      suppressSuggestionOpenRef.current = false;
+                      setSelectedCategory(Number(val));
+                      setShowNewCategory(false);
+                    }
                   }}
                 >
                   <option value="">Category...</option>
                   {categories.map(cat => (
                     <option key={cat.id} value={cat.id}>{cat.name}</option>
                   ))}
+                  <option value="new">+ New category</option>
                 </select>
                 <div className="description-input-wrapper switch-description-wrapper">
                   <input 
@@ -1109,6 +1117,37 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                 >
                   Start
                 </button>
+                {showNewCategory && (
+                  <div className="new-category-form animate-slide-in">
+                    <input
+                      type="text"
+                      value={newCategoryName}
+                      onChange={(e) => setNewCategoryName(e.target.value)}
+                      placeholder="Category name"
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleCreateCategory();
+                        if (e.key === 'Escape') setShowNewCategory(false);
+                      }}
+                    />
+                    <input
+                      type="color"
+                      value={newCategoryColor}
+                      onChange={(e) => setNewCategoryColor(e.target.value)}
+                      className="color-picker"
+                    />
+                    <button className="btn btn-ghost" onClick={() => setShowNewCategory(false)}>
+                      Cancel
+                    </button>
+                    <button 
+                      className="btn btn-primary" 
+                      onClick={handleCreateCategory}
+                      disabled={!newCategoryName.trim()}
+                    >
+                      Create
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               <>
