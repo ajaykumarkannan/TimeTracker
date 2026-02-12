@@ -403,7 +403,7 @@ describe('TimeTracker', () => {
     expect(screen.getByText('Switch to:')).toBeInTheDocument();
   });
 
-  it('shows new task form when clicking + New task', async () => {
+  it('shows new task form when clicking + button', async () => {
     const activeEntry = {
       id: 1,
       category_id: 1,
@@ -427,9 +427,10 @@ describe('TimeTracker', () => {
       />
     );
     
-    const newTaskBtn = screen.getByText('+ New task');
+    const newTaskBtn = document.querySelector('.switch-add-btn');
+    expect(newTaskBtn).toBeInTheDocument();
     await act(async () => {
-      fireEvent.click(newTaskBtn);
+      fireEvent.click(newTaskBtn!);
     });
     
     // Should show category select and description input
@@ -652,7 +653,7 @@ describe('TimeTracker', () => {
     expect(screen.getByText('Category')).toBeInTheDocument();
   });
 
-  it('shows switch task categories when timer is active', async () => {
+  it('shows switch task section when timer is active', async () => {
     const activeEntry = {
       id: 1,
       category_id: 1,
@@ -678,12 +679,12 @@ describe('TimeTracker', () => {
     
     // Should show switch task section with "Switch to:" label
     expect(screen.getByText('Switch to:')).toBeInTheDocument();
-    // Should show category buttons for switching (switch-category-btn class)
-    const switchBtns = document.querySelectorAll('.switch-category-btn');
-    expect(switchBtns.length).toBeGreaterThan(0);
+    // Should show + button for adding new task
+    const addBtn = document.querySelector('.switch-add-btn');
+    expect(addBtn).toBeInTheDocument();
   });
 
-  it('opens switch task prompt when clicking category in switch section', async () => {
+  it('opens new task form when clicking + in switch section', async () => {
     const activeEntry = {
       id: 1,
       category_id: 1,
@@ -707,80 +708,37 @@ describe('TimeTracker', () => {
       />
     );
     
-    // Click on a switch category button
-    const switchBtns = document.querySelectorAll('.switch-category-btn');
-    if (switchBtns.length > 0) {
-      await act(async () => {
-        fireEvent.click(switchBtns[0]);
-      });
-      
-      // Should show switch task prompt modal
-      await waitFor(() => {
-        const modal = document.querySelector('.task-prompt-modal');
-        expect(modal).toBeInTheDocument();
-      });
-    }
+    // Click on the + button
+    const addBtn = document.querySelector('.switch-add-btn');
+    expect(addBtn).toBeInTheDocument();
+    await act(async () => {
+      fireEvent.click(addBtn!);
+    });
+    
+    // Should show new task form
+    await waitFor(() => {
+      expect(screen.getByText('Category...')).toBeInTheDocument();
+    });
   });
 
-  it('switches task from prompt modal', async () => {
-    const activeEntry = {
-      id: 1,
-      category_id: 1,
-      category_name: 'Development',
-      category_color: '#007bff',
-      task_name: 'Current task',
-      start_time: new Date().toISOString(),
-      end_time: null,
-      scheduled_end_time: null,
-      duration_minutes: null,
-      created_at: '2024-01-01'
-    };
-
-    await renderWithTheme(
-      <TimeTracker 
-        categories={mockCategories} 
-        activeEntry={activeEntry}
-        entries={mockEntries}
-        onEntryChange={mockOnEntryChange}
-        onCategoryChange={mockOnCategoryChange}
-      />
-    );
-    
-    // Click on a switch category button
-    const switchBtns = document.querySelectorAll('.switch-category-btn');
-    if (switchBtns.length > 0) {
-      await act(async () => {
-        fireEvent.click(switchBtns[0]);
-      });
-      
-      // Wait for modal
-      await waitFor(() => {
-        expect(document.querySelector('.task-prompt-modal')).toBeInTheDocument();
-      });
-      
-      // Enter task name
-      const modalInput = document.querySelector('.task-prompt-input') as HTMLInputElement;
-      if (modalInput) {
-        await act(async () => {
-          fireEvent.change(modalInput, { target: { value: 'New task' } });
-        });
-        
-        // Click switch button
-        const switchBtn = screen.getByRole('button', { name: /switch/i });
-        await act(async () => {
-          fireEvent.click(switchBtn);
-        });
-        
-        await waitFor(() => {
-          expect(api.startEntry).toHaveBeenCalled();
-        });
+  it('switches to recent task when clicking switch task button', async () => {
+    const entriesWithTasks = [
+      {
+        id: 1,
+        category_id: 2,
+        category_name: 'Meetings',
+        category_color: '#28a745',
+        task_name: 'Team standup',
+        start_time: '2024-01-01T10:00:00Z',
+        end_time: '2024-01-01T11:00:00Z',
+        scheduled_end_time: null,
+        duration_minutes: 60,
+        created_at: '2024-01-01'
       }
-    }
-  });
-
-  it('closes switch task prompt when clicking overlay', async () => {
+    ];
+    
     const activeEntry = {
-      id: 1,
+      id: 2,
       category_id: 1,
       category_name: 'Development',
       category_color: '#007bff',
@@ -796,36 +754,67 @@ describe('TimeTracker', () => {
       <TimeTracker 
         categories={mockCategories} 
         activeEntry={activeEntry}
-        entries={mockEntries}
+        entries={entriesWithTasks}
         onEntryChange={mockOnEntryChange}
         onCategoryChange={mockOnCategoryChange}
       />
     );
     
-    // Click on a switch category button
-    const switchBtns = document.querySelectorAll('.switch-category-btn');
-    if (switchBtns.length > 0) {
+    // Click on a switch task button (recent task)
+    const switchTaskBtns = document.querySelectorAll('.switch-task-btn');
+    if (switchTaskBtns.length > 0) {
       await act(async () => {
-        fireEvent.click(switchBtns[0]);
+        fireEvent.click(switchTaskBtns[0]);
       });
       
-      // Wait for modal
       await waitFor(() => {
-        expect(document.querySelector('.task-prompt-modal')).toBeInTheDocument();
+        expect(api.startEntry).toHaveBeenCalled();
       });
-      
-      // Click overlay to close
-      const overlay = document.querySelector('.task-prompt-overlay');
-      if (overlay) {
-        await act(async () => {
-          fireEvent.click(overlay);
-        });
-        
-        await waitFor(() => {
-          expect(document.querySelector('.task-prompt-modal')).not.toBeInTheDocument();
-        });
-      }
     }
+  });
+
+  it('shows recent tasks as switch options when timer is active', async () => {
+    const entriesWithTasks = [
+      {
+        id: 1,
+        category_id: 2,
+        category_name: 'Meetings',
+        category_color: '#28a745',
+        task_name: 'Team standup',
+        start_time: '2024-01-01T10:00:00Z',
+        end_time: '2024-01-01T11:00:00Z',
+        scheduled_end_time: null,
+        duration_minutes: 60,
+        created_at: '2024-01-01'
+      }
+    ];
+    
+    const activeEntry = {
+      id: 2,
+      category_id: 1,
+      category_name: 'Development',
+      category_color: '#007bff',
+      task_name: 'Current task',
+      start_time: new Date().toISOString(),
+      end_time: null,
+      scheduled_end_time: null,
+      duration_minutes: null,
+      created_at: '2024-01-01'
+    };
+
+    await renderWithTheme(
+      <TimeTracker 
+        categories={mockCategories} 
+        activeEntry={activeEntry}
+        entries={entriesWithTasks}
+        onEntryChange={mockOnEntryChange}
+        onCategoryChange={mockOnCategoryChange}
+      />
+    );
+    
+    // Should show recent tasks as switch options
+    const switchTaskBtns = document.querySelectorAll('.switch-task-btn');
+    expect(switchTaskBtns.length).toBeGreaterThan(0);
   });
 
   it('handles new task form submission in switch section', async () => {
@@ -852,10 +841,11 @@ describe('TimeTracker', () => {
       />
     );
     
-    // Click + New task button
-    const newTaskBtn = screen.getByText('+ New task');
+    // Click + button
+    const addBtn = document.querySelector('.switch-add-btn');
+    expect(addBtn).toBeInTheDocument();
     await act(async () => {
-      fireEvent.click(newTaskBtn);
+      fireEvent.click(addBtn!);
     });
     
     // Should show new task form
@@ -864,14 +854,14 @@ describe('TimeTracker', () => {
     });
     
     // Select category from dropdown
-    const categorySelect = document.querySelector('.new-task-form select') as HTMLSelectElement;
+    const categorySelect = document.querySelector('.switch-category-select') as HTMLSelectElement;
     if (categorySelect) {
       await act(async () => {
         fireEvent.change(categorySelect, { target: { value: '2' } });
       });
       
       // Enter task description
-      const taskInput = document.querySelector('.new-task-form input[type="text"]') as HTMLInputElement;
+      const taskInput = document.querySelector('.switch-description-input') as HTMLInputElement;
       if (taskInput) {
         await act(async () => {
           fireEvent.change(taskInput, { target: { value: 'New task description' } });
@@ -879,7 +869,7 @@ describe('TimeTracker', () => {
       }
       
       // Click Start button
-      const startBtn = document.querySelector('.new-task-form .btn-success') as HTMLButtonElement;
+      const startBtn = document.querySelector('.new-task-inline .btn-success') as HTMLButtonElement;
       if (startBtn) {
         await act(async () => {
           fireEvent.click(startBtn);
@@ -1357,9 +1347,10 @@ describe('TimeTracker', () => {
       />
     );
     
-    // Click + New task
+    // Click + button
+    const addBtn = document.querySelector('.switch-add-btn');
     await act(async () => {
-      fireEvent.click(screen.getByText('+ New task'));
+      fireEvent.click(addBtn!);
     });
     
     // Select category
@@ -1412,9 +1403,10 @@ describe('TimeTracker', () => {
       />
     );
     
-    // Click + New task
+    // Click + button
+    const addBtn = document.querySelector('.switch-add-btn');
     await act(async () => {
-      fireEvent.click(screen.getByText('+ New task'));
+      fireEvent.click(addBtn!);
     });
     
     // Select category
@@ -1480,8 +1472,9 @@ describe('TimeTracker', () => {
       />
     );
     
+    const addBtn = document.querySelector('.switch-add-btn');
     await act(async () => {
-      fireEvent.click(screen.getByText('+ New task'));
+      fireEvent.click(addBtn!);
     });
     
     const categorySelect = document.querySelector('.switch-category-select') as HTMLSelectElement;
@@ -1515,69 +1508,6 @@ describe('TimeTracker', () => {
     }
   });
 
-  it('handles modal suggestion selection for switch task', async () => {
-    vi.mocked(api.getTaskNameSuggestions).mockResolvedValue([
-      { task_name: 'Task 1', categoryId: 2, count: 5, totalMinutes: 120, lastUsed: '2024-01-01' },
-    ]);
-
-    const activeEntry = {
-      id: 1,
-      category_id: 1,
-      category_name: 'Development',
-      category_color: '#007bff',
-      task_name: 'Current task',
-      start_time: new Date().toISOString(),
-      end_time: null,
-      scheduled_end_time: null,
-      duration_minutes: null,
-      created_at: '2024-01-01'
-    };
-
-    await renderWithTheme(
-      <TimeTracker 
-        categories={mockCategories} 
-        activeEntry={activeEntry}
-        entries={mockEntries}
-        onEntryChange={mockOnEntryChange}
-        onCategoryChange={mockOnCategoryChange}
-      />
-    );
-    
-    // Click on switch category button
-    const switchBtns = document.querySelectorAll('.switch-category-btn');
-    if (switchBtns.length > 0) {
-      await act(async () => {
-        fireEvent.click(switchBtns[0]);
-      });
-      
-      await waitFor(() => {
-        expect(document.querySelector('.task-prompt-modal')).toBeInTheDocument();
-      });
-      
-      const modalInput = document.querySelector('.task-prompt-input') as HTMLInputElement;
-      if (modalInput) {
-        await act(async () => {
-          fireEvent.focus(modalInput);
-        });
-        
-        // Wait for modal suggestions
-        await waitFor(() => {
-          const modalSuggestions = document.querySelectorAll('.modal-suggestions .suggestion-item');
-          if (modalSuggestions.length > 0) {
-            expect(modalSuggestions.length).toBeGreaterThan(0);
-          }
-        }, { timeout: 1000 }).catch(() => {});
-        
-        // Click suggestion if available
-        const suggestionItems = document.querySelectorAll('.modal-suggestions .suggestion-item');
-        if (suggestionItems.length > 0) {
-          await act(async () => {
-            fireEvent.click(suggestionItems[0]);
-          });
-        }
-      }
-    }
-  });
 
   it('closes task name prompt when clicking Cancel', async () => {
     await renderWithTheme(
@@ -1883,107 +1813,6 @@ describe('TimeTracker', () => {
       const modalInput = document.querySelector('.task-prompt-input') as HTMLInputElement;
       
       // Press Escape without suggestions
-      await act(async () => {
-        fireEvent.keyDown(modalInput, { key: 'Escape' });
-      });
-      
-      await waitFor(() => {
-        expect(document.querySelector('.task-prompt-modal')).not.toBeInTheDocument();
-      });
-    }
-  });
-
-  it('handles switch task modal Enter to submit', async () => {
-    vi.mocked(api.getTaskNameSuggestions).mockResolvedValue([]);
-    
-    const activeEntry = {
-      id: 1,
-      category_id: 1,
-      category_name: 'Development',
-      category_color: '#007bff',
-      task_name: 'Current task',
-      start_time: new Date().toISOString(),
-      end_time: null,
-      scheduled_end_time: null,
-      duration_minutes: null,
-      created_at: '2024-01-01'
-    };
-
-    await renderWithTheme(
-      <TimeTracker 
-        categories={mockCategories} 
-        activeEntry={activeEntry}
-        entries={mockEntries}
-        onEntryChange={mockOnEntryChange}
-        onCategoryChange={mockOnCategoryChange}
-      />
-    );
-    
-    const switchBtns = document.querySelectorAll('.switch-category-btn');
-    if (switchBtns.length > 0) {
-      await act(async () => {
-        fireEvent.click(switchBtns[0]);
-      });
-      
-      await waitFor(() => {
-        expect(document.querySelector('.task-prompt-modal')).toBeInTheDocument();
-      });
-      
-      const modalInput = document.querySelector('.task-prompt-input') as HTMLInputElement;
-      await act(async () => {
-        fireEvent.change(modalInput, { target: { value: 'Switch task' } });
-      });
-      
-      // Press Enter
-      await act(async () => {
-        fireEvent.keyDown(modalInput, { key: 'Enter' });
-      });
-      
-      await waitFor(() => {
-        expect(api.startEntry).toHaveBeenCalled();
-      });
-    }
-  });
-
-  it('handles switch task modal Escape to close', async () => {
-    vi.mocked(api.getTaskNameSuggestions).mockResolvedValue([]);
-    
-    const activeEntry = {
-      id: 1,
-      category_id: 1,
-      category_name: 'Development',
-      category_color: '#007bff',
-      task_name: 'Current task',
-      start_time: new Date().toISOString(),
-      end_time: null,
-      scheduled_end_time: null,
-      duration_minutes: null,
-      created_at: '2024-01-01'
-    };
-
-    await renderWithTheme(
-      <TimeTracker 
-        categories={mockCategories} 
-        activeEntry={activeEntry}
-        entries={mockEntries}
-        onEntryChange={mockOnEntryChange}
-        onCategoryChange={mockOnCategoryChange}
-      />
-    );
-    
-    const switchBtns = document.querySelectorAll('.switch-category-btn');
-    if (switchBtns.length > 0) {
-      await act(async () => {
-        fireEvent.click(switchBtns[0]);
-      });
-      
-      await waitFor(() => {
-        expect(document.querySelector('.task-prompt-modal')).toBeInTheDocument();
-      });
-      
-      const modalInput = document.querySelector('.task-prompt-input') as HTMLInputElement;
-      
-      // Press Escape
       await act(async () => {
         fireEvent.keyDown(modalInput, { key: 'Escape' });
       });

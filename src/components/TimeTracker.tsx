@@ -596,15 +596,6 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
     }
   };
 
-  const handleCategorySwitchPrompt = (cat: Category) => {
-    setSwitchTaskPrompt({
-      categoryId: cat.id,
-      categoryName: cat.name,
-      categoryColor: cat.color
-    });
-    setSwitchTaskName('');
-  };
-
   const handlePromptedSwitch = async () => {
     if (!switchTaskPrompt) return;
     await handleSwitchTask(switchTaskPrompt.categoryId, switchTaskName || undefined);
