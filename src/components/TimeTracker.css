@@ -318,7 +318,6 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  flex-wrap: wrap;
   padding-top: 1.25rem;
   border-top: 1px solid var(--border);
 }
@@ -328,6 +327,7 @@
   gap: 0.5rem;
   flex-wrap: wrap;
   align-items: center;
+  flex: 1;
 }
 
 .switch-add-btn {
@@ -918,13 +918,14 @@
     display: none;
   }
 
-  /* #7: Inline "+" with task buttons */
+  /* Switch section full width for proper button alignment */
   .switch-task-section {
-    justify-content: center;
+    justify-content: flex-start;
   }
 
-  .switch-add-btn {
-    margin-left: 0;
+  .switch-quick-options {
+    flex: 1;
+    width: 100%;
   }
 
   .form-row {

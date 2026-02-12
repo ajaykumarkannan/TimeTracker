@@ -1151,28 +1151,28 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
               </div>
             ) : (
               <>
-              <div className="switch-quick-options">
-                {recentTasks.slice(0, 4).map((task, idx) => {
-                  const colors = getCategoryColors(task.categoryColor);
-                  return (
-                    <button
-                      key={idx}
-                      className="switch-task-btn"
-                      onClick={() => handleSwitchTask(task.categoryId, task.task_name)}
-                      title={`${task.categoryName}: ${task.task_name}`}
-                    >
-                      <span className="category-dot" style={{ backgroundColor: colors.dotColor }} />
-                      <span className="switch-task-description">{task.task_name}</span>
-                    </button>
-                  );
-                })}
-              </div>
-              <button 
-                className="btn btn-ghost btn-sm switch-add-btn"
-                onClick={() => setShowNewTaskForm(true)}
-              >
-                +
-              </button>
+                <div className="switch-quick-options">
+                  {recentTasks.slice(0, 4).map((task, idx) => {
+                    const colors = getCategoryColors(task.categoryColor);
+                    return (
+                      <button
+                        key={idx}
+                        className="switch-task-btn"
+                        onClick={() => handleSwitchTask(task.categoryId, task.task_name)}
+                        title={`${task.categoryName}: ${task.task_name}`}
+                      >
+                        <span className="category-dot" style={{ backgroundColor: colors.dotColor }} />
+                        <span className="switch-task-description">{task.task_name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <button 
+                  className="btn btn-ghost btn-sm switch-add-btn"
+                  onClick={() => setShowNewTaskForm(true)}
+                >
+                  +
+                </button>
               </>
             )}
           </div>
