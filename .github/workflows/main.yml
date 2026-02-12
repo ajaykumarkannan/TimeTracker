@@ -304,9 +304,9 @@ jobs:
     name: Docker Build Test
     runs-on: ubuntu-latest
     needs: [changes, lint-and-typecheck, test]
-    # Skip Docker test if no Docker-related files changed (PRs only)
+    # Only run on PRs (main pushes use docker-build for validation)
     if: |
-      github.event_name != 'pull_request' || 
+      github.event_name == 'pull_request' && 
       needs.changes.outputs.docker-needed == 'true'
     steps:
       - uses: actions/checkout@v4
@@ -368,6 +368,7 @@ jobs:
 
   patch-bump:
     name: Patch Version Bump
+    # Only auto-bump on direct push to main (not workflow_dispatch which is used for manual bumps)
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     needs: [ci-success]
@@ -396,11 +397,30 @@ jobs:
           git push origin $GITHUB_REF --tags
           git push
 
-  docker-publish:
-    name: Build & Publish Docker Image
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
+  # Build Docker images natively on each architecture to avoid QEMU WASM issues
+  docker-build:
+    name: Build Docker (${{ matrix.platform }})
+    # Run on: push to main, push of tags, or workflow_dispatch on tags (from manual version bump)
+    # Note: patch-bump is skipped for workflow_dispatch/tags, so we use always() and check ci-success explicitly
+    if: |
+      always() &&
+      needs.ci-success.result == 'success' &&
+      (
+        (github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))) ||
+        (github.event_name == 'workflow_dispatch' && startsWith(github.ref, 'refs/tags/'))
+      )
     needs: [ci-success, patch-bump]
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+            suffix: amd64
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+            suffix: arm64
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
@@ -417,8 +437,9 @@ jobs:
             echo "version=v${{ needs.patch-bump.outputs.new_version }}" >> $GITHUB_OUTPUT
           fi
       
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+      - name: Set image name (lowercase)
+        id: image
+        run: echo "name=$(echo '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
       
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -434,7 +455,82 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ steps.image.outputs.name }}
+      
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.platform }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
+          outputs: type=image,name=${{ steps.image.outputs.name }},push-by-digest=true,name-canonical=true,push=true
+      
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+      
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ matrix.suffix }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  docker-publish:
+    name: Publish Multi-arch Manifest
+    if: |
+      always() &&
+      needs.docker-build.result == 'success' &&
+      (
+        (github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))) ||
+        (github.event_name == 'workflow_dispatch' && startsWith(github.ref, 'refs/tags/'))
+      )
+    needs: [docker-build, patch-bump]
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Determine version
+        id: version
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            echo "version=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=v${{ needs.patch-bump.outputs.new_version }}" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digests-*
+          merge-multiple: true
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Set image name (lowercase)
+        id: image
+        run: echo "name=$(echo '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+      
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.image.outputs.name }}
           tags: |
             type=semver,pattern={{version}},value=${{ steps.version.outputs.version }}
             type=semver,pattern=v{{version}},value=${{ steps.version.outputs.version }}
@@ -444,18 +540,11 @@ jobs:
             type=ref,event=branch
             type=sha,prefix=sha-
       
-      - name: Build and push
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          # Note: ARM builds disabled due to sql.js WASM incompatibility with QEMU emulation
-          # See: https://github.com/nickvdyck/sql.js/issues/593
-          platforms: linux/amd64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      - name: Create manifest list and push
+        working-directory: /tmp/digests
+        run: |
+          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf '${{ steps.image.outputs.name }}@sha256:%s ' *)
 
       - name: Set package visibility to public
         continue-on-error: true
@@ -468,9 +557,15 @@ jobs:
             https://api.github.com/user/packages/container/${PACKAGE_NAME} \
             -d '{"visibility":"public"}'
 
-  create-release:
-    name: Create GitHub Release
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
+  release:
+    name: Create Release
+    if: |
+      always() &&
+      needs.docker-publish.result == 'success' &&
+      (
+        (github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))) ||
+        (github.event_name == 'workflow_dispatch' && startsWith(github.ref, 'refs/tags/'))
+      )
     needs: docker-publish
     runs-on: ubuntu-latest
     steps:
@@ -501,12 +596,6 @@ jobs:
             docker-compose -f docker-compose.prod.yml up -d
             ```
 
-  delete-old-releases:
-    name: Delete Old Releases
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
-    needs: create-release
-    runs-on: ubuntu-latest
-    steps:
       - name: Delete old releases
         uses: Nats-ji/delete-old-releases@v1
         with:
