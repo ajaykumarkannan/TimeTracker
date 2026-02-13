@@ -943,6 +943,7 @@
 
   .new-task-inline {
     flex-direction: column;
+    width: 100%;
   }
 
   .switch-category-select,
