@@ -320,9 +320,11 @@ export function TimeEntryList({ categories, onEntryChange, onCategoryChange, ref
 
   const hasCleanupSuggestions = mergeCandidates.length > 0 || shortEntries.length > 0;
 
-  // Check for overlaps with other entries
+  // Check for overlaps with other entries (with 1-minute tolerance for back-to-back meetings)
   const checkOverlap = (entryId: number, start: Date, end: Date | null): TimeEntry | null => {
     if (!end) return null;
+    
+    const ONE_MINUTE_MS = 60 * 1000;
     
     for (const entry of entries) {
       if (entry.id === entryId) continue;
@@ -332,6 +334,16 @@ export function TimeEntryList({ categories, onEntryChange, onCategoryChange, ref
       
       // Check if ranges overlap
       if (start < entryEnd && end > entryStart) {
+        // Calculate the actual overlap duration
+        const overlapStart = Math.max(start.getTime(), entryStart.getTime());
+        const overlapEnd = Math.min(end.getTime(), entryEnd.getTime());
+        const overlapMs = overlapEnd - overlapStart;
+        
+        // Ignore overlaps of 1 minute or less (tolerance for back-to-back meetings)
+        if (overlapMs <= ONE_MINUTE_MS) {
+          continue;
+        }
+        
         return entry;
       }
     }

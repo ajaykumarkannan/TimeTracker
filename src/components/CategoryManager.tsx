@@ -142,37 +142,29 @@ export function CategoryManager({ categories, onCategoryChange }: Props) {
           <h2 className="card-title">{editingId ? 'Edit Category' : 'New Category'}</h2>
         </div>
         <form onSubmit={handleSubmit} className="category-form">
-          <div className="form-group form-group-name">
-            <label>Name</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Category name"
-              required
-            />
-          </div>
-          <div className="form-group form-group-color">
-            <label>Color</label>
-            <input
-              type="color"
-              value={color}
-              onChange={(e) => setColor(e.target.value)}
-              className="color-picker"
-            />
-          </div>
-          <div className="form-group form-group-actions">
-            <label>&nbsp;</label>
-            <div className="btn-group">
-              {editingId && (
-                <button type="button" className="btn btn-ghost" onClick={handleCancel}>
-                  Cancel
-                </button>
-              )}
-              <button type="submit" className="btn btn-primary">
-                {editingId ? 'Update' : 'Add'}
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Category name"
+            className="category-name-input"
+            required
+          />
+          <input
+            type="color"
+            value={color}
+            onChange={(e) => setColor(e.target.value)}
+            className="color-picker-small"
+          />
+          <div className="btn-group">
+            {editingId && (
+              <button type="button" className="btn btn-ghost" onClick={handleCancel}>
+                Cancel
               </button>
-            </div>
+            )}
+            <button type="submit" className="btn btn-primary">
+              {editingId ? 'Update' : 'Add'}
+            </button>
           </div>
         </form>
       </div>
