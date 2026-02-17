@@ -2,10 +2,8 @@ name: main-build
 
 on:
   push:
-    branches:
-      - main
-    tags:
-      - 'v*.*.*'
+    branches: [main]
+    tags: ['v*.*.*']
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -19,82 +17,35 @@ permissions:
   packages: write
 
 jobs:
-  # Detect what changed to skip unnecessary jobs
-  changes:
-    name: Detect Changes
-    runs-on: ubuntu-latest
-    outputs:
-      frontend: ${{ steps.filter.outputs.frontend }}
-      backend: ${{ steps.filter.outputs.backend }}
-      e2e-needed: ${{ steps.filter.outputs.e2e-needed }}
-      docker-needed: ${{ steps.filter.outputs.docker-needed }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            frontend:
-              - 'src/**'
-              - 'public/**'
-              - 'index.html'
-              - 'vite.config.ts'
-            backend:
-              - 'server/**'
-            e2e-needed:
-              - 'src/**'
-              - 'server/**'
-              - 'e2e/**'
-              - 'playwright.config.ts'
-              - 'package.json'
-            docker-needed:
-              - 'Dockerfile'
-              - 'docker-compose*.yml'
-              - 'server/**'
-              - 'src/**'
-              - 'package*.json'
-
-  lint-and-typecheck:
+  # ============================================================================
+  # VALIDATION JOBS - Run on all events
+  # ============================================================================
+  
+  lint:
     name: Lint & Type Check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-      
-      - name: Install dependencies
-        run: npm ci
-      
-      - name: Run ESLint
-        run: npm run lint
-      
-      - name: Type check client
-        run: npx tsc --noEmit
-      
-      - name: Type check server
-        run: npx tsc -p tsconfig.server.json --noEmit
+      - run: npm ci
+      - run: npm run lint
+      - run: npx tsc --noEmit
+      - run: npx tsc -p tsconfig.server.json --noEmit
 
   security:
     name: Security Audit
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-      
-      - name: Install dependencies
-        run: npm ci
-      
-      - name: Run npm audit
-        run: npm audit --audit-level=high
+      - run: npm ci
+      - run: npm audit --audit-level=high
         continue-on-error: true
 
   test:
@@ -102,34 +53,34 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
+      - run: npm ci
+      - run: npm run test:coverage
       
-      - name: Install dependencies
-        run: npm ci
-      
-      - name: Run unit tests with coverage
-        run: npm run test:coverage
-      
-      - name: Upload coverage report
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: coverage-report
           path: coverage/
           retention-days: 30
       
-      - name: Extract coverage percentage
-        id: coverage
+      - name: Coverage summary
         run: |
-          COVERAGE=$(node -e "const c = require('./coverage/coverage-summary.json'); console.log(Math.round(c.total.lines.pct))")
-          echo "percentage=$COVERAGE" >> $GITHUB_OUTPUT
-          echo "Coverage: $COVERAGE%"
+          echo "## Coverage Report" >> $GITHUB_STEP_SUMMARY
+          node -e "
+            const c = require('./coverage/coverage-summary.json').total;
+            console.log('| Metric | Coverage |');
+            console.log('|--------|----------|');
+            console.log('| Statements | ' + c.statements.pct.toFixed(1) + '% |');
+            console.log('| Branches | ' + c.branches.pct.toFixed(1) + '% |');
+            console.log('| Functions | ' + c.functions.pct.toFixed(1) + '% |');
+            console.log('| Lines | ' + c.lines.pct.toFixed(1) + '% |');
+          " >> $GITHUB_STEP_SUMMARY
       
-      - name: Create coverage badge
+      # Update coverage badge on main only
+      - name: Update coverage badge
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         continue-on-error: true
         uses: schneegans/dynamic-badges-action@v1.7.0
@@ -142,102 +93,21 @@ jobs:
           valColorRange: ${{ steps.coverage.outputs.percentage }}
           maxColorRange: 100
           minColorRange: 0
-      
-      - name: Generate coverage table markdown
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        run: |
-          node -e "
-            const fs = require('fs');
-            const coverage = require('./coverage/coverage-summary.json');
-            const total = coverage.total;
-            const now = new Date().toISOString().split('T')[0];
-            
-            let md = '# ChronoFlow Code Coverage\n\n';
-            md += '> Last updated: ' + now + '\n\n';
-            md += '## Summary\n\n';
-            md += '| Metric | Covered | Total | Percentage |\n';
-            md += '|--------|---------|-------|------------|\n';
-            md += '| Statements | ' + total.statements.covered + ' | ' + total.statements.total + ' | **' + total.statements.pct.toFixed(1) + '%** |\n';
-            md += '| Branches | ' + total.branches.covered + ' | ' + total.branches.total + ' | **' + total.branches.pct.toFixed(1) + '%** |\n';
-            md += '| Functions | ' + total.functions.covered + ' | ' + total.functions.total + ' | **' + total.functions.pct.toFixed(1) + '%** |\n';
-            md += '| Lines | ' + total.lines.covered + ' | ' + total.lines.total + ' | **' + total.lines.pct.toFixed(1) + '%** |\n\n';
-            
-            md += '## File Breakdown\n\n';
-            md += '| File | Statements | Branches | Functions | Lines |\n';
-            md += '|------|------------|----------|-----------|-------|\n';
-            
-            const files = Object.keys(coverage)
-              .filter(f => f !== 'total')
-              .map(f => {
-                const c = coverage[f];
-                const name = f.replace(process.cwd() + '/', '');
-                return { name, c };
-              })
-              .sort((a, b) => a.name.localeCompare(b.name));
-            
-            for (const { name, c } of files) {
-              const stmt = c.statements.pct.toFixed(0) + '%';
-              const branch = c.branches.pct.toFixed(0) + '%';
-              const func = c.functions.pct.toFixed(0) + '%';
-              const line = c.lines.pct.toFixed(0) + '%';
-              md += '| \`' + name + '\` | ' + stmt + ' | ' + branch + ' | ' + func + ' | ' + line + ' |\n';
-            }
-            
-            md += '\n---\n';
-            md += '*Generated by [ChronoFlow CI](https://github.com/ajaykumarkannan/TimeTracker/actions/workflows/main.yml)*\n';
-            
-            fs.writeFileSync('coverage-table.md', md);
-            console.log('Generated coverage-table.md');
-          "
-      
-      - name: Update coverage gist with table
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        continue-on-error: true
-        uses: exuanbo/actions-deploy-gist@v1
-        with:
-          token: ${{ secrets.GIST_TOKEN }}
-          gist_id: ${{ vars.COVERAGE_GIST_ID }}
-          file_path: coverage-table.md
-          file_type: text
-      
-      - name: Coverage summary
-        run: |
-          echo "## Coverage Report" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Metric | Coverage |" >> $GITHUB_STEP_SUMMARY
-          echo "|--------|----------|" >> $GITHUB_STEP_SUMMARY
-          node -e "
-            const c = require('./coverage/coverage-summary.json').total;
-            console.log('| Statements | ' + c.statements.pct.toFixed(1) + '% |');
-            console.log('| Branches | ' + c.branches.pct.toFixed(1) + '% |');
-            console.log('| Functions | ' + c.functions.pct.toFixed(1) + '% |');
-            console.log('| Lines | ' + c.lines.pct.toFixed(1) + '% |');
-          " >> $GITHUB_STEP_SUMMARY
 
   build:
     name: Build
     runs-on: ubuntu-latest
-    needs: [lint-and-typecheck, test]
+    needs: [lint, test]
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-      
-      - name: Install dependencies
-        run: npm ci
-      
-      - name: Build client
-        run: npm run build:client
-      
-      - name: Build server
-        run: npm run build:server
-      
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+      - run: npm ci
+      - run: npm run build:client
+      - run: npm run build:server
+      - uses: actions/upload-artifact@v4
         with:
           name: dist
           path: dist/
@@ -246,236 +116,154 @@ jobs:
   e2e:
     name: E2E Tests
     runs-on: ubuntu-latest
-    needs: [changes, build]
-    # Skip E2E if no relevant files changed (PRs only - always run on main/tags)
-    if: |
-      github.event_name != 'pull_request' || 
-      needs.changes.outputs.e2e-needed == 'true'
+    needs: [build]
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
+      - run: npm ci
       
-      - name: Install dependencies
-        run: npm ci
-      
-      # Cache Playwright browsers - saves ~1-2 min per run
       - name: Get Playwright version
-        id: playwright-version
+        id: pw
         run: echo "version=$(npm ls @playwright/test --json | jq -r '.dependencies["@playwright/test"].version')" >> $GITHUB_OUTPUT
       
-      - name: Cache Playwright browsers
-        uses: actions/cache@v4
+      - uses: actions/cache@v4
         id: playwright-cache
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
       
-      - name: Install Playwright browsers
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: npx playwright install --with-deps chromium
+      - name: Install Playwright
+        run: |
+          if [[ "${{ steps.playwright-cache.outputs.cache-hit }}" == "true" ]]; then
+            npx playwright install-deps chromium
+          else
+            npx playwright install --with-deps chromium
+          fi
       
-      - name: Install Playwright deps (cached browsers)
-        if: steps.playwright-cache.outputs.cache-hit == 'true'
-        run: npx playwright install-deps chromium
-      
-      - name: Download build artifacts
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           name: dist
           path: dist/
       
-      - name: Run E2E tests
-        run: npm run test:e2e
+      - run: npm run test:e2e
       
-      - name: Upload test results
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
 
+  # PR-only Docker validation
   docker-test:
     name: Docker Build Test
     runs-on: ubuntu-latest
-    needs: [changes, lint-and-typecheck, test]
-    # Only run on PRs (main pushes use docker-build for validation)
-    if: |
-      github.event_name == 'pull_request' && 
-      needs.changes.outputs.docker-needed == 'true'
+    needs: [lint, test]
+    if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
-      
-      # Cache Docker layers
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      
-      - name: Build Docker image
-        uses: docker/build-push-action@v5
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v5
         with:
           context: .
           load: true
-          tags: chronoflow:${{ github.sha }}
+          tags: chronoflow:test
           cache-from: type=gha
           cache-to: type=gha,mode=max
-      
-      - name: Test Docker container starts
+      - name: Test container starts
         run: |
-          docker run -d --name test-container -p 4849:4849 -e JWT_SECRET=ci-test-secret chronoflow:${{ github.sha }}
+          docker run -d --name test -p 4849:4849 -e JWT_SECRET=test chronoflow:test
           sleep 15
-          curl -f http://localhost:4849/api/health || exit 1
-          docker stop test-container
+          curl -f http://localhost:4849/api/health
+          docker stop test
 
-  # Gate job that checks if all required jobs passed (handles skipped jobs)
-  ci-success:
-    name: CI Success
-    runs-on: ubuntu-latest
-    needs: [lint-and-typecheck, security, test, build, e2e, docker-test]
-    if: always()
-    steps:
-      - name: Check all jobs
-        run: |
-          # Check required jobs (must pass)
-          if [[ "${{ needs.lint-and-typecheck.result }}" != "success" ]]; then
-            echo "lint-and-typecheck failed"
-            exit 1
-          fi
-          if [[ "${{ needs.test.result }}" != "success" ]]; then
-            echo "test failed"
-            exit 1
-          fi
-          if [[ "${{ needs.build.result }}" != "success" ]]; then
-            echo "build failed"
-            exit 1
-          fi
-          
-          # Check optional jobs (must pass or be skipped)
-          if [[ "${{ needs.e2e.result }}" != "success" && "${{ needs.e2e.result }}" != "skipped" ]]; then
-            echo "e2e failed"
-            exit 1
-          fi
-          if [[ "${{ needs.docker-test.result }}" != "success" && "${{ needs.docker-test.result }}" != "skipped" ]]; then
-            echo "docker-test failed"
-            exit 1
-          fi
-          
-          echo "All required checks passed!"
+  # ============================================================================
+  # DEPLOYMENT JOBS - Run on main push only
+  # ============================================================================
 
-  patch-bump:
-    name: Patch Version Bump
-    # Only auto-bump on direct push to main (not workflow_dispatch which is used for manual bumps)
-    # Use always() to run even when upstream jobs in the dependency chain were skipped
-    if: |
-      always() &&
-      needs.ci-success.result == 'success' &&
-      github.event_name == 'push' && 
-      github.ref == 'refs/heads/main'
+  version-bump:
+    name: Bump Version
     runs-on: ubuntu-latest
-    needs: [ci-success]
+    needs: [lint, test, build, e2e]
+    # Only on direct push to main (not tags or workflow_dispatch)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     outputs:
-      new_version: ${{ steps.patch-bump.outputs.new_version }}
+      version: ${{ steps.bump.outputs.version }}
     steps:
       - uses: actions/checkout@v4
-      
       - name: Configure Git
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-      
-      - name: Get Current Version
-        id: current-version
-        run: echo "version=$(node -p 'require("./package.json").version')" >> $GITHUB_OUTPUT
-
-      - name: Bump Patch Version
-        id: patch-bump
+      - name: Bump version
+        id: bump
         run: |
           npm version patch -m "chore(release): %s [ci skip]"
-          echo "new_version=$(node -p 'require("./package.json").version')" >> $GITHUB_OUTPUT
+          echo "version=$(node -p 'require("./package.json").version')" >> $GITHUB_OUTPUT
+      - run: git push origin $GITHUB_REF --tags && git push
 
-      - name: Push Bumped Version
-        run: |
-          git push origin $GITHUB_REF --tags
-          git push
-
-  # Build Docker images natively on each architecture to avoid QEMU WASM issues
   docker-build:
-    name: Build Docker (${{ matrix.platform }})
-    # Run on: push to main, push of tags, or workflow_dispatch on tags (from manual version bump)
-    # Note: patch-bump is skipped for workflow_dispatch/tags, so we use always() and check ci-success explicitly
+    name: Docker (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    needs: [lint, test, build, e2e, version-bump]
+    # Run on main push (after version bump) or tag push
     if: |
       always() &&
-      needs.ci-success.result == 'success' &&
+      (needs.lint.result == 'success' && needs.test.result == 'success' && needs.build.result == 'success' && needs.e2e.result == 'success') &&
       (
-        (github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))) ||
+        (github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.version-bump.result == 'success') ||
+        (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) ||
         (github.event_name == 'workflow_dispatch' && startsWith(github.ref, 'refs/tags/'))
       )
-    needs: [ci-success, patch-bump]
-    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - platform: linux/amd64
+          - arch: amd64
             runner: ubuntu-latest
-            suffix: amd64
-          - platform: linux/arm64
+          - arch: arm64
             runner: ubuntu-24.04-arm
-            suffix: arm64
-    outputs:
-      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.ref }}
       
-      - name: Determine version
+      - name: Get version
         id: version
         run: |
           if [[ "${{ github.ref }}" == refs/tags/* ]]; then
             echo "version=${{ github.ref_name }}" >> $GITHUB_OUTPUT
           else
-            VERSION="${{ needs.patch-bump.outputs.new_version }}"
-            if [[ -z "$VERSION" ]]; then
-              # Fallback to package.json when patch-bump was skipped
-              VERSION=$(node -p 'require("./package.json").version')
-            fi
-            echo "version=v${VERSION}" >> $GITHUB_OUTPUT
+            echo "version=v${{ needs.version-bump.outputs.version }}" >> $GITHUB_OUTPUT
           fi
       
-      - name: Set image name (lowercase)
+      - name: Set image name
         id: image
         run: echo "name=$(echo '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
       
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      
-      - name: Log in to Container Registry
-        uses: docker/login-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       
-      - name: Extract metadata
+      - uses: docker/metadata-action@v5
         id: meta
-        uses: docker/metadata-action@v5
         with:
           images: ${{ steps.image.outputs.name }}
       
-      - name: Build and push by digest
+      - uses: docker/build-push-action@v5
         id: build
-        uses: docker/build-push-action@v5
         with:
           context: .
-          platforms: ${{ matrix.platform }}
+          platforms: linux/${{ matrix.arch }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=${{ matrix.platform }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
+          cache-from: type=gha,scope=linux/${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=linux/${{ matrix.arch }}
           outputs: type=image,name=${{ steps.image.outputs.name }},push-by-digest=true,name-canonical=true,push=true
       
       - name: Export digest
@@ -484,68 +272,51 @@ jobs:
           digest="${{ steps.build.outputs.digest }}"
           touch "/tmp/digests/${digest#sha256:}"
       
-      - name: Upload digest
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
-          name: digests-${{ matrix.suffix }}
+          name: digests-${{ matrix.arch }}
           path: /tmp/digests/*
           if-no-files-found: error
           retention-days: 1
 
   docker-publish:
-    name: Publish Multi-arch Manifest
-    if: |
-      always() &&
-      needs.docker-build.result == 'success' &&
-      (
-        (github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))) ||
-        (github.event_name == 'workflow_dispatch' && startsWith(github.ref, 'refs/tags/'))
-      )
-    needs: [docker-build, patch-bump]
+    name: Publish Docker
     runs-on: ubuntu-latest
+    needs: [docker-build, version-bump]
+    if: always() && needs.docker-build.result == 'success'
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
       
-      - name: Determine version
+      - name: Get version
         id: version
         run: |
           if [[ "${{ github.ref }}" == refs/tags/* ]]; then
             echo "version=${{ github.ref_name }}" >> $GITHUB_OUTPUT
           else
-            VERSION="${{ needs.patch-bump.outputs.new_version }}"
-            if [[ -z "$VERSION" ]]; then
-              # Fallback to package.json when patch-bump was skipped
-              VERSION=$(node -p 'require("./package.json").version')
-            fi
-            echo "version=v${VERSION}" >> $GITHUB_OUTPUT
+            echo "version=v${{ needs.version-bump.outputs.version }}" >> $GITHUB_OUTPUT
           fi
       
-      - name: Download digests
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           path: /tmp/digests
           pattern: digests-*
           merge-multiple: true
       
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      
-      - name: Log in to Container Registry
-        uses: docker/login-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       
-      - name: Set image name (lowercase)
+      - name: Set image name
         id: image
         run: echo "name=$(echo '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
       
-      - name: Extract metadata
+      - uses: docker/metadata-action@v5
         id: meta
-        uses: docker/metadata-action@v5
         with:
           images: ${{ steps.image.outputs.name }}
           tags: |
@@ -557,13 +328,13 @@ jobs:
             type=ref,event=branch
             type=sha,prefix=sha-
       
-      - name: Create manifest list and push
+      - name: Create and push manifest
         working-directory: /tmp/digests
         run: |
           docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
             $(printf '${{ steps.image.outputs.name }}@sha256:%s ' *)
 
-      - name: Set package visibility to public
+      - name: Set package visibility
         continue-on-error: true
         run: |
           PACKAGE_NAME=$(echo ${{ env.IMAGE_NAME }} | tr '[:upper:]' '[:lower:]' | sed 's/\//%2F/g')
@@ -576,24 +347,17 @@ jobs:
 
   release:
     name: Create Release
-    if: |
-      always() &&
-      needs.docker-publish.result == 'success' &&
-      (
-        (github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))) ||
-        (github.event_name == 'workflow_dispatch' && startsWith(github.ref, 'refs/tags/'))
-      )
-    needs: docker-publish
     runs-on: ubuntu-latest
+    needs: [docker-publish]
+    if: always() && needs.docker-publish.result == 'success'
     steps:
       - uses: actions/checkout@v4
       
-      - name: Set GHCR image URL
+      - name: Set GHCR URL
         id: ghcr
         run: echo "image=${{ env.REGISTRY }}/$(echo ${{ env.IMAGE_NAME }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+      - uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ needs.docker-publish.outputs.version }}
           generate_release_notes: true
@@ -602,21 +366,16 @@ jobs:
             ```bash
             docker pull ${{ steps.ghcr.outputs.image }}:${{ needs.docker-publish.outputs.version }}
             ```
-            Also available: `${{ steps.ghcr.outputs.image }}:latest`, and semver tags without `v` (e.g. `1.0.0`, `1.0`, `1`).
+            Also available: `${{ steps.ghcr.outputs.image }}:latest`
 
             ## Upgrade
-            If using Watchtower, the update will be automatic.
-
-            Otherwise:
             ```bash
             docker-compose -f docker-compose.prod.yml pull
             docker-compose -f docker-compose.prod.yml up -d
             ```
 
-      - name: Delete old releases
-        uses: Nats-ji/delete-old-releases@v1
+      - uses: Nats-ji/delete-old-releases@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           keep-count: 5
           keep-old-minor-releases: false
-          include-prerelease: false
