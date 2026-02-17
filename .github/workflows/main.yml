@@ -369,7 +369,12 @@ jobs:
   patch-bump:
     name: Patch Version Bump
     # Only auto-bump on direct push to main (not workflow_dispatch which is used for manual bumps)
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Use always() to run even when upstream jobs in the dependency chain were skipped
+    if: |
+      always() &&
+      needs.ci-success.result == 'success' &&
+      github.event_name == 'push' && 
+      github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     needs: [ci-success]
     outputs:
