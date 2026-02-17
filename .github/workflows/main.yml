@@ -67,6 +67,7 @@ jobs:
           retention-days: 30
       
       - name: Coverage summary
+        id: coverage
         run: |
           echo "## Coverage Report" >> $GITHUB_STEP_SUMMARY
           node -e "
@@ -78,6 +79,9 @@ jobs:
             console.log('| Functions | ' + c.functions.pct.toFixed(1) + '% |');
             console.log('| Lines | ' + c.lines.pct.toFixed(1) + '% |');
           " >> $GITHUB_STEP_SUMMARY
+          # Extract lines coverage percentage for badge
+          COVERAGE=$(node -p "require('./coverage/coverage-summary.json').total.lines.pct.toFixed(0)")
+          echo "percentage=$COVERAGE" >> $GITHUB_OUTPUT
       
       # Update coverage badge on main only
       - name: Update coverage badge
