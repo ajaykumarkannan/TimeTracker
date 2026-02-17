@@ -8,6 +8,13 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Concurrency control:
+# - PRs: cancel in-progress runs when new commits are pushed
+# - main: queue deployments to prevent version bump race conditions
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
@@ -199,13 +206,17 @@ jobs:
       version: ${{ steps.bump.outputs.version }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Configure Git
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-      - name: Bump version
+      - name: Pull latest and bump version
         id: bump
         run: |
+          # Pull latest to ensure we have the most recent version number
+          git pull origin main --rebase
           npm version patch -m "chore(release): %s [ci skip]"
           echo "version=$(node -p 'require("./package.json").version')" >> $GITHUB_OUTPUT
       - run: git push origin $GITHUB_REF --tags && git push
