@@ -18,7 +18,7 @@ permissions:
 
 jobs:
   # ============================================================================
-  # VALIDATION JOBS - Run on all events
+  # VALIDATION JOBS - All run in parallel for maximum speed
   # ============================================================================
   
   lint:
@@ -98,10 +98,10 @@ jobs:
           maxColorRange: 100
           minColorRange: 0
 
+  # Build runs in parallel with lint/test for faster wall-clock time
   build:
     name: Build
     runs-on: ubuntu-latest
-    needs: [lint, test]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -117,10 +117,11 @@ jobs:
           path: dist/
           retention-days: 7
 
+  # E2E waits for build artifact AND lint/test to pass
   e2e:
     name: E2E Tests
     runs-on: ubuntu-latest
-    needs: [build]
+    needs: [build, lint, test]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -161,11 +162,11 @@ jobs:
           path: playwright-report/
           retention-days: 7
 
-  # PR-only Docker validation
+  # PR-only Docker validation - just needs build artifact
   docker-test:
     name: Docker Build Test
     runs-on: ubuntu-latest
-    needs: [lint, test]
+    needs: [build]
     if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
