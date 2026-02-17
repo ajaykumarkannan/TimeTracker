@@ -8,6 +8,13 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Concurrency control:
+# - PRs: cancel in-progress runs when new commits are pushed
+# - main: queue deployments to prevent version bump race conditions
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
@@ -199,6 +206,8 @@ jobs:
       version: ${{ steps.bump.outputs.version }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Configure Git
         run: |
           git config user.name "github-actions[bot]"
