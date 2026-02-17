@@ -86,6 +86,7 @@ interface RecentTask {
   categoryName: string;
   categoryColor: string | null;
   count: number;
+  dayOfWeekCount: number; // Count for current day of week
 }
 
 export function TimeTracker({ categories, activeEntry, entries, onEntryChange, onCategoryChange }: Props) {
@@ -366,29 +367,45 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   };
 
   // Get recent tasks from entries (unique task_name + category combinations)
+  // Prioritizes tasks commonly done on the current day of the week
   const recentTasks = useMemo((): RecentTask[] => {
     const taskMap = new Map<string, RecentTask>();
+    const currentDayOfWeek = new Date().getDay(); // 0 = Sunday, 6 = Saturday
 
     entries
       .filter((e): e is TimeEntry & { task_name: string } => Boolean(e.task_name && e.task_name.trim()))
       .forEach(entry => {
         const key = `${entry.category_id}:${entry.task_name}`;
+        const entryDayOfWeek = new Date(entry.start_time).getDay();
+        const isCurrentDayOfWeek = entryDayOfWeek === currentDayOfWeek;
+        
         const existing = taskMap.get(key);
         if (existing) {
           existing.count++;
+          if (isCurrentDayOfWeek) {
+            existing.dayOfWeekCount++;
+          }
         } else {
           taskMap.set(key, {
             task_name: entry.task_name,
             categoryId: entry.category_id,
             categoryName: entry.category_name,
             categoryColor: entry.category_color,
-            count: 1
+            count: 1,
+            dayOfWeekCount: isCurrentDayOfWeek ? 1 : 0
           });
         }
       });
     
+    // Sort by: day-of-week relevance (weighted heavily), then total count
+    // This prioritizes recurring meetings/tasks for the current day
     return Array.from(taskMap.values())
-      .sort((a, b) => b.count - a.count)
+      .sort((a, b) => {
+        // Weight day-of-week count heavily (multiply by 5) to prioritize recurring tasks
+        const aScore = a.dayOfWeekCount * 5 + a.count;
+        const bScore = b.dayOfWeekCount * 5 + b.count;
+        return bScore - aScore;
+      })
       .slice(0, 4);
   }, [entries]);
 
@@ -1053,6 +1070,14 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                       }
                     }}
                     onKeyDown={(e) => {
+                      if (e.key === 'Escape') {
+                        // Close inline form on Escape
+                        setShowNewTaskForm(false);
+                        setSelectedCategory(null);
+                        setDescription('');
+                        setShowNewCategory(false);
+                        return;
+                      }
                       if (!showSuggestions || suggestions.length === 0) {
                         if (e.key === 'Enter' && selectedCategory) {
                           handleSwitchTask(selectedCategory, description || undefined);
@@ -1077,11 +1102,6 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                           } else if (selectedCategory) {
                             handleSwitchTask(selectedCategory, description || undefined);
                           }
-                          break;
-                        case 'Escape':
-                          suppressSuggestionOpenRef.current = true;
-                          setShowSuggestions(false);
-                          setSelectedSuggestionIndex(-1);
                           break;
                       }
                     }}
@@ -1116,6 +1136,18 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                   disabled={!selectedCategory}
                 >
                   Start
+                </button>
+                <button 
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => {
+                    setShowNewTaskForm(false);
+                    setSelectedCategory(null);
+                    setDescription('');
+                    setShowNewCategory(false);
+                  }}
+                  title="Cancel"
+                >
+                  ✕
                 </button>
                 {showNewCategory && (
                   <div className="new-category-form animate-slide-in">
