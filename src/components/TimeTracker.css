@@ -968,13 +968,31 @@
   }
 
   .new-task-inline {
-    flex-direction: column;
+    display: flex;
+    flex-wrap: wrap;
     width: 100%;
+    gap: 0.5rem;
   }
 
-  .switch-category-select,
-  .switch-description-input {
+  .new-task-inline .switch-category-select {
     width: 100%;
+    min-height: 44px;
+    flex: none;
+  }
+
+  .new-task-inline .switch-description-wrapper {
+    width: 100%;
+    flex: none;
+  }
+
+  .new-task-inline .switch-description-input {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  /* Action buttons row - Start and Cancel on same line */
+  .new-task-inline .btn {
+    flex: 1;
     min-height: 44px;
   }
 
