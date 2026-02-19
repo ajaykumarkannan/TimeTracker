@@ -7,15 +7,38 @@ A simple, beautiful time tracking app to understand where your hours go.
 
 ## Features
 
-- 🚀 **One-Click Tracking** - Start timers instantly with quick-start buttons
-- 🎨 **Color-Coded Categories** - Organize time visually (5 defaults included)
-- 📝 **Notes** - Add context to every entry
-- 📊 **Analytics** - Charts and insights on your time usage
-- 🌙 **Dark Mode** - Light, dark, or system theme
-- 👤 **Guest Mode** - No signup required, convert to account later
-- ⏰ **Scheduled Stop** - Auto-stop tracking after a duration or at a specific time
-- 📤 **Import/Export** - CSV and JSON data portability
-- 🔌 **Browser Extension** - Quick access from any tab
+### Time Tracking
+- 🚀 **One-Click Tracking** - Start timers instantly with quick-start buttons for recent tasks
+- ⏱️ **Smart Task Suggestions** - Fuzzy search autocomplete based on your history, prioritizing tasks you do on the same day of the week
+- ⏰ **Scheduled Auto-Stop** - Set a timer to stop after a duration or at a specific time
+- 🔄 **Quick Task Switching** - Switch between tasks without stopping the timer
+- � **Idle Detection** - Automatically detects when you're away and offers to adjust time
+- 📝 **Manual Entry** - Add entries for time you forgot to track
+- ⏸️ **Break Indicators** - See gaps between entries and click to fill them in
+
+### Organization
+- 🎨 **Color-Coded Categories** - 5 defaults included (Meetings, Deep Work, Email & Communication, Planning, Break)
+- 🏷️ **Task Names** - Add context to every entry with searchable task descriptions
+- ✏️ **Inline Editing** - Click any entry to edit category, task, or times directly
+- � **Merge Suggestions** - Automatically suggests merging short consecutive entries
+
+### Analytics
+- 📊 **Visual Dashboard** - Charts showing time distribution by category
+- 📈 **Trend Analysis** - Compare time usage across days, weeks, and months
+- 🎯 **Daily/Weekly/Monthly Views** - Flexible date range selection
+- ⏱️ **Live Tracking Display** - See your currently active task in the analytics view
+
+### Data & Privacy
+- 👤 **Guest Mode** - No signup required, start tracking immediately
+- 🔐 **Account Mode** - Optional registration for cross-device sync
+- 📤 **Export** - Download your data as CSV or JSON
+- 📥 **Import** - Restore from previous exports
+- 🗄️ **Self-Hosted** - Your data stays on your server
+
+### Interface
+- 🌙 **Dark/Light/System Theme** - Automatic theme switching
+- 📱 **Responsive Design** - Works on desktop, tablet, and mobile
+- 🔌 **Browser Extension** - Quick access from any tab (Chrome/Firefox)
 
 ## Installation
 
