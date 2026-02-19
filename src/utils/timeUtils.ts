@@ -52,6 +52,18 @@ export function formatTime(dateStr: string): string {
 }
 
 /**
+ * Format time for mobile display (compact: 4:18p instead of 4:18 PM)
+ */
+export function formatTimeCompact(dateStr: string): string {
+  const date = new Date(dateStr);
+  const hours = date.getHours();
+  const minutes = date.getMinutes().toString().padStart(2, '0');
+  const hour12 = hours % 12 || 12;
+  const ampm = hours < 12 ? 'a' : 'p';
+  return `${hour12}:${minutes}${ampm}`;
+}
+
+/**
  * Format duration in minutes to human-readable string
  */
 export function formatDuration(minutes: number | null): string {

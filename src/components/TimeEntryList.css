@@ -664,6 +664,15 @@
   font-size: 0.75rem;
 }
 
+/* Time format switching - full format by default, compact on mobile */
+.time-full {
+  display: inline;
+}
+
+.time-compact {
+  display: none;
+}
+
 .entry-duration {
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.8125rem;
@@ -841,11 +850,36 @@
     gap: 0.5rem;
   }
   
+  /* Consistent mobile layout: time buttons expand, duration on right */
   .entry-meta {
     width: 100%;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 0.3rem;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    flex-wrap: nowrap;
+    gap: 0.5rem;
+  }
+  
+  /* Time buttons expand to fill available space */
+  .entry-meta .entry-time-btn {
+    flex: 1;
+    text-align: center;
+  }
+  
+  /* Duration stays fixed width on the right */
+  .entry-meta .entry-duration {
+    flex-shrink: 0;
+    min-width: 4rem;
+    text-align: right;
+  }
+  
+  /* Use compact time format on mobile (4:18p instead of 4:18 PM) */
+  .time-full {
+    display: none;
+  }
+  
+  .time-compact {
+    display: inline;
   }
   
   .delete-btn {

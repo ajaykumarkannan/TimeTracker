@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { TimeEntry, Category } from '../types';
 import { api } from '../api';
-import { formatTime, formatDuration, formatDate, formatDateTimeLocal, formatDateOnly, formatTimeOnly, combineDateAndTime } from '../utils/timeUtils';
+import { formatTime, formatTimeCompact, formatDuration, formatDate, formatDateTimeLocal, formatDateOnly, formatTimeOnly, combineDateAndTime } from '../utils/timeUtils';
 import './TimeEntryList.css';
 
 // Debounce hook for search input
@@ -1260,7 +1260,8 @@ export function TimeEntryList({ categories, onEntryChange, onCategoryChange, ref
                               onClick={(e) => { e.stopPropagation(); startEdit(entry, 'startTime'); }}
                               title="Tap to edit start time"
                             >
-                              {formatTime(entry.start_time)}
+                              <span className="time-full">{formatTime(entry.start_time)}</span>
+                              <span className="time-compact">{formatTimeCompact(entry.start_time)}</span>
                             </button>
                           )}
                           <span className="time-separator">–</span>
@@ -1294,7 +1295,12 @@ export function TimeEntryList({ categories, onEntryChange, onCategoryChange, ref
                               disabled={!entry.end_time}
                               title={entry.end_time ? "Tap to edit end time" : "Currently tracking"}
                             >
-                              {entry.end_time ? formatTime(entry.end_time) : 'now'}
+                              {entry.end_time ? (
+                                <>
+                                  <span className="time-full">{formatTime(entry.end_time)}</span>
+                                  <span className="time-compact">{formatTimeCompact(entry.end_time)}</span>
+                                </>
+                              ) : 'now'}
                             </button>
                           )}
                           <span className={`entry-duration ${!entry.end_time ? 'active' : ''}`}>
