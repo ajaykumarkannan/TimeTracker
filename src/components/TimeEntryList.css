@@ -515,6 +515,31 @@
   flex-direction: column;
 }
 
+/* Break indicator between entries */
+.break-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0;
+  margin: 0.125rem 0;
+}
+
+.break-line {
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+  opacity: 0.5;
+  max-width: 3rem;
+}
+
+.break-text {
+  font-size: 0.625rem;
+  color: var(--text-muted);
+  opacity: 0.7;
+  white-space: nowrap;
+}
+
 .entry-item {
   display: flex;
   align-items: center;

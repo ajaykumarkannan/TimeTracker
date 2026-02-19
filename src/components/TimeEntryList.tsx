@@ -1131,18 +1131,36 @@ export function TimeEntryList({ categories, onEntryChange, onCategoryChange, ref
                 </button>
               </div>
               <div className="entries">
-                {dateEntries.map(entry => {
+                {dateEntries.map((entry, index) => {
                   const isEditing = editingId === entry.id;
                   const isSelected = selected === entry.id;
                   const hasOverlap = overlaps[entry.id];
                   
+                  // Calculate break from previous entry (entries are sorted by start_time desc)
+                  // So "previous" in the list is actually the entry that started AFTER this one
+                  const prevEntry = index > 0 ? dateEntries[index - 1] : null;
+                  let breakMinutes = 0;
+                  if (prevEntry && entry.end_time && prevEntry.start_time) {
+                    const thisEnd = new Date(entry.end_time).getTime();
+                    const prevStart = new Date(prevEntry.start_time).getTime();
+                    breakMinutes = Math.round((prevStart - thisEnd) / 60000);
+                  }
+                  const showBreak = breakMinutes > 5;
+                  
                   return (
-                    <div 
-                      key={entry.id} 
-                      className={`entry-item ${isSelected ? 'selected' : ''} ${hasOverlap ? 'has-overlap' : ''}`}
-                      onClick={() => handleSelect(entry.id)}
-                    >
+                    <div key={entry.id}>
+                      {showBreak && (
+                        <div className="break-indicator">
+                          <span className="break-line" />
+                          <span className="break-text">{breakMinutes}m break</span>
+                          <span className="break-line" />
+                        </div>
+                      )}
                       <div 
+                        className={`entry-item ${isSelected ? 'selected' : ''} ${hasOverlap ? 'has-overlap' : ''}`}
+                        onClick={() => handleSelect(entry.id)}
+                      >
+                        <div 
                         className="entry-indicator" 
                         style={{ backgroundColor: isEditing 
                           ? categories.find(c => c.id === editCategory)?.color || '#6366f1'
@@ -1320,6 +1338,7 @@ export function TimeEntryList({ categories, onEntryChange, onCategoryChange, ref
                       >
                         ×
                       </button>
+                      </div>
                     </div>
                   );
                 })}
