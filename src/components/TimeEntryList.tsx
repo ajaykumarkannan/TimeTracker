@@ -465,6 +465,24 @@ export function TimeEntryList({ categories, onEntryChange, onCategoryChange, ref
     setShowManualEntry(true);
   };
 
+  // Open manual entry with pre-filled break values
+  const openBreakEntry = (breakStart: string, breakEnd: string) => {
+    // Find the Break category
+    const breakCategory = categories.find(c => c.name.toLowerCase() === 'break');
+    
+    setManualStartDate(formatDateOnly(breakStart));
+    setManualStartTime(formatTimeOnly(breakStart));
+    setManualEndDate(formatDateOnly(breakEnd));
+    setManualEndTime(formatTimeOnly(breakEnd));
+    setManualCategory(breakCategory?.id || '');
+    setManualDescription('Break');
+    setManualError('');
+    setShowManualSuggestions(false);
+    setSelectedSuggestionIndex(-1);
+    setEndDateManuallySet(true); // Prevent auto-sync since we're setting both
+    setShowManualEntry(true);
+  };
+
   const closeManualEntry = () => {
     setShowManualEntry(false);
     setManualError('');
@@ -1140,21 +1158,29 @@ export function TimeEntryList({ categories, onEntryChange, onCategoryChange, ref
                   // So "previous" in the list is actually the entry that started AFTER this one
                   const prevEntry = index > 0 ? dateEntries[index - 1] : null;
                   let breakMinutes = 0;
+                  let breakStartTime = '';
+                  let breakEndTime = '';
                   if (prevEntry && entry.end_time && prevEntry.start_time) {
                     const thisEnd = new Date(entry.end_time).getTime();
                     const prevStart = new Date(prevEntry.start_time).getTime();
                     breakMinutes = Math.round((prevStart - thisEnd) / 60000);
+                    breakStartTime = entry.end_time;
+                    breakEndTime = prevEntry.start_time;
                   }
                   const showBreak = breakMinutes > 5;
                   
                   return (
                     <div key={entry.id}>
                       {showBreak && (
-                        <div className="break-indicator">
+                        <button 
+                          className="break-indicator"
+                          onClick={() => openBreakEntry(breakStartTime, breakEndTime)}
+                          title="Click to add entry for this break"
+                        >
                           <span className="break-line" />
                           <span className="break-text">{breakMinutes}m break</span>
                           <span className="break-line" />
-                        </div>
+                        </button>
                       )}
                       <div 
                         className={`entry-item ${isSelected ? 'selected' : ''} ${hasOverlap ? 'has-overlap' : ''}`}

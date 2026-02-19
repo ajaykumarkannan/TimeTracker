@@ -523,6 +523,25 @@
   gap: 0.5rem;
   padding: 0.25rem 0;
   margin: 0.125rem 0;
+  width: 100%;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.break-indicator:hover {
+  opacity: 1;
+}
+
+.break-indicator:hover .break-text {
+  color: var(--primary);
+  opacity: 1;
+}
+
+.break-indicator:hover .break-line {
+  background: var(--primary);
+  opacity: 0.5;
 }
 
 .break-line {
