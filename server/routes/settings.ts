@@ -1,30 +1,26 @@
 import { Router, Response } from 'express';
-import { getDb, saveDatabase } from '../database';
+import { getProvider } from '../database';
 import { logger } from '../logger';
-import { flexAuthMiddleware, AuthRequest, createDefaultCategories } from '../middleware/auth';
+import { flexAuthMiddleware, AuthRequest } from '../middleware/auth';
 
 const router = Router();
 
 router.use(flexAuthMiddleware);
 
 // Get user settings
-router.get('/', (req: AuthRequest, res: Response) => {
+router.get('/', async (req: AuthRequest, res: Response) => {
   try {
-    const db = getDb();
+    const provider = getProvider();
     const userId = req.userId as number;
 
-    const result = db.exec(
-      `SELECT timezone FROM user_settings WHERE user_id = ?`,
-      [userId]
-    );
-
-    if (result.length === 0 || result[0].values.length === 0) {
+    const settings = await provider.getUserSettings(userId);
+    if (!settings) {
       // Return defaults if no settings exist
       return res.json({ timezone: 'UTC' });
     }
 
     res.json({
-      timezone: result[0].values[0][0] as string
+      timezone: settings.timezone
     });
   } catch (error) {
     logger.error('Error fetching settings', { error, userId: req.userId });
@@ -33,9 +29,9 @@ router.get('/', (req: AuthRequest, res: Response) => {
 });
 
 // Update user settings
-router.put('/', (req: AuthRequest, res: Response) => {
+router.put('/', async (req: AuthRequest, res: Response) => {
   try {
-    const db = getDb();
+    const provider = getProvider();
     const userId = req.userId as number;
     const { timezone } = req.body;
 
@@ -49,24 +45,7 @@ router.put('/', (req: AuthRequest, res: Response) => {
     }
 
     // Upsert settings
-    const existing = db.exec(
-      `SELECT id FROM user_settings WHERE user_id = ?`,
-      [userId]
-    );
-
-    if (existing.length === 0 || existing[0].values.length === 0) {
-      db.run(
-        `INSERT INTO user_settings (user_id, timezone) VALUES (?, ?)`,
-        [userId, timezone || 'UTC']
-      );
-    } else {
-      db.run(
-        `UPDATE user_settings SET timezone = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?`,
-        [timezone || 'UTC', userId]
-      );
-    }
-
-    saveDatabase();
+    await provider.upsertUserSettings(userId, timezone || 'UTC');
     logger.info('User settings updated', { userId, timezone });
 
     res.json({ timezone: timezone || 'UTC' });
@@ -77,21 +56,14 @@ router.put('/', (req: AuthRequest, res: Response) => {
 });
 
 // Reset all user data
-router.post('/reset', (req: AuthRequest, res: Response) => {
+router.post('/reset', async (req: AuthRequest, res: Response) => {
   try {
-    const db = getDb();
+    const provider = getProvider();
     const userId = req.userId as number;
 
-    // Delete all time entries
-    db.run(`DELETE FROM time_entries WHERE user_id = ?`, [userId]);
-    
-    // Delete all categories
-    db.run(`DELETE FROM categories WHERE user_id = ?`, [userId]);
-    
-    // Recreate default categories
-    createDefaultCategories(userId);
-    
-    saveDatabase();
+    await provider.deleteTimeEntriesForUser(userId);
+    await provider.deleteCategoriesForUser(userId);
+    await provider.createDefaultCategories(userId);
 
     logger.info('User data reset', { userId });
     res.json({ message: 'Data reset successfully' });

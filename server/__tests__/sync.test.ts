@@ -2,20 +2,14 @@ import { describe, it, expect, vi } from 'vitest';
 
 // Mock the database
 vi.mock('../database', () => ({
-  getDb: vi.fn(() => ({
-    exec: vi.fn((query: string, params?: unknown[]) => {
-      // Mock user lookup by session
-      if (query.includes('SELECT id FROM users WHERE email')) {
-        const sessionId = params?.[0];
-        if (sessionId === 'anon_valid-session@local') {
-          return [{ values: [[1]] }];
-        }
-        return [];
+  getProvider: vi.fn(() => ({
+    findUserByEmail: vi.fn(async (email: string) => {
+      if (email === 'anon_valid-session@local') {
+        return { id: 1, email };
       }
-      return [];
+      return null;
     })
-  })),
-  saveDatabase: vi.fn()
+  }))
 }));
 
 // Mock the logger

@@ -9,8 +9,7 @@ vi.mock('jsonwebtoken', () => ({
 }));
 
 vi.mock('../database', () => ({
-  getDb: vi.fn(),
-  saveDatabase: vi.fn()
+  getProvider: vi.fn()
 }));
 
 vi.mock('../logger', () => ({
@@ -28,18 +27,18 @@ vi.mock('../config', () => ({
 }));
 
 import jwt from 'jsonwebtoken';
-import { getDb } from '../database';
+import { getProvider } from '../database';
 import * as auth from '../middleware/auth';
 
 const signMock = jwt.sign as unknown as ReturnType<typeof vi.fn>;
 const verifyMock = jwt.verify as unknown as ReturnType<typeof vi.fn>;
-const getDbMock = getDb as unknown as ReturnType<typeof vi.fn>;
+const getProviderMock = getProvider as unknown as ReturnType<typeof vi.fn>;
 
 describe('auth middleware helpers', () => {
   beforeEach(() => {
     signMock.mockReset();
     verifyMock.mockReset();
-    getDbMock.mockReset();
+    getProviderMock.mockReset();
   });
 
   it('generates access token with configured expiry', () => {
@@ -93,10 +92,10 @@ describe('auth middleware helpers', () => {
 describe('flexAuthMiddleware', () => {
   beforeEach(() => {
     verifyMock.mockReset();
-    getDbMock.mockReset();
+    getProviderMock.mockReset();
   });
 
-  it('accepts valid bearer token', () => {
+  it('accepts valid bearer token', async () => {
     verifyMock.mockReturnValue({ userId: 10, email: 'jwt@example.com' });
     const req = {
       headers: { authorization: 'Bearer token' }
@@ -104,7 +103,7 @@ describe('flexAuthMiddleware', () => {
     const res = { status: vi.fn().mockReturnThis(), json: vi.fn() } as unknown as Response;
     const next = vi.fn() as NextFunction;
 
-    auth.flexAuthMiddleware(req, res, next);
+    await auth.flexAuthMiddleware(req, res, next);
 
     expect(req.userId).toBe(10);
     expect(req.userEmail).toBe('jwt@example.com');
@@ -112,32 +111,29 @@ describe('flexAuthMiddleware', () => {
     expect(next).toHaveBeenCalled();
   });
 
-  it('falls back to anonymous session when no jwt', () => {
-    const execMock = vi
-      .fn()
-      .mockReturnValueOnce([])
-      .mockReturnValueOnce([{ values: [[42]] }]);
-    const runMock = vi.fn();
-    getDbMock.mockReturnValue({ exec: execMock, run: runMock });
+  it('falls back to anonymous session when no jwt', async () => {
+    getProviderMock.mockReturnValue({
+      findUserByEmail: vi.fn().mockResolvedValue({ id: 42, email: 'anon_session-1@local' })
+    });
     const req = {
       headers: { 'x-session-id': 'session-1' }
     } as any;
     const res = { status: vi.fn().mockReturnThis(), json: vi.fn() } as unknown as Response;
     const next = vi.fn() as NextFunction;
 
-    auth.flexAuthMiddleware(req, res, next);
+    await auth.flexAuthMiddleware(req, res, next);
 
     expect(req.userId).toBe(42);
     expect(req.isAnonymous).toBe(true);
     expect(next).toHaveBeenCalled();
   });
 
-  it('returns 401 when no auth provided', () => {
+  it('returns 401 when no auth provided', async () => {
     const req = { headers: {} } as any;
     const res = { status: vi.fn().mockReturnThis(), json: vi.fn() } as unknown as Response;
     const next = vi.fn() as NextFunction;
 
-    auth.flexAuthMiddleware(req, res, next);
+    await auth.flexAuthMiddleware(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(401);
     expect(res.json).toHaveBeenCalledWith({ error: 'Authentication required' });

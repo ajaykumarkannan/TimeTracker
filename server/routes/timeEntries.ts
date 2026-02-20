@@ -1,13 +1,8 @@
 import { Router, Response } from 'express';
-import { getDb, saveDatabase } from '../database';
+import { getProvider } from '../database';
 import { logger } from '../logger';
 import { flexAuthMiddleware, AuthRequest } from '../middleware/auth';
-import { 
-  TIME_ENTRIES_WITH_CATEGORIES_QUERY, 
-  rowToTimeEntry, 
-  rowsToTimeEntries,
-  calculateDurationMinutes 
-} from '../utils/queryHelpers';
+import { calculateDurationMinutes } from '../utils/queryHelpers';
 import {
   validateDateParam,
   validatePositiveInt,
@@ -22,9 +17,9 @@ const router = Router();
 router.use(flexAuthMiddleware);
 
 // Get all time entries for user with pagination
-router.get('/', (req: AuthRequest, res: Response) => {
+router.get('/', async (req: AuthRequest, res: Response) => {
   try {
-    const db = getDb();
+    const provider = getProvider();
     
     // Optional category filter
     const categoryId = req.query.categoryId ? parseInt(req.query.categoryId as string) : null;
@@ -49,36 +44,16 @@ router.get('/', (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: (err as Error).message });
     }
     
-    let query = TIME_ENTRIES_WITH_CATEGORIES_QUERY + ` WHERE te.user_id = ?`;
-    const params: (number | string)[] = [req.userId as number];
-    
-    // Optional date filtering
-    if (startDate) {
-      query += ` AND te.start_time >= ?`;
-      params.push(startDate);
-    }
-    if (endDate) {
-      query += ` AND te.start_time <= ?`;
-      params.push(endDate);
-    }
-    
-    // Optional category filtering
-    if (categoryId) {
-      query += ` AND te.category_id = ?`;
-      params.push(categoryId);
-    }
-    
-    // Optional search filtering (task_name or category_name)
-    if (searchQuery) {
-      query += ` AND (LOWER(te.task_name) LIKE ? OR LOWER(c.name) LIKE ?)`;
-      params.push(`%${searchQuery}%`, `%${searchQuery}%`);
-    }
-    
-    query += ` ORDER BY te.start_time DESC LIMIT ? OFFSET ?`;
-    params.push(limit, offset);
-    
-    const result = db.exec(query, params);
-    res.json(rowsToTimeEntries(result));
+    const entries = await provider.listTimeEntries({
+      userId: req.userId as number,
+      limit,
+      offset,
+      startDate: startDate || null,
+      endDate: endDate || null,
+      categoryId: categoryId || null,
+      searchQuery
+    });
+    res.json(entries);
   } catch (error) {
     logger.error('Error fetching time entries', { error, userId: req.userId as number });
     res.status(500).json({ error: 'Failed to fetch time entries' });
@@ -86,19 +61,11 @@ router.get('/', (req: AuthRequest, res: Response) => {
 });
 
 // Get active entry
-router.get('/active', (req: AuthRequest, res: Response) => {
+router.get('/active', async (req: AuthRequest, res: Response) => {
   try {
-    const db = getDb();
-    const result = db.exec(
-      TIME_ENTRIES_WITH_CATEGORIES_QUERY + ` WHERE te.user_id = ? AND te.end_time IS NULL LIMIT 1`,
-      [req.userId as number]
-    );
-
-    if (result.length === 0 || result[0].values.length === 0) {
-      return res.json(null);
-    }
-
-    res.json(rowToTimeEntry(result[0].values[0]));
+    const provider = getProvider();
+    const entry = await provider.getActiveTimeEntry(req.userId as number);
+    res.json(entry || null);
   } catch (error) {
     logger.error('Error fetching active entry', { error, userId: req.userId as number });
     res.status(500).json({ error: 'Failed to fetch active entry' });
@@ -106,7 +73,7 @@ router.get('/active', (req: AuthRequest, res: Response) => {
 });
 
 // Start new entry
-router.post('/start', (req: AuthRequest, res: Response) => {
+router.post('/start', async (req: AuthRequest, res: Response) => {
   try {
     let categoryId: number;
     let taskName: string | null;
@@ -118,51 +85,40 @@ router.post('/start', (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: (err as Error).message });
     }
 
-    const db = getDb();
+    const provider = getProvider();
 
-    // Verify category belongs to user
-    const catCheck = db.exec(
-      `SELECT id FROM categories WHERE id = ? AND user_id = ?`,
-      [categoryId, req.userId as number]
-    );
-    if (catCheck.length === 0 || catCheck[0].values.length === 0) {
+    const category = await provider.findCategoryById(req.userId as number, categoryId);
+    if (!category) {
       return res.status(400).json({ error: 'Invalid category' });
     }
 
-    // Stop any active entry first
-    const activeResult = db.exec(
-      `SELECT id, start_time FROM time_entries WHERE user_id = ? AND end_time IS NULL`,
-      [req.userId as number]
-    );
-    
-    if (activeResult.length > 0 && activeResult[0].values.length > 0) {
-      const activeId = activeResult[0].values[0][0] as number;
-      const startTime = activeResult[0].values[0][1] as string;
+    const active = await provider.findActiveTimeEntry(req.userId as number);
+    if (active) {
       const endTime = new Date().toISOString();
-      const duration = calculateDurationMinutes(startTime, endTime);
-      
-      db.run(
-        `UPDATE time_entries SET end_time = ?, duration_minutes = ? WHERE id = ?`,
-        [endTime, duration, activeId]
-      );
+      const duration = calculateDurationMinutes(active.start_time, endTime);
+      await provider.updateTimeEntry(req.userId as number, active.id, {
+        end_time: endTime,
+        duration_minutes: duration
+      });
     }
 
     const startTime = new Date().toISOString();
-    db.run(
-      `INSERT INTO time_entries (user_id, category_id, task_name, start_time) VALUES (?, ?, ?, ?)`,
-      [req.userId as number, categoryId, taskName, startTime]
-    );
-    saveDatabase();
+    const created = await provider.createTimeEntry({
+      user_id: req.userId as number,
+      category_id: categoryId,
+      task_name: taskName,
+      start_time: startTime,
+      end_time: null,
+      scheduled_end_time: null,
+      duration_minutes: null
+    });
     broadcastSyncEvent(req.userId as number, 'time-entries');
-
-    const result = db.exec(
-      TIME_ENTRIES_WITH_CATEGORIES_QUERY + ` WHERE te.user_id = ? AND te.end_time IS NULL`,
-      [req.userId as number]
-    );
-
-    const entry = rowToTimeEntry(result[0].values[0]);
+    const entry = await provider.getActiveTimeEntry(req.userId as number);
+    if (!entry) {
+      logger.error('Failed to retrieve created time entry', { userId: req.userId as number });
+      return res.status(201).json(created);
+    }
     logger.info('Time entry started', { entryId: entry.id, userId: req.userId as number });
-
     res.status(201).json(entry);
   } catch (error) {
     logger.error('Error starting time entry', { error, userId: req.userId as number });
@@ -171,39 +127,28 @@ router.post('/start', (req: AuthRequest, res: Response) => {
 });
 
 // Stop entry
-router.post('/:id/stop', (req: AuthRequest, res: Response) => {
+router.post('/:id/stop', async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const db = getDb();
+    const provider = getProvider();
 
-    const existing = db.exec(
-      `SELECT start_time FROM time_entries WHERE id = ? AND user_id = ? AND end_time IS NULL`,
-      [id, req.userId as number]
-    );
-
-    if (existing.length === 0 || existing[0].values.length === 0) {
+    const existing = await provider.findTimeEntryById(req.userId as number, Number(id));
+    if (!existing || existing.end_time) {
       return res.status(404).json({ error: 'Active entry not found' });
     }
 
-    const startTime = existing[0].values[0][0] as string;
+    const startTime = existing.start_time;
     const endTime = new Date().toISOString();
     const duration = calculateDurationMinutes(startTime, endTime);
 
-    db.run(
-      `UPDATE time_entries SET end_time = ?, duration_minutes = ?, scheduled_end_time = NULL WHERE id = ?`,
-      [endTime, duration, id]
-    );
-    saveDatabase();
+    await provider.updateTimeEntry(req.userId as number, Number(id), {
+      end_time: endTime,
+      duration_minutes: duration,
+      scheduled_end_time: null
+    });
     broadcastSyncEvent(req.userId as number, 'time-entries');
-
-    const result = db.exec(
-      TIME_ENTRIES_WITH_CATEGORIES_QUERY + ` WHERE te.id = ?`,
-      [id]
-    );
-
-    const entry = rowToTimeEntry(result[0].values[0]);
+    const entry = await provider.findTimeEntryWithCategoryById(req.userId as number, Number(id));
     logger.info('Time entry stopped', { entryId: id, duration, userId: req.userId as number });
-
     res.json(entry);
   } catch (error) {
     logger.error('Error stopping time entry', { error, userId: req.userId as number });
@@ -212,19 +157,13 @@ router.post('/:id/stop', (req: AuthRequest, res: Response) => {
 });
 
 // Schedule auto-stop for active entry
-router.post('/:id/schedule-stop', (req: AuthRequest, res: Response) => {
+router.post('/:id/schedule-stop', async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { scheduled_end_time } = req.body;
-    const db = getDb();
-
-    // Verify entry exists and belongs to user
-    const existing = db.exec(
-      `SELECT id FROM time_entries WHERE id = ? AND user_id = ? AND end_time IS NULL`,
-      [id, req.userId as number]
-    );
-
-    if (existing.length === 0 || existing[0].values.length === 0) {
+    const provider = getProvider();
+    const existing = await provider.findTimeEntryById(req.userId as number, Number(id));
+    if (!existing || existing.end_time) {
       return res.status(404).json({ error: 'Active entry not found' });
     }
 
@@ -238,21 +177,10 @@ router.post('/:id/schedule-stop', (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'scheduled_end_time must be in the future' });
     }
 
-    db.run(
-      `UPDATE time_entries SET scheduled_end_time = ? WHERE id = ?`,
-      [scheduled_end_time, id]
-    );
-    saveDatabase();
+    await provider.updateTimeEntry(req.userId as number, Number(id), { scheduled_end_time });
     broadcastSyncEvent(req.userId as number, 'time-entries');
-
-    const result = db.exec(
-      TIME_ENTRIES_WITH_CATEGORIES_QUERY + ` WHERE te.id = ?`,
-      [id]
-    );
-
-    const entry = rowToTimeEntry(result[0].values[0]);
+    const entry = await provider.findTimeEntryWithCategoryById(req.userId as number, Number(id));
     logger.info('Scheduled stop time set', { entryId: id, scheduledEndTime: scheduled_end_time, userId: req.userId as number });
-
     res.json(entry);
   } catch (error) {
     logger.error('Error scheduling stop time', { error, userId: req.userId as number });
@@ -261,36 +189,19 @@ router.post('/:id/schedule-stop', (req: AuthRequest, res: Response) => {
 });
 
 // Clear scheduled stop for active entry
-router.delete('/:id/schedule-stop', (req: AuthRequest, res: Response) => {
+router.delete('/:id/schedule-stop', async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const db = getDb();
-
-    // Verify entry exists and belongs to user
-    const existing = db.exec(
-      `SELECT id FROM time_entries WHERE id = ? AND user_id = ? AND end_time IS NULL`,
-      [id, req.userId as number]
-    );
-
-    if (existing.length === 0 || existing[0].values.length === 0) {
+    const provider = getProvider();
+    const existing = await provider.findTimeEntryById(req.userId as number, Number(id));
+    if (!existing || existing.end_time) {
       return res.status(404).json({ error: 'Active entry not found' });
     }
 
-    db.run(
-      `UPDATE time_entries SET scheduled_end_time = NULL WHERE id = ?`,
-      [id]
-    );
-    saveDatabase();
+    await provider.updateTimeEntry(req.userId as number, Number(id), { scheduled_end_time: null });
     broadcastSyncEvent(req.userId as number, 'time-entries');
-
-    const result = db.exec(
-      TIME_ENTRIES_WITH_CATEGORIES_QUERY + ` WHERE te.id = ?`,
-      [id]
-    );
-
-    const entry = rowToTimeEntry(result[0].values[0]);
+    const entry = await provider.findTimeEntryWithCategoryById(req.userId as number, Number(id));
     logger.info('Scheduled stop time cleared', { entryId: id, userId: req.userId as number });
-
     res.json(entry);
   } catch (error) {
     logger.error('Error clearing scheduled stop time', { error, userId: req.userId as number });
@@ -299,59 +210,42 @@ router.delete('/:id/schedule-stop', (req: AuthRequest, res: Response) => {
 });
 
 // Update entry
-router.put('/:id', (req: AuthRequest, res: Response) => {
+router.put('/:id', async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { category_id, task_name, start_time, end_time } = req.body;
-    const db = getDb();
-
-    const existing = db.exec(
-      `SELECT id, start_time, end_time FROM time_entries WHERE id = ? AND user_id = ?`,
-      [id, req.userId as number]
-    );
-
-    if (existing.length === 0 || existing[0].values.length === 0) {
+    const provider = getProvider();
+    const existing = await provider.findTimeEntryById(req.userId as number, Number(id));
+    if (!existing) {
       return res.status(404).json({ error: 'Entry not found' });
     }
 
     if (category_id) {
-      const catCheck = db.exec(
-        `SELECT id FROM categories WHERE id = ? AND user_id = ?`,
-        [category_id, req.userId as number]
-      );
-      if (catCheck.length === 0 || catCheck[0].values.length === 0) {
+      const category = await provider.findCategoryById(req.userId as number, Number(category_id));
+      if (!category) {
         return res.status(400).json({ error: 'Invalid category' });
       }
     }
 
     // Calculate new duration if times are being updated
-    const currentStart = existing[0].values[0][1] as string;
-    const currentEnd = existing[0].values[0][2] as string | null;
+    const currentStart = existing.start_time;
+    const currentEnd = existing.end_time;
     const newStart = start_time || currentStart;
     const newEnd = end_time !== undefined ? end_time : currentEnd;
     
     const duration = newEnd ? calculateDurationMinutes(newStart, newEnd) : null;
 
-    db.run(
-      `UPDATE time_entries 
-       SET category_id = COALESCE(?, category_id), 
-           task_name = ?, 
-           start_time = COALESCE(?, start_time),
-           end_time = ?,
-           duration_minutes = ?
-       WHERE id = ?`,
-      [category_id || null, task_name, start_time || null, newEnd, duration, id]
-    );
-    saveDatabase();
+    await provider.updateTimeEntry(req.userId as number, Number(id), {
+      category_id: category_id || null,
+      task_name,
+      start_time: start_time || null,
+      end_time: newEnd,
+      duration_minutes: duration
+    });
     broadcastSyncEvent(req.userId as number, 'time-entries');
-
-    const result = db.exec(
-      TIME_ENTRIES_WITH_CATEGORIES_QUERY + ` WHERE te.id = ?`,
-      [id]
-    );
-
+    const entry = await provider.findTimeEntryWithCategoryById(req.userId as number, Number(id));
     logger.info('Time entry updated', { entryId: id, userId: req.userId as number });
-    res.json(rowToTimeEntry(result[0].values[0]));
+    res.json(entry);
   } catch (error) {
     logger.error('Error updating time entry', { error, userId: req.userId as number });
     res.status(500).json({ error: 'Failed to update time entry' });
@@ -359,7 +253,7 @@ router.put('/:id', (req: AuthRequest, res: Response) => {
 });
 
 // Create manual entry (for past tasks)
-router.post('/', (req: AuthRequest, res: Response) => {
+router.post('/', async (req: AuthRequest, res: Response) => {
   try {
     let categoryId: number;
     let taskName: string | null;
@@ -383,14 +277,9 @@ router.post('/', (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: (err as Error).message });
     }
 
-    const db = getDb();
-
-    // Verify category belongs to user
-    const catCheck = db.exec(
-      `SELECT id FROM categories WHERE id = ? AND user_id = ?`,
-      [categoryId, req.userId as number]
-    );
-    if (catCheck.length === 0 || catCheck[0].values.length === 0) {
+    const provider = getProvider();
+    const category = await provider.findCategoryById(req.userId as number, categoryId);
+    if (!category) {
       return res.status(400).json({ error: 'Invalid category' });
     }
 
@@ -401,25 +290,19 @@ router.post('/', (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'End time must be after start time' });
     }
 
-    db.run(
-      `INSERT INTO time_entries (user_id, category_id, task_name, start_time, end_time, duration_minutes) VALUES (?, ?, ?, ?, ?, ?)`,
-      [req.userId as number, categoryId, taskName, startTime, endTime, duration]
-    );
-    saveDatabase();
+    const created = await provider.createTimeEntry({
+      user_id: req.userId as number,
+      category_id: categoryId,
+      task_name: taskName,
+      start_time: startTime,
+      end_time: endTime,
+      scheduled_end_time: null,
+      duration_minutes: duration
+    });
     broadcastSyncEvent(req.userId as number, 'time-entries');
-
-    const result = db.exec(`SELECT last_insert_rowid() as id`);
-    const newId = result[0].values[0][0] as number;
-
-    const entryResult = db.exec(
-      TIME_ENTRIES_WITH_CATEGORIES_QUERY + ` WHERE te.id = ?`,
-      [newId]
-    );
-
-    const entry = rowToTimeEntry(entryResult[0].values[0]);
-    logger.info('Manual time entry created', { entryId: newId, userId: req.userId as number });
-
-    res.status(201).json(entry);
+    const entry = await provider.findTimeEntryWithCategoryById(req.userId as number, created.id);
+    logger.info('Manual time entry created', { entryId: created.id, userId: req.userId as number });
+    res.status(201).json(entry || created);
   } catch (error) {
     logger.error('Error creating manual time entry', { error, userId: req.userId as number });
     res.status(500).json({ error: 'Failed to create time entry' });
@@ -427,22 +310,16 @@ router.post('/', (req: AuthRequest, res: Response) => {
 });
 
 // Delete entry
-router.delete('/:id', (req: AuthRequest, res: Response) => {
+router.delete('/:id', async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const db = getDb();
-
-    const existing = db.exec(
-      `SELECT id FROM time_entries WHERE id = ? AND user_id = ?`,
-      [id, req.userId as number]
-    );
-
-    if (existing.length === 0 || existing[0].values.length === 0) {
+    const provider = getProvider();
+    const existing = await provider.findTimeEntryById(req.userId as number, Number(id));
+    if (!existing) {
       return res.status(404).json({ error: 'Entry not found' });
     }
 
-    db.run(`DELETE FROM time_entries WHERE id = ?`, [id]);
-    saveDatabase();
+    await provider.deleteTimeEntry(req.userId as number, Number(id));
     broadcastSyncEvent(req.userId as number, 'time-entries');
 
     logger.info('Time entry deleted', { entryId: id, userId: req.userId as number });
@@ -454,45 +331,13 @@ router.delete('/:id', (req: AuthRequest, res: Response) => {
 });
 
 // Get task name suggestions based on history
-router.get('/suggestions', (req: AuthRequest, res: Response) => {
+router.get('/suggestions', async (req: AuthRequest, res: Response) => {
   try {
-    const db = getDb();
     const categoryId = req.query.categoryId ? parseInt(req.query.categoryId as string) : null;
     const query = (req.query.q as string || '').toLowerCase().trim();
     const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
-
-    let sql = `
-      SELECT task_name, category_id, COUNT(*) as count, SUM(duration_minutes) as total_minutes, MAX(start_time) as last_used
-      FROM time_entries
-      WHERE user_id = ? AND task_name IS NOT NULL AND task_name != ''
-    `;
-    const params: (number | string)[] = [req.userId as number];
-
-    if (categoryId) {
-      sql += ` AND category_id = ?`;
-      params.push(categoryId);
-    }
-
-    if (query) {
-      sql += ` AND LOWER(task_name) LIKE ?`;
-      params.push(`%${query}%`);
-    }
-
-    sql += ` GROUP BY task_name, category_id ORDER BY count DESC, total_minutes DESC LIMIT ?`;
-    params.push(limit);
-
-    const result = db.exec(sql, params);
-
-    const suggestions = result.length > 0
-      ? result[0].values.map(row => ({
-          task_name: row[0] as string,
-          categoryId: row[1] as number,
-          count: row[2] as number,
-          totalMinutes: row[3] as number,
-          lastUsed: row[4] as string
-        }))
-      : [];
-
+    const provider = getProvider();
+    const suggestions = await provider.listTaskSuggestions(req.userId as number, categoryId, query, limit);
     res.json(suggestions);
   } catch (error) {
     logger.error('Error fetching task name suggestions', { error, userId: req.userId as number });
@@ -501,7 +346,7 @@ router.get('/suggestions', (req: AuthRequest, res: Response) => {
 });
 
 // Merge task names - update all entries with source task names to use target task name and optionally target category
-router.post('/merge-task-names', (req: AuthRequest, res: Response) => {
+router.post('/merge-task-names', async (req: AuthRequest, res: Response) => {
   try {
     const { sourceTaskNames, targetTaskName, targetCategoryName } = req.body;
     
@@ -513,51 +358,25 @@ router.post('/merge-task-names', (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'targetTaskName must be a non-empty string' });
     }
 
-    const db = getDb();
+    const provider = getProvider();
     const userId = req.userId as number;
-    
-    // Build placeholders for IN clause
-    const placeholders = sourceTaskNames.map(() => '?').join(', ');
-    
-    // Count entries that will be updated
-    const countResult = db.exec(
-      `SELECT COUNT(*) as count FROM time_entries 
-       WHERE user_id = ? AND task_name IN (${placeholders})`,
-      [userId, ...sourceTaskNames]
-    );
-    const totalEntries = countResult.length > 0 ? countResult[0].values[0][0] as number : 0;
-    
+    const totalEntries = await provider.countTimeEntriesByTaskNames(userId, sourceTaskNames);
     if (totalEntries === 0) {
       return res.status(404).json({ error: 'No entries found with the specified task names' });
     }
-    
-    // If target category is specified, look up its ID
-    let targetCategoryId: number | null = null;
+
+    let targetCategoryId: number | undefined;
     if (targetCategoryName) {
-      const categoryResult = db.exec(
-        `SELECT id FROM categories WHERE user_id = ? AND name = ?`,
-        [userId, targetCategoryName]
-      );
-      if (categoryResult.length > 0 && categoryResult[0].values.length > 0) {
-        targetCategoryId = categoryResult[0].values[0][0] as number;
+      const category = await provider.findCategoryByName(userId, targetCategoryName);
+      if (category) {
+        targetCategoryId = category.id;
       }
     }
-    
-    // Update all entries with source task names to use target task name (and optionally category)
-    if (targetCategoryId !== null) {
-      db.run(
-        `UPDATE time_entries SET task_name = ?, category_id = ? 
-         WHERE user_id = ? AND task_name IN (${placeholders})`,
-        [targetTaskName.trim(), targetCategoryId, userId, ...sourceTaskNames]
-      );
-    } else {
-      db.run(
-        `UPDATE time_entries SET task_name = ? 
-         WHERE user_id = ? AND task_name IN (${placeholders})`,
-        [targetTaskName.trim(), userId, ...sourceTaskNames]
-      );
-    }
-    saveDatabase();
+
+    await provider.updateTimeEntriesForMerge(userId, sourceTaskNames, {
+      task_name: targetTaskName.trim(),
+      ...(targetCategoryId !== undefined ? { category_id: targetCategoryId } : {})
+    });
     broadcastSyncEvent(userId, 'time-entries');
 
     logger.info('Task names merged', { 
@@ -580,7 +399,7 @@ router.post('/merge-task-names', (req: AuthRequest, res: Response) => {
 });
 
 // Update all entries with a specific task_name+category to new task_name and/or category
-router.post('/update-task-name-bulk', (req: AuthRequest, res: Response) => {
+router.post('/update-task-name-bulk', async (req: AuthRequest, res: Response) => {
   try {
     const { oldTaskName, oldCategoryName, newTaskName, newCategoryName } = req.body;
     
@@ -597,55 +416,38 @@ router.post('/update-task-name-bulk', (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'At least one of newTaskName or newCategoryName must be provided' });
     }
 
-    const db = getDb();
+    const provider = getProvider();
     const userId = req.userId as number;
-    
-    // Get the old category ID
-    const oldCategoryResult = db.exec(
-      `SELECT id FROM categories WHERE user_id = ? AND name = ?`,
-      [userId, oldCategoryName.trim()]
-    );
-    
-    if (oldCategoryResult.length === 0 || oldCategoryResult[0].values.length === 0) {
+
+    const oldCategory = await provider.findCategoryByName(userId, oldCategoryName.trim());
+    if (!oldCategory) {
       return res.status(404).json({ error: 'Old category not found' });
     }
-    const oldCategoryId = oldCategoryResult[0].values[0][0] as number;
+    const oldCategoryId = oldCategory.id;
     
-    // Count entries that will be updated
-    const countResult = db.exec(
-      `SELECT COUNT(*) as count FROM time_entries 
-       WHERE user_id = ? AND task_name = ? AND category_id = ?`,
-      [userId, oldTaskName.trim(), oldCategoryId]
-    );
-    const totalEntries = countResult.length > 0 ? countResult[0].values[0][0] as number : 0;
+    const totalEntries = await provider.countTimeEntriesByTaskNameAndCategory(userId, oldTaskName.trim(), oldCategoryId);
     
     if (totalEntries === 0) {
       return res.status(404).json({ error: 'No entries found with the specified task name and category' });
     }
     
-    // Get new category ID if changing category
     let newCategoryId: number | null = null;
     if (newCategoryName) {
-      const newCategoryResult = db.exec(
-        `SELECT id FROM categories WHERE user_id = ? AND name = ?`,
-        [userId, newCategoryName.trim()]
-      );
-      if (newCategoryResult.length === 0 || newCategoryResult[0].values.length === 0) {
+      const newCategory = await provider.findCategoryByName(userId, newCategoryName.trim());
+      if (!newCategory) {
         return res.status(404).json({ error: 'New category not found' });
       }
-      newCategoryId = newCategoryResult[0].values[0][0] as number;
+      newCategoryId = newCategory.id;
     }
     
     // Build the update query based on what's being changed
     const finalTaskName = newTaskName ? newTaskName.trim() : oldTaskName.trim();
     const finalCategoryId = newCategoryId !== null ? newCategoryId : oldCategoryId;
-    
-    db.run(
-      `UPDATE time_entries SET task_name = ?, category_id = ? 
-       WHERE user_id = ? AND task_name = ? AND category_id = ?`,
-      [finalTaskName, finalCategoryId, userId, oldTaskName.trim(), oldCategoryId]
-    );
-    saveDatabase();
+
+    await provider.updateTimeEntriesForBulkUpdate(userId, oldTaskName.trim(), oldCategoryId, {
+      task_name: finalTaskName,
+      category_id: finalCategoryId
+    });
     broadcastSyncEvent(userId, 'time-entries');
 
     logger.info('Task names updated in bulk', { 
@@ -665,10 +467,10 @@ router.post('/update-task-name-bulk', (req: AuthRequest, res: Response) => {
 });
 
 // Delete all entries for a specific date
-router.delete('/by-date/:date', (req: AuthRequest, res: Response) => {
+router.delete('/by-date/:date', async (req: AuthRequest, res: Response) => {
   try {
     const { date } = req.params;
-    const db = getDb();
+    const provider = getProvider();
 
     // Validate date format (YYYY-MM-DD)
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
@@ -679,24 +481,12 @@ router.delete('/by-date/:date', (req: AuthRequest, res: Response) => {
     const endOfDay = `${date}T23:59:59.999Z`;
 
     // Count entries to be deleted (excluding active entries)
-    const countResult = db.exec(
-      `SELECT COUNT(*) as count FROM time_entries 
-       WHERE user_id = ? AND start_time >= ? AND start_time <= ? AND end_time IS NOT NULL`,
-      [req.userId as number, startOfDay, endOfDay]
-    );
-    const count = countResult.length > 0 ? countResult[0].values[0][0] as number : 0;
+    const count = await provider.deleteTimeEntriesByDate(req.userId as number, startOfDay, endOfDay);
 
     if (count === 0) {
       return res.status(404).json({ error: 'No completed entries found for this date' });
     }
 
-    // Delete entries (only completed ones, not active)
-    db.run(
-      `DELETE FROM time_entries 
-       WHERE user_id = ? AND start_time >= ? AND start_time <= ? AND end_time IS NOT NULL`,
-      [req.userId as number, startOfDay, endOfDay]
-    );
-    saveDatabase();
     broadcastSyncEvent(req.userId as number, 'time-entries');
 
     logger.info('Time entries deleted for date', { date, count, userId: req.userId as number });
