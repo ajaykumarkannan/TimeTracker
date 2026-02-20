@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
-import { getDb, saveDatabase } from '../database';
+import { getProvider } from '../database';
 import { logger } from '../logger';
 import { config } from '../config';
 import { 
@@ -27,43 +27,31 @@ router.post('/register', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Password must be at least 6 characters' });
     }
 
-    const db = getDb();
-    
-    // Check if user exists
-    const existing = db.exec(`SELECT id FROM users WHERE email = ?`, [email]);
-    if (existing.length > 0 && existing[0].values.length > 0) {
+    const provider = getProvider();
+    const existing = await provider.findUserByEmail(email);
+    if (existing) {
       return res.status(409).json({ error: 'Email already exists' });
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
     
-    db.run(
-      `INSERT INTO users (email, username, password_hash) VALUES (?, ?, ?)`,
-      [email, name, passwordHash]
-    );
-    saveDatabase();
-
-    const result = db.exec(`SELECT id, email, username, created_at FROM users WHERE email = ?`, [email]);
+    const userRecord = await provider.createUser({ email, username: name, password_hash: passwordHash });
     const user = {
-      id: result[0].values[0][0] as number,
-      email: result[0].values[0][1] as string,
-      name: result[0].values[0][2] as string,
-      created_at: result[0].values[0][3] as string
+      id: userRecord.id,
+      email: userRecord.email,
+      name: userRecord.username,
+      created_at: userRecord.created_at
     };
 
     // Create default categories for new user
-    createDefaultCategories(user.id);
+    await createDefaultCategories(user.id);
 
     const accessToken = generateAccessToken(user.id, user.email);
     const refreshToken = generateRefreshToken(user.id, user.email);
 
     // Store refresh token
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-    db.run(
-      `INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES (?, ?, ?)`,
-      [user.id, refreshToken, expiresAt]
-    );
-    saveDatabase();
+    await provider.createRefreshToken({ user_id: user.id, token: refreshToken, expires_at: expiresAt });
 
     logger.info('User registered', { userId: user.id, email: user.email });
 
@@ -87,21 +75,17 @@ router.post('/login', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Email and password are required' });
     }
 
-    const db = getDb();
-    const result = db.exec(
-      `SELECT id, email, username, password_hash FROM users WHERE email = ?`,
-      [email]
-    );
-
-    if (result.length === 0 || result[0].values.length === 0) {
+    const provider = getProvider();
+    const userRecord = await provider.findUserByEmail(email);
+    if (!userRecord) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
     const user = {
-      id: result[0].values[0][0] as number,
-      email: result[0].values[0][1] as string,
-      name: result[0].values[0][2] as string,
-      password_hash: result[0].values[0][3] as string
+      id: userRecord.id,
+      email: userRecord.email,
+      name: userRecord.username,
+      password_hash: userRecord.password_hash
     };
 
     const validPassword = await bcrypt.compare(password, user.password_hash);
@@ -119,11 +103,7 @@ router.post('/login', async (req: Request, res: Response) => {
     const expiresAt = new Date(Date.now() + tokenExpiry).toISOString();
 
     // Store refresh token with calculated expiry
-    db.run(
-      `INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES (?, ?, ?)`,
-      [user.id, refreshToken, expiresAt]
-    );
-    saveDatabase();
+    await provider.createRefreshToken({ user_id: user.id, token: refreshToken, expires_at: expiresAt });
 
     logger.info('User logged in', { userId: user.id, rememberMe: !!rememberMe });
 
@@ -139,7 +119,7 @@ router.post('/login', async (req: Request, res: Response) => {
 });
 
 // Refresh token
-router.post('/refresh', (req: Request, res: Response) => {
+router.post('/refresh', async (req: Request, res: Response) => {
   try {
     const { refreshToken } = req.body;
 
@@ -152,42 +132,33 @@ router.post('/refresh', (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Invalid refresh token' });
     }
 
-    const db = getDb();
-    const result = db.exec(
-      `SELECT id, user_id, expires_at FROM refresh_tokens WHERE token = ?`,
-      [refreshToken]
-    );
-
-    if (result.length === 0 || result[0].values.length === 0) {
+    const provider = getProvider();
+    const tokenRecord = await provider.findRefreshToken(refreshToken);
+    if (!tokenRecord) {
       return res.status(401).json({ error: 'Refresh token not found' });
     }
 
     const tokenData = {
-      id: result[0].values[0][0] as number,
-      user_id: result[0].values[0][1] as number,
-      expires_at: result[0].values[0][2] as string
+      id: tokenRecord.id,
+      user_id: tokenRecord.user_id,
+      expires_at: tokenRecord.expires_at
     };
 
     if (new Date(tokenData.expires_at) < new Date()) {
-      db.run(`DELETE FROM refresh_tokens WHERE id = ?`, [tokenData.id]);
-      saveDatabase();
+      await provider.deleteRefreshTokenById(tokenData.id);
       return res.status(401).json({ error: 'Refresh token expired' });
     }
 
     // Get user info
-    const userResult = db.exec(
-      `SELECT id, email, username FROM users WHERE id = ?`,
-      [tokenData.user_id]
-    );
-
-    if (userResult.length === 0 || userResult[0].values.length === 0) {
+    const userRecord = await provider.findUserById(tokenData.user_id);
+    if (!userRecord) {
       return res.status(401).json({ error: 'User not found' });
     }
 
     const user = {
-      id: userResult[0].values[0][0] as number,
-      email: userResult[0].values[0][1] as string,
-      name: userResult[0].values[0][2] as string
+      id: userRecord.id,
+      email: userRecord.email,
+      name: userRecord.username
     };
 
     const newAccessToken = generateAccessToken(user.id, user.email);
@@ -207,12 +178,8 @@ router.post('/refresh', (req: Request, res: Response) => {
     const newExpiresAt = new Date(Date.now() + tokenExpiry).toISOString();
 
     // Rotate refresh token
-    db.run(`DELETE FROM refresh_tokens WHERE id = ?`, [tokenData.id]);
-    db.run(
-      `INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES (?, ?, ?)`,
-      [user.id, newRefreshToken, newExpiresAt]
-    );
-    saveDatabase();
+    await provider.deleteRefreshTokenById(tokenData.id);
+    await provider.createRefreshToken({ user_id: user.id, token: newRefreshToken, expires_at: newExpiresAt });
 
     logger.info('Token refreshed', { userId: user.id, extendedExpiration: isExtendedToken });
 
@@ -228,18 +195,17 @@ router.post('/refresh', (req: Request, res: Response) => {
 });
 
 // Logout
-router.post('/logout', authMiddleware, (req: AuthRequest, res: Response) => {
+router.post('/logout', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     const { refreshToken } = req.body;
-    const db = getDb();
+    const provider = getProvider();
 
     if (refreshToken) {
-      db.run(`DELETE FROM refresh_tokens WHERE token = ?`, [refreshToken]);
+      await provider.deleteRefreshToken(refreshToken);
     } else {
       // Logout from all devices
-      db.run(`DELETE FROM refresh_tokens WHERE user_id = ?`, [req.userId as number]);
+      await provider.deleteRefreshTokensForUser(req.userId as number);
     }
-    saveDatabase();
 
     logger.info('User logged out', { userId: req.userId as number });
     res.json({ message: 'Logged out successfully' });
@@ -250,23 +216,19 @@ router.post('/logout', authMiddleware, (req: AuthRequest, res: Response) => {
 });
 
 // Get current user
-router.get('/me', authMiddleware, (req: AuthRequest, res: Response) => {
+router.get('/me', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
-    const db = getDb();
-    const result = db.exec(
-      `SELECT id, email, username, created_at FROM users WHERE id = ?`,
-      [req.userId as number]
-    );
-
-    if (result.length === 0 || result[0].values.length === 0) {
+    const provider = getProvider();
+    const userRecord = await provider.findUserById(req.userId as number);
+    if (!userRecord) {
       return res.status(404).json({ error: 'User not found' });
     }
 
     const user = {
-      id: result[0].values[0][0] as number,
-      email: result[0].values[0][1] as string,
-      name: result[0].values[0][2] as string,
-      created_at: result[0].values[0][3] as string
+      id: userRecord.id,
+      email: userRecord.email,
+      name: userRecord.username,
+      created_at: userRecord.created_at
     };
 
     res.json(user);
@@ -294,41 +256,33 @@ router.post('/convert', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Password must be at least 6 characters' });
     }
 
-    const db = getDb();
+    const provider = getProvider();
 
     // Check if email already exists (excluding the guest's temporary email)
     const guestEmail = `anon_${sessionId}@local`;
-    const existing = db.exec(`SELECT id FROM users WHERE email = ? AND email != ?`, [email, guestEmail]);
-    if (existing.length > 0 && existing[0].values.length > 0) {
+    const existing = await provider.findUserByEmail(email);
+    if (existing && existing.email !== guestEmail) {
       return res.status(409).json({ error: 'Email already exists' });
     }
 
     // Find the guest user by their anonymous email pattern
-    const guestResult = db.exec(`SELECT id FROM users WHERE email = ?`, [guestEmail]);
-    if (guestResult.length === 0 || guestResult[0].values.length === 0) {
+    const guestUser = await provider.findUserByEmail(guestEmail);
+    if (!guestUser) {
       return res.status(404).json({ error: 'Guest session not found' });
     }
 
-    const guestUserId = guestResult[0].values[0][0] as number;
+    const guestUserId = guestUser.id;
     const passwordHash = await bcrypt.hash(password, 12);
 
     // Update the guest user to a registered user
-    db.run(
-      `UPDATE users SET email = ?, username = ?, password_hash = ? WHERE id = ?`,
-      [email, name, passwordHash, guestUserId]
-    );
-    saveDatabase();
+    await provider.updateUser(guestUserId, { email, username: name, password_hash: passwordHash });
 
     const accessToken = generateAccessToken(guestUserId, email);
     const refreshToken = generateRefreshToken(guestUserId, email);
 
     // Store refresh token
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-    db.run(
-      `INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES (?, ?, ?)`,
-      [guestUserId, refreshToken, expiresAt]
-    );
-    saveDatabase();
+    await provider.createRefreshToken({ user_id: guestUserId, token: refreshToken, expires_at: expiresAt });
 
     logger.info('Guest converted to account', { userId: guestUserId, email });
 
@@ -347,29 +301,25 @@ router.post('/convert', async (req: Request, res: Response) => {
 router.put('/update', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     const { name, email, currentPassword, newPassword } = req.body;
-    const db = getDb();
+    const provider = getProvider();
     const userId = req.userId as number;
 
     // Get current user
-    const userResult = db.exec(
-      `SELECT email, username, password_hash FROM users WHERE id = ?`,
-      [userId]
-    );
-
-    if (userResult.length === 0 || userResult[0].values.length === 0) {
+    const userRecord = await provider.findUserById(userId);
+    if (!userRecord) {
       return res.status(404).json({ error: 'User not found' });
     }
 
     const currentUser = {
-      email: userResult[0].values[0][0] as string,
-      name: userResult[0].values[0][1] as string,
-      password_hash: userResult[0].values[0][2] as string
+      email: userRecord.email,
+      name: userRecord.username,
+      password_hash: userRecord.password_hash
     };
 
     // Check for conflicts if changing email
     if (email && email !== currentUser.email) {
-      const emailCheck = db.exec(`SELECT id FROM users WHERE email = ? AND id != ?`, [email, userId]);
-      if (emailCheck.length > 0 && emailCheck[0].values.length > 0) {
+      const emailCheck = await provider.findUserByEmailExcludingId(email, userId);
+      if (emailCheck) {
         return res.status(409).json({ error: 'Email already in use' });
       }
     }
@@ -391,11 +341,11 @@ router.put('/update', authMiddleware, async (req: AuthRequest, res: Response) =>
     }
 
     // Update user
-    db.run(
-      `UPDATE users SET email = ?, username = ?, password_hash = ? WHERE id = ?`,
-      [email || currentUser.email, name || currentUser.name, newPasswordHash, userId]
-    );
-    saveDatabase();
+    await provider.updateUser(userId, {
+      email: email || currentUser.email,
+      username: name || currentUser.name,
+      password_hash: newPasswordHash
+    });
 
     logger.info('Account updated', { userId });
 
@@ -411,17 +361,11 @@ router.put('/update', authMiddleware, async (req: AuthRequest, res: Response) =>
 });
 
 // Delete account
-router.delete('/delete', authMiddleware, (req: AuthRequest, res: Response) => {
+router.delete('/delete', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
-    const db = getDb();
+    const provider = getProvider();
     const userId = req.userId as number;
-
-    // Delete all user data
-    db.run(`DELETE FROM time_entries WHERE user_id = ?`, [userId]);
-    db.run(`DELETE FROM categories WHERE user_id = ?`, [userId]);
-    db.run(`DELETE FROM refresh_tokens WHERE user_id = ?`, [userId]);
-    db.run(`DELETE FROM users WHERE id = ?`, [userId]);
-    saveDatabase();
+    await provider.deleteUser(userId);
 
     logger.info('Account deleted', { userId });
     res.json({ message: 'Account deleted successfully' });
@@ -440,30 +384,21 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Email is required' });
     }
 
-    const db = getDb();
-    const result = db.exec(`SELECT id, email FROM users WHERE email = ?`, [email]);
-
-    // Always return success to prevent email enumeration
-    if (result.length === 0 || result[0].values.length === 0) {
+    const provider = getProvider();
+    const userRecord = await provider.findUserByEmail(email);
+    if (!userRecord) {
       logger.info('Password reset requested for non-existent email', { email });
       return res.json({ message: 'If an account exists with this email, a reset link has been sent' });
     }
 
-    const userId = result[0].values[0][0] as number;
+    const userId = userRecord.id;
 
     // Generate reset token (simple random string for demo - in production use crypto)
     const resetToken = crypto.randomUUID();
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hour
 
     // Delete any existing reset tokens for this user
-    db.run(`DELETE FROM password_reset_tokens WHERE user_id = ?`, [userId]);
-
-    // Store reset token
-    db.run(
-      `INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES (?, ?, ?)`,
-      [userId, resetToken, expiresAt]
-    );
-    saveDatabase();
+    await provider.upsertPasswordResetToken({ user_id: userId, token: resetToken, expires_at: expiresAt });
 
     // In a real app, send email here. For demo, log the token
     logger.info('Password reset token generated', { userId, resetToken });
@@ -499,37 +434,31 @@ router.post('/reset-password', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Password must be at least 6 characters' });
     }
 
-    const db = getDb();
-    const result = db.exec(
-      `SELECT user_id, expires_at FROM password_reset_tokens WHERE token = ?`,
-      [token]
-    );
-
-    if (result.length === 0 || result[0].values.length === 0) {
+    const provider = getProvider();
+    const tokenRecord = await provider.findPasswordResetToken(token);
+    if (!tokenRecord) {
       return res.status(400).json({ error: 'Invalid or expired reset token' });
     }
 
     const tokenData = {
-      user_id: result[0].values[0][0] as number,
-      expires_at: result[0].values[0][1] as string
+      user_id: tokenRecord.user_id,
+      expires_at: tokenRecord.expires_at
     };
 
     if (new Date(tokenData.expires_at) < new Date()) {
-      db.run(`DELETE FROM password_reset_tokens WHERE token = ?`, [token]);
-      saveDatabase();
+      await provider.deletePasswordResetToken(token);
       return res.status(400).json({ error: 'Reset token has expired' });
     }
 
     // Update password
     const passwordHash = await bcrypt.hash(newPassword, 12);
-    db.run(`UPDATE users SET password_hash = ? WHERE id = ?`, [passwordHash, tokenData.user_id]);
+    await provider.updateUser(tokenData.user_id, { password_hash: passwordHash });
 
     // Delete the used token
-    db.run(`DELETE FROM password_reset_tokens WHERE token = ?`, [token]);
+    await provider.deletePasswordResetToken(token);
 
     // Invalidate all refresh tokens for security
-    db.run(`DELETE FROM refresh_tokens WHERE user_id = ?`, [tokenData.user_id]);
-    saveDatabase();
+    await provider.deleteRefreshTokensForUser(tokenData.user_id);
 
     logger.info('Password reset successful', { userId: tokenData.user_id });
 

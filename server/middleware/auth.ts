@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt, { SignOptions } from 'jsonwebtoken';
-import { getDb, saveDatabase } from '../database';
+import { getProvider } from '../database';
 import { logger } from '../logger';
 import { config } from '../config';
 
@@ -34,66 +34,28 @@ export function verifyToken(token: string): JwtPayload | null {
 }
 
 // Get or create anonymous user by session ID
-export function getOrCreateAnonymousUser(sessionId: string): number {
-  const db = getDb();
+export async function getOrCreateAnonymousUser(sessionId: string): Promise<number> {
+  const provider = getProvider();
   const email = `anon_${sessionId}@local`;
-  
-  // Check if anonymous user exists for this session
-  const existing = db.exec(
-    `SELECT id FROM users WHERE email = ?`,
-    [email]
-  );
-  
-  if (existing.length > 0 && existing[0].values.length > 0) {
-    return existing[0].values[0][0] as number;
+  const existing = await provider.findUserByEmail(email);
+  if (existing) {
+    return existing.id;
   }
-  
-  // Create anonymous user with unique username based on session ID
-  const shortId = sessionId.substring(0, 8);
-  db.run(
-    `INSERT INTO users (email, username, password_hash) VALUES (?, ?, ?)`,
-    [email, `Guest_${shortId}`, 'anonymous-no-password']
-  );
-  saveDatabase();
-  
-  // Query for the newly created user to get the ID
-  const newUser = db.exec(`SELECT id FROM users WHERE email = ?`, [email]);
-  const userId = newUser[0].values[0][0] as number;
-  
-  // Create default categories for new user
-  createDefaultCategories(userId);
-  
-  logger.info('Created anonymous user', { userId, sessionId });
-  return userId;
+
+  const user = await provider.createAnonymousUser(sessionId);
+  await provider.createDefaultCategories(user.id);
+  logger.info('Created anonymous user', { userId: user.id, sessionId });
+  return user.id;
 }
 
 // Create default categories for a new user
-export function createDefaultCategories(userId: number) {
-  const db = getDb();
-  const defaults = [
-    { name: 'Meetings', color: '#6366f1' },
-    { name: 'Deep Work', color: '#10b981' },
-    { name: 'Email & Communication', color: '#f59e0b' },
-    { name: 'Planning', color: '#8b5cf6' },
-    { name: 'Break', color: '#64748b' }
-  ];
-  
-  for (const cat of defaults) {
-    try {
-      db.run(
-        `INSERT INTO categories (user_id, name, color) VALUES (?, ?, ?)`,
-        [userId, cat.name, cat.color]
-      );
-    } catch {
-      // Ignore if category already exists
-    }
-  }
-  saveDatabase();
-  logger.info('Created default categories', { userId });
+export async function createDefaultCategories(userId: number) {
+  const provider = getProvider();
+  await provider.createDefaultCategories(userId);
 }
 
 // Flexible auth - allows anonymous sessions
-export function flexAuthMiddleware(req: AuthRequest, res: Response, next: NextFunction) {
+export async function flexAuthMiddleware(req: AuthRequest, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
   const sessionId = req.headers['x-session-id'] as string;
   
@@ -112,7 +74,7 @@ export function flexAuthMiddleware(req: AuthRequest, res: Response, next: NextFu
   
   // Fall back to anonymous session
   if (sessionId) {
-    req.userId = getOrCreateAnonymousUser(sessionId);
+    req.userId = await getOrCreateAnonymousUser(sessionId);
     req.isAnonymous = true;
     return next();
   }

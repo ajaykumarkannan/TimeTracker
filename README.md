@@ -160,7 +160,10 @@ npm start
 |----------|---------|-------------|
 | `PORT` | 4849 | Server port |
 | `JWT_SECRET` | - | **Required in production** - Token signing secret |
+| `DB_DRIVER` | sqlite | Database driver (`sqlite` or `mongo`) |
 | `DB_PATH` | ./data/timetracker.db | Database file location |
+| `MONGO_URI` | mongodb://localhost:27017 | MongoDB connection string (when using `mongo`) |
+| `MONGO_DB` | chronoflow | MongoDB database name (when using `mongo`) |
 | `CORS_ORIGIN` | * | Allowed origins (set to your domain in production) |
 | `TRUST_PROXY` | false | Set to `true` behind a reverse proxy |
 
@@ -216,6 +219,26 @@ docker-compose stop chronoflow
 cp ./backups/timetracker-YYYYMMDD.db ./data/timetracker.db
 docker-compose start chronoflow
 ```
+
+### SQLite → MongoDB migration
+
+1) Ensure MongoDB is running (local or Docker) and set the Mongo env vars.
+2) Run the migration flag once to copy SQLite data into Mongo:
+
+```bash
+MIGRATE_SQLITE_TO_MONGO=true node dist/server/data/migration/sqliteToMongo.js
+```
+
+3) Switch the app to Mongo:
+
+```bash
+export DB_DRIVER=mongo
+export MONGO_URI=mongodb://localhost:27017
+export MONGO_DB=chronoflow
+npm start
+```
+
+Migration entry point is [`migrateSqliteToMongo()`](server/data/migration/sqliteToMongo.ts:5).
 
 ## Troubleshooting
 

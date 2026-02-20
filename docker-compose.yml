@@ -12,6 +12,10 @@ services:
       - NODE_ENV=production
       - PORT=4849
       - DB_PATH=/app/data/timetracker.db
+      # MongoDB option
+      # - DB_DRIVER=mongo
+      # - MONGO_URI=mongodb://chronoflow-mongo:27017
+      # - MONGO_DB=chronoflow
       - TRUST_PROXY=true
       - JWT_SECRET=local-dev-secret-change-in-real-production
       # - CORS_ORIGIN=https://your-domain.com
@@ -35,6 +39,18 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  chronoflow-mongo:
+    image: mongo:7
+    container_name: chronoflow-mongo
+    profiles:
+      - mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - chronoflow-mongo-data:/data/db
+    restart: unless-stopped
+
 volumes:
   chronoflow-data:
   chronoflow-logs:
+  chronoflow-mongo-data:

@@ -22,7 +22,7 @@ This starts both the Vite dev server (frontend) and Express server (backend) wit
 |-------|------------|
 | Frontend | React 18, TypeScript, Vite |
 | Backend | Express.js, TypeScript |
-| Database | SQLite (sql.js - WebAssembly) |
+| Database | SQLite (sql.js - WebAssembly) or MongoDB (official driver) |
 | Auth | JWT + refresh tokens |
 | Styling | CSS variables (no framework) |
 | Testing | Vitest, React Testing Library, Playwright |
@@ -221,7 +221,10 @@ For feature releases or breaking changes:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `PORT` | 4847 | Server port |
-| `DB_PATH` | ./data/timetracker.db | Database path |
+| `DB_DRIVER` | sqlite | Database driver (`sqlite` or `mongo`) |
+| `DB_PATH` | ./data/timetracker.db | Database path (SQLite only) |
+| `MONGO_URI` | mongodb://localhost:27017 | MongoDB connection string |
+| `MONGO_DB` | chronoflow | Mongo database name |
 | `JWT_SECRET` | dev-default | Token secret |
 
 ### Production
@@ -229,6 +232,10 @@ For feature releases or breaking changes:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `PORT` | 4849 | Server port |
+| `DB_DRIVER` | sqlite | Database driver (`sqlite` or `mongo`) |
+| `DB_PATH` | /app/data/timetracker.db | Database path (SQLite only) |
+| `MONGO_URI` | mongodb://localhost:27017 | MongoDB connection string |
+| `MONGO_DB` | chronoflow | Mongo database name |
 | `JWT_SECRET` | - | **Required** |
 | `CORS_ORIGIN` | * | Allowed origins |
 | `TRUST_PROXY` | true | Behind reverse proxy |
@@ -245,14 +252,30 @@ Log levels: error, warn, info, http, debug
 
 ## Database
 
-SQLite via sql.js (WebAssembly). Features:
+SQLite via sql.js (WebAssembly) or MongoDB via the official driver.
+
+SQLite features:
 - Batched writes (every 5 seconds)
 - Optimized indexes
 - Graceful shutdown saves pending writes
 
+MongoDB notes:
+- Configure with `DB_DRIVER=mongo`, `MONGO_URI`, `MONGO_DB`.
+- Mongo collections are indexed on startup in [`createMongoProvider()`](server/data/mongo/provider.ts:41).
+
 ### Migrations
 
 Add migrations in `server/migrations/index.ts`. They run automatically on startup.
+
+### SQLite → MongoDB migration
+
+Use the migration helper to copy data from SQLite to MongoDB:
+
+```bash
+MIGRATE_SQLITE_TO_MONGO=true node dist/server/data/migration/sqliteToMongo.js
+```
+
+Then start the server with `DB_DRIVER=mongo` and the Mongo env vars. Migration entry point: [`migrateSqliteToMongo()`](server/data/migration/sqliteToMongo.ts:5).
 
 ## Scalability Notes
 

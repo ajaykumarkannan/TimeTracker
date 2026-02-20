@@ -1,5 +1,5 @@
 import { Router, Response } from 'express';
-import { getDb, saveDatabase } from '../database';
+import { getProvider } from '../database';
 import { logger } from '../logger';
 import { flexAuthMiddleware, AuthRequest } from '../middleware/auth';
 
@@ -8,31 +8,21 @@ const router = Router();
 router.use(flexAuthMiddleware);
 
 // Export time entries as CSV
-router.get('/csv', (req: AuthRequest, res: Response) => {
+router.get('/csv', async (req: AuthRequest, res: Response) => {
   try {
-    const db = getDb();
-    
-    const entriesResult = db.exec(`
-      SELECT c.name as category_name, c.color as category_color,
-             te.task_name, te.start_time, te.end_time
-      FROM time_entries te
-      JOIN categories c ON te.category_id = c.id
-      WHERE te.user_id = ?
-      ORDER BY te.start_time DESC
-    `, [req.userId as number]);
-
-    const rows = entriesResult.length > 0 ? entriesResult[0].values : [];
+    const provider = getProvider();
+    const rows = await provider.listExportRows(req.userId as number);
     
     // CSV header
     const csvHeader = 'Category,Color,Task,Start Time,End Time';
     
     // CSV rows - escape fields properly
     const csvRows = rows.map(row => {
-      const category = escapeCSV(row[0] as string);
-      const color = escapeCSV(row[1] as string | null);
-      const taskName = escapeCSV(row[2] as string | null);
-      const startTime = row[3] as string;
-      const endTime = row[4] as string | null || '';
+      const category = escapeCSV(row.category_name);
+      const color = escapeCSV(row.category_color);
+      const taskName = escapeCSV(row.task_name);
+      const startTime = row.start_time;
+      const endTime = row.end_time || '';
       return `${category},${color},${taskName},${startTime},${endTime}`;
     });
 
@@ -48,7 +38,7 @@ router.get('/csv', (req: AuthRequest, res: Response) => {
 });
 
 // Preview CSV import (parse and return data for review)
-router.post('/csv/preview', (req: AuthRequest, res: Response) => {
+router.post('/csv/preview', async (req: AuthRequest, res: Response) => {
   try {
     const { csv, columnMapping, timeOffsetMinutes } = req.body;
     const offsetMs = (timeOffsetMinutes || 0) * 60 * 1000;
@@ -93,23 +83,12 @@ router.post('/csv/preview', (req: AuthRequest, res: Response) => {
     }
 
     // Parse with provided mapping
-    const db = getDb();
-    
-    // Get existing categories
-    const categoriesResult = db.exec(
-      `SELECT id, name, color FROM categories WHERE user_id = ?`,
-      [req.userId as number]
-    );
-    
+    const provider = getProvider();
+    const categories = await provider.listCategories(req.userId as number);
     const existingCategories = new Map<string, { id: number; color: string | null }>();
-    if (categoriesResult.length > 0) {
-      categoriesResult[0].values.forEach(row => {
-        existingCategories.set((row[1] as string).toLowerCase(), { 
-          id: row[0] as number, 
-          color: row[2] as string | null 
-        });
-      });
-    }
+    categories.forEach(category => {
+      existingCategories.set(category.name.toLowerCase(), { id: category.id, color: category.color });
+    });
 
     const entries: Array<{
       rowIndex: number;
@@ -204,7 +183,7 @@ router.post('/csv/preview', (req: AuthRequest, res: Response) => {
 });
 
 // Import time entries from CSV (with optional entries override)
-router.post('/csv', (req: AuthRequest, res: Response) => {
+router.post('/csv', async (req: AuthRequest, res: Response) => {
   try {
     const { csv, columnMapping, entries: overrideEntries } = req.body;
     
@@ -212,7 +191,7 @@ router.post('/csv', (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'CSV data is required' });
     }
 
-    const db = getDb();
+    const provider = getProvider();
     const lines = csv.split('\n').filter(line => line.trim());
     
     if (lines.length < 2) {
@@ -233,20 +212,11 @@ router.post('/csv', (req: AuthRequest, res: Response) => {
     }
 
     // Get existing categories for this user
-    const categoriesResult = db.exec(
-      `SELECT id, name, color FROM categories WHERE user_id = ?`,
-      [req.userId as number]
-    );
-    
+    const categories = await provider.listCategories(req.userId as number);
     const categoryMap = new Map<string, { id: number; color: string | null }>();
-    if (categoriesResult.length > 0) {
-      categoriesResult[0].values.forEach(row => {
-        categoryMap.set((row[1] as string).toLowerCase(), { 
-          id: row[0] as number, 
-          color: row[2] as string | null 
-        });
-      });
-    }
+    categories.forEach(category => {
+      categoryMap.set(category.name.toLowerCase(), { id: category.id, color: category.color });
+    });
 
     let imported = 0;
     let skipped = 0;
@@ -308,12 +278,12 @@ router.post('/csv', (req: AuthRequest, res: Response) => {
       } else {
         // Create new category with provided color or auto-generated one
         const categoryColor = color || generateCategoryColor(categoryMap.size);
-        db.run(
-          `INSERT INTO categories (user_id, name, color) VALUES (?, ?, ?)`,
-          [req.userId as number, category, categoryColor]
-        );
-        const idResult = db.exec(`SELECT last_insert_rowid() as id`);
-        categoryId = idResult[0].values[0][0] as number;
+        const newCategory = await provider.createCategory({
+          user_id: req.userId as number,
+          name: category,
+          color: categoryColor
+        });
+        categoryId = newCategory.id;
         categoryMap.set(category.toLowerCase(), { id: categoryId, color: categoryColor });
       }
 
@@ -324,14 +294,17 @@ router.post('/csv', (req: AuthRequest, res: Response) => {
       }
 
       // Insert time entry
-      db.run(
-        `INSERT INTO time_entries (user_id, category_id, task_name, start_time, end_time, duration_minutes) VALUES (?, ?, ?, ?, ?, ?)`,
-        [req.userId as number, categoryId, task_name || null, startDate.toISOString(), endDate?.toISOString() || null, duration]
-      );
+      await provider.createTimeEntry({
+        user_id: req.userId as number,
+        category_id: categoryId,
+        task_name: task_name || null,
+        start_time: startDate.toISOString(),
+        end_time: endDate?.toISOString() || null,
+        scheduled_end_time: null,
+        duration_minutes: duration
+      });
       imported++;
     }
-
-    saveDatabase();
     
     logger.info('CSV import completed', { 
       userId: req.userId, 

@@ -3,7 +3,7 @@ import { logger } from '../logger';
 import { flexAuthMiddleware, AuthRequest } from '../middleware/auth';
 import jwt from 'jsonwebtoken';
 import { config } from '../config';
-import { getDb } from '../database';
+import { getProvider } from '../database';
 
 const router = Router();
 
@@ -50,7 +50,7 @@ export function broadcastSyncEvent(userId: number, type: 'time-entries' | 'categ
 }
 
 // Custom auth middleware for SSE that supports query params
-function sseAuthMiddleware(req: Request, res: Response, next: () => void) {
+async function sseAuthMiddleware(req: Request, res: Response, next: () => void) {
   const token = req.query.token as string;
   const sessionId = req.query.sessionId as string;
   
@@ -64,16 +64,11 @@ function sseAuthMiddleware(req: Request, res: Response, next: () => void) {
       return res.status(401).json({ error: 'Invalid token' });
     }
   } else if (sessionId) {
-    // Session auth - look up user by session
-    const db = getDb();
+    const provider = getProvider();
     const guestEmail = `anon_${sessionId}@local`;
-    const result = db.exec(
-      `SELECT id FROM users WHERE email = ?`,
-      [guestEmail]
-    );
-    
-    if (result.length > 0 && result[0].values.length > 0) {
-      (req as AuthRequest).userId = result[0].values[0][0] as number;
+    const user = await provider.findUserByEmail(guestEmail);
+    if (user) {
+      (req as AuthRequest).userId = user.id;
       return next();
     }
     return res.status(401).json({ error: 'Invalid session' });

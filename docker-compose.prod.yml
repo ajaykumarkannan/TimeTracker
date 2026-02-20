@@ -21,6 +21,10 @@ x-chronoflow-common: &chronoflow-common
     - NODE_ENV=production
     - PORT=4849
     - DB_PATH=/app/data/timetracker.db
+    # MongoDB option
+    # - DB_DRIVER=mongo
+    # - MONGO_URI=mongodb://chronoflow-mongo:27017
+    # - MONGO_DB=chronoflow
     - TRUST_PROXY=true
     - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
     - CORS_ORIGIN=${CORS_ORIGIN:-*}
@@ -69,6 +73,19 @@ services:
       - ${DATA_PATH:-./data}:/app/data
       - ${LOGS_PATH:-./logs}:/app/logs
 
+  chronoflow-mongo:
+    image: mongo:7
+    container_name: chronoflow-mongo
+    profiles:
+      - mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - chronoflow-mongo-data:/data/db
+    restart: unless-stopped
+    networks:
+      - chronoflow-net
+
   # Cloudflare Tunnel (enable with: --profile tunnel)
   cloudflared:
     image: cloudflare/cloudflared:latest
@@ -102,3 +119,4 @@ networks:
 volumes:
   chronoflow-data:
   chronoflow-logs:
+  chronoflow-mongo-data:
