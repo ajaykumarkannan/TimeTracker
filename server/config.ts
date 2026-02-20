@@ -16,7 +16,10 @@ export const config = {
   nodeEnv: process.env.NODE_ENV || 'development',
   
   // Database
+  dbDriver: (process.env.DB_DRIVER || 'sqlite') as 'sqlite' | 'mongo',
   dbPath: process.env.DB_PATH || './data/timetracker.db',
+  mongoUri: process.env.MONGO_URI || 'mongodb://localhost:27017',
+  mongoDbName: process.env.MONGO_DB || 'chronoflow',
   
   // Security
   jwtSecret: process.env.JWT_SECRET || 'dev-secret-change-in-production',
@@ -54,6 +57,15 @@ export function validateConfig(): void {
     }
     if (config.corsOrigin === '*') {
       warnings.push('CORS_ORIGIN is set to * in production - consider restricting');
+    }
+  }
+
+  if (config.dbDriver === 'mongo') {
+    if (!config.mongoUri) {
+      errors.push('MONGO_URI must be set when DB_DRIVER=mongo');
+    }
+    if (!config.mongoDbName) {
+      errors.push('MONGO_DB must be set when DB_DRIVER=mongo');
     }
   }
   

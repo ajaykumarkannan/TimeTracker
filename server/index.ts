@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
-import { initDatabase, shutdownDatabase, getDb } from './database';
+import { initDatabase, shutdownDatabase, getProvider } from './database';
 import { logger } from './logger';
 import { config, validateConfig } from './config';
 import { rateLimiter, securityHeaders, sanitizeInput } from './middleware/security';
@@ -70,7 +70,7 @@ app.use('/api/settings', settingsRouter);
 app.use('/api/sync', syncRouter);
 
 // Version endpoint
-app.get('/api/version', (req, res) => {
+app.get('/api/version', async (req, res) => {
   let appVersion = '0.0.0';
   try {
     const pkg = JSON.parse(readFileSync(path.join(__dirname, '..', 'package.json'), 'utf-8'));
@@ -79,26 +79,26 @@ app.get('/api/version', (req, res) => {
     // Use default if package.json not found
   }
   
-  const db = getDb();
-  const dbVersion = getCurrentVersion(db);
+  const provider = getProvider();
+  const dbVersion = await provider.getCurrentVersion();
+  const latestVersion = await provider.getLatestVersion();
   
   res.json({
     app: appVersion,
     database: {
       current: dbVersion,
-      latest: LATEST_VERSION,
-      upToDate: dbVersion >= LATEST_VERSION
+      latest: latestVersion,
+      upToDate: dbVersion >= latestVersion
     },
     environment: config.nodeEnv
   });
 });
 
 // Health check endpoint (for Docker, load balancers, monitoring)
-app.get('/api/health', (req, res) => {
+app.get('/api/health', async (req, res) => {
   try {
-    // Quick database check
-    const db = getDb();
-    db.exec('SELECT 1');
+    const provider = getProvider();
+    await provider.getCurrentVersion();
     
     res.json({ 
       status: 'healthy',
@@ -113,12 +113,13 @@ app.get('/api/health', (req, res) => {
 });
 
 // Readiness check (for Kubernetes-style deployments)
-app.get('/api/ready', (req, res) => {
+app.get('/api/ready', async (req, res) => {
   try {
-    const db = getDb();
-    const dbVersion = getCurrentVersion(db);
+    const provider = getProvider();
+    const dbVersion = await provider.getCurrentVersion();
+    const latestVersion = await provider.getLatestVersion();
     
-    if (dbVersion < LATEST_VERSION) {
+    if (dbVersion < latestVersion) {
       res.status(503).json({ 
         status: 'not ready',
         reason: 'Database migration pending'

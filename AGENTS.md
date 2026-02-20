@@ -36,7 +36,7 @@ Both modes use the same server-side SQLite database - there is no localStorage-b
 ### Backend
 
 - **Express.js** with TypeScript
-- **sql.js** (SQLite compiled to WebAssembly) for database
+- **sql.js** (SQLite compiled to WebAssembly) or **MongoDB** (official driver) for database
 - **JWT** with refresh tokens for authentication
 - **Winston** for logging
 
@@ -217,7 +217,10 @@ Winston logger configured in `server/logger.ts`:
 | Variable | Default | Description |
 | ------------ | ------------------------- | ------------------- |
 | `PORT` | 4847 (dev) / 4849 (prod) | Server port |
-| `DB_PATH` | ./data/timetracker.db | Database file path |
+| `DB_DRIVER` | sqlite | Database driver (`sqlite` or `mongo`) |
+| `DB_PATH` | ./data/timetracker.db | Database file path (SQLite only) |
+| `MONGO_URI` | mongodb://localhost:27017 | MongoDB connection string |
+| `MONGO_DB` | chronoflow | Mongo database name |
 | `JWT_SECRET` | (dev default) | JWT signing secret |
 | `NODE_ENV` | development | Environment |
 | `CORS_ORIGIN` | * | Allowed CORS origins |

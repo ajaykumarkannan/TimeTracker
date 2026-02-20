@@ -3,7 +3,7 @@
  * Reduces code duplication and improves maintainability
  */
 
-import { TimeEntry } from '../database';
+import { TimeEntry } from '../data/types';
 
 /**
  * Base query for time entries with category information
