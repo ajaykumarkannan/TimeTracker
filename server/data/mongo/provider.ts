@@ -8,9 +8,7 @@ import type {
   PasswordResetToken,
   RefreshToken,
   TaskNameStats,
-  TaskSuggestion,
   TimeEntry,
-  TimeEntryWithCategory,
   User,
   UserSettings
 } from '../types';
@@ -61,7 +59,7 @@ export function createMongoProvider(): DatabaseProvider {
       { $inc: { seq: 1 } },
       { upsert: true, returnDocument: 'after' }
     );
-    return result.value?.seq ?? 1;
+    return result?.seq ?? 1;
   };
 
   const ensureIndexes = async () => {
@@ -269,7 +267,7 @@ export function createMongoProvider(): DatabaseProvider {
           .find({ user_id: params.userId, name: { $regex: params.searchQuery, $options: 'i' } })
           .project({ id: 1 })
           .toArray();
-        const categoryIds = categoryMatches.map((cat: Category) => cat.id);
+        const categoryIds = categoryMatches.map((cat) => (cat as unknown as { id: number }).id);
         match.$or = [
           { task_name: { $regex: params.searchQuery, $options: 'i' } },
           ...(categoryIds.length ? [{ category_id: { $in: categoryIds } }] : [])
@@ -343,19 +341,20 @@ export function createMongoProvider(): DatabaseProvider {
       return entry;
     },
     async updateTimeEntry(userId: number, id: number, input: TimeEntryUpdateInput) {
-      await collection('time_entries').updateOne(
-        { id, user_id: userId },
-        {
-          $set: {
-            ...(input.category_id !== undefined ? { category_id: input.category_id } : {}),
-            ...(input.task_name !== undefined ? { task_name: input.task_name } : {}),
-            ...(input.start_time !== undefined ? { start_time: input.start_time } : {}),
-            ...(input.end_time !== undefined ? { end_time: input.end_time } : {}),
-            ...(input.scheduled_end_time !== undefined ? { scheduled_end_time: input.scheduled_end_time } : {}),
-            ...(input.duration_minutes !== undefined ? { duration_minutes: input.duration_minutes } : {})
-          }
-        }
-      );
+      const updateFields: Record<string, unknown> = {};
+      if (input.category_id !== undefined) updateFields.category_id = input.category_id;
+      if (input.task_name !== undefined) updateFields.task_name = input.task_name;
+      if (input.start_time !== undefined) updateFields.start_time = input.start_time;
+      if (input.end_time !== undefined) updateFields.end_time = input.end_time;
+      if (input.scheduled_end_time !== undefined) updateFields.scheduled_end_time = input.scheduled_end_time;
+      if (input.duration_minutes !== undefined) updateFields.duration_minutes = input.duration_minutes;
+      
+      if (Object.keys(updateFields).length > 0) {
+        await collection('time_entries').updateOne(
+          { id, user_id: userId },
+          { $set: updateFields }
+        );
+      }
     },
     async updateTimeEntriesByTaskName(userId: number, oldTaskName: string, updates: { task_name?: string; category_id?: number }) {
       const updateDoc: Record<string, unknown> = {};
@@ -453,13 +452,16 @@ export function createMongoProvider(): DatabaseProvider {
         { $limit: limit }
       ]).toArray();
 
-      return results.map((row: { _id: { task_name: string; category_id: number }; count: number; totalMinutes: number; lastUsed: string }) => ({
-        task_name: row._id.task_name as string,
-        categoryId: row._id.category_id as number,
-        count: row.count as number,
-        totalMinutes: row.totalMinutes as number,
-        lastUsed: row.lastUsed as string
-      }));
+      return results.map((row) => {
+        const r = row as unknown as { _id: { task_name: string; category_id: number }; count: number; totalMinutes: number; lastUsed: string };
+        return {
+          task_name: r._id.task_name as string,
+          categoryId: r._id.category_id as number,
+          count: r.count as number,
+          totalMinutes: r.totalMinutes as number,
+          lastUsed: r.lastUsed as string
+        };
+      });
     },
     async listTaskNames(params: TaskNamesQueryParams) {
       const match: Record<string, unknown> = {
@@ -495,13 +497,14 @@ export function createMongoProvider(): DatabaseProvider {
         }
       ]).toArray();
 
-      const taskNames: TaskNameStats[] = grouped.map((row: { _id: { task_name: string; category_id: number }; count: number; total_minutes: number; last_used: string }) => {
-        const category = categoryMap.get(row._id.category_id as number);
+      const taskNames: TaskNameStats[] = grouped.map((row) => {
+        const r = row as unknown as { _id: { task_name: string; category_id: number }; count: number; total_minutes: number; last_used: string };
+        const category = categoryMap.get(r._id.category_id as number);
         return {
-          task_name: row._id.task_name as string,
-          count: row.count as number,
-          total_minutes: row.total_minutes as number,
-          last_used: row.last_used as string,
+          task_name: r._id.task_name as string,
+          count: r.count as number,
+          total_minutes: r.total_minutes as number,
+          last_used: r.last_used as string,
           category_name: category?.name,
           category_color: category?.color ?? null
         };
@@ -556,11 +559,14 @@ export function createMongoProvider(): DatabaseProvider {
       const startIndex = (params.page - 1) * params.pageSize;
       const paged = grouped.slice(startIndex, startIndex + params.pageSize);
 
-      const taskNames: TaskNameStats[] = paged.map((row: { _id: string; count: number; total_minutes: number }) => ({
-        task_name: row._id as string,
-        count: row.count as number,
-        total_minutes: row.total_minutes as number
-      }));
+      const taskNames: TaskNameStats[] = paged.map((row) => {
+        const r = row as unknown as { _id: string; count: number; total_minutes: number };
+        return {
+          task_name: r._id as string,
+          count: r.count as number,
+          total_minutes: r.total_minutes as number
+        };
+      });
 
       const summaryAgg = await collection('time_entries').aggregate([
         { $match: { user_id: params.userId, category_id: category.id, start_time: { $gte: params.start, $lt: params.end } } },
@@ -603,12 +609,15 @@ export function createMongoProvider(): DatabaseProvider {
       const categories: Category[] = await collection('categories').find({ user_id: params.userId }).toArray();
       const categoryMap = new Map<number, Category>(categories.map((cat) => [cat.id, cat]));
       const byCategory: CategorySummary[] = categories.map((cat) => {
-        const row = byCategoryAgg.find((item: { _id: number; minutes: number; count: number }) => item._id === cat.id);
+        const row = byCategoryAgg.find((item) => {
+          const i = item as unknown as { _id: number; minutes: number; count: number };
+          return i._id === cat.id;
+        }) as unknown as { _id: number; minutes: number; count: number } | undefined;
         return {
           name: cat.name,
           color: cat.color || '#6b7280',
-          minutes: (row?.minutes as number) || 0,
-          count: (row?.count as number) || 0
+          minutes: row?.minutes || 0,
+          count: row?.count || 0
         };
       }).sort((a, b) => b.minutes - a.minutes);
 
@@ -657,11 +666,14 @@ export function createMongoProvider(): DatabaseProvider {
         { $limit: 10 }
       ]).toArray();
 
-      const topTasks: TaskNameStats[] = topTasksAgg.map((row: { _id: string; count: number; total_minutes: number }) => ({
-        task_name: row._id as string,
-        count: row.count as number,
-        total_minutes: row.total_minutes as number
-      }));
+      const topTasks: TaskNameStats[] = topTasksAgg.map((row) => {
+        const r = row as unknown as { _id: string; count: number; total_minutes: number };
+        return {
+          task_name: r._id as string,
+          count: r.count as number,
+          total_minutes: r.total_minutes as number
+        };
+      });
 
       const prevStart = new Date(params.start);
       const prevEnd = new Date(params.end);

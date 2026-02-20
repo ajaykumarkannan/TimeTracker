@@ -114,8 +114,12 @@ router.post('/start', async (req: AuthRequest, res: Response) => {
     });
     broadcastSyncEvent(req.userId as number, 'time-entries');
     const entry = await provider.getActiveTimeEntry(req.userId as number);
+    if (!entry) {
+      logger.error('Failed to retrieve created time entry', { userId: req.userId as number });
+      return res.status(201).json(created);
+    }
     logger.info('Time entry started', { entryId: entry.id, userId: req.userId as number });
-    res.status(201).json(entry || created);
+    res.status(201).json(entry);
   } catch (error) {
     logger.error('Error starting time entry', { error, userId: req.userId as number });
     res.status(500).json({ error: 'Failed to start time entry' });

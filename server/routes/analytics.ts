@@ -80,8 +80,11 @@ router.get('/task-names', async (req: AuthRequest, res: Response) => {
     const end = req.query.end as string;
     const page = parseInt(req.query.page as string) || 1;
     const pageSize = Math.min(parseInt(req.query.pageSize as string) || 20, 100);
-    const offset = (page - 1) * pageSize;
-    const sortBy = (req.query.sortBy as string) || 'time'; // time, alpha, count, recent
+    const sortByParam = (req.query.sortBy as string) || 'time';
+    const validSortBy = ['time', 'alpha', 'count', 'recent'] as const;
+    const sortBy: 'time' | 'alpha' | 'count' | 'recent' = validSortBy.includes(sortByParam as typeof validSortBy[number]) 
+      ? (sortByParam as 'time' | 'alpha' | 'count' | 'recent') 
+      : 'time';
     
     // Optional filters
     const searchQuery = (req.query.search as string || '').trim().toLowerCase();
@@ -128,7 +131,6 @@ router.get('/category/:categoryName', async (req: AuthRequest, res: Response) =>
     const end = req.query.end as string;
     const page = parseInt(req.query.page as string) || 1;
     const pageSize = Math.min(parseInt(req.query.pageSize as string) || 20, 100);
-    const offset = (page - 1) * pageSize;
 
     if (!start || !end) {
       return res.status(400).json({ error: 'Start and end dates are required' });
@@ -187,13 +189,6 @@ router.get('/', async (req: AuthRequest, res: Response) => {
     const totalEntries = byCategory.reduce((sum, cat) => sum + cat.count, 0);
     const daysInPeriod = Math.max(1, daily.length);
     const avgMinutesPerDay = Math.round(totalMinutes / daysInPeriod);
-
-    // Get previous period for comparison
-    const startDate = new Date(start as string);
-    const endDate = new Date(end as string);
-    const periodLength = endDate.getTime() - startDate.getTime();
-    const prevStart = new Date(startDate.getTime() - periodLength).toISOString();
-    const prevEnd = start as string;
 
     const change = previousTotal > 0 
       ? Math.round(((totalMinutes - previousTotal) / previousTotal) * 100)

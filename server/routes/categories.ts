@@ -1,6 +1,5 @@
 import { Router, Response } from 'express';
 import { getProvider } from '../database';
-import type { Category } from '../data/types';
 import { logger } from '../logger';
 import { flexAuthMiddleware, AuthRequest } from '../middleware/auth';
 import { broadcastSyncEvent } from './sync';

@@ -111,7 +111,7 @@ describe('flexAuthMiddleware', () => {
     expect(next).toHaveBeenCalled();
   });
 
-  it('falls back to anonymous session when no jwt', () => {
+  it('falls back to anonymous session when no jwt', async () => {
     getProviderMock.mockReturnValue({
       findUserByEmail: vi.fn().mockResolvedValue({ id: 42, email: 'anon_session-1@local' })
     });

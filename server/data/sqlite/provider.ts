@@ -11,8 +11,6 @@ import type {
   PasswordResetToken,
   RefreshToken,
   TaskNameStats,
-  TaskSuggestion,
-  TimeEntry,
   TimeEntryWithCategory,
   User,
   UserSettings
@@ -25,10 +23,9 @@ import type {
   TaskNamesQueryParams,
   TimeEntriesQueryParams,
   TimeEntryCreateInput,
-  TimeEntryExportRow,
   TimeEntryUpdateInput
 } from '../provider';
-import { calculateDurationMinutes, TIME_ENTRIES_WITH_CATEGORIES_QUERY, rowToTimeEntry } from '../../utils/queryHelpers';
+import { TIME_ENTRIES_WITH_CATEGORIES_QUERY, rowToTimeEntry } from '../../utils/queryHelpers';
 
 export function createSqliteProvider(): DatabaseProvider {
   let db: SqlJsDatabase | null = null;

@@ -5,7 +5,6 @@ import { initDatabase, shutdownDatabase, getProvider } from './database';
 import { logger } from './logger';
 import { config, validateConfig } from './config';
 import { rateLimiter, securityHeaders, sanitizeInput } from './middleware/security';
-import { getCurrentVersion, LATEST_VERSION } from './migrations';
 import authRouter from './routes/auth';
 import timeEntriesRouter from './routes/timeEntries';
 import categoriesRouter from './routes/categories';
