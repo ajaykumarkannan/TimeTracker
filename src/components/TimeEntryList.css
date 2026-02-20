@@ -863,23 +863,30 @@
     min-width: 100%;
   }
   
-  .filter-group.date-group {
-    flex: 1;
+  /* Category select fills width on mobile */
+  .filter-group:has(.filter-select) {
+    width: 100%;
   }
-
-  /* Stack label above input on small screens to align with other controls */
-  .filter-group.date-group {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
+  
+  .filter-group:has(.filter-select) .filter-select {
+    width: 100%;
   }
-
-  .filter-group.date-group .filter-label {
-    margin-bottom: 0.375rem;
+  
+  /* Date filter groups side by side on mobile */
+  .filter-row:has(.date-group) {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+  
+  .filter-group.date-group {
+    flex: 0 0 auto;
   }
   
   .date-input {
-    width: 100%;
+    width: auto;
+    min-width: 8rem;
+    height: 44px;
   }
   
   .clear-filters {
