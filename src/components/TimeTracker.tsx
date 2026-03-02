@@ -430,7 +430,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
       setElapsed(elapsedSecs);
 
       // Check for forgotten timer (8+ hours = 28800 seconds)
-      if (elapsedSecs >= 28800 && !forgottenDismissedRef.current) {
+      if (elapsedSecs >= 28800 && !forgottenDismissedRef.current && !activeEntry.scheduled_end_time) {
         setShowForgottenPrompt(true);
         // Default end time to start date at 17:00 (end of typical workday)
         if (!forgottenEndTime) {
