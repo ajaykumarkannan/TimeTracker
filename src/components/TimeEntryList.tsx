@@ -50,6 +50,7 @@ function fuzzyMatch(query: string, target: string): { match: boolean; score: num
 
 interface Props {
   categories: Category[];
+  activeEntry: TimeEntry | null;
   onEntryChange: () => void;
   onCategoryChange: () => void;
   refreshKey?: number;
@@ -68,7 +69,7 @@ interface ShortEntry {
   durationSeconds: number;
 }
 
-export function TimeEntryList({ categories, onEntryChange, onCategoryChange, refreshKey }: Props) {
+export function TimeEntryList({ categories, activeEntry, onEntryChange, onCategoryChange, refreshKey }: Props) {
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<number | null>(null);
@@ -705,6 +706,24 @@ export function TimeEntryList({ categories, onEntryChange, onCategoryChange, ref
     }
   };
 
+  const handleResume = async (entry: TimeEntry) => {
+    try {
+      await api.updateEntry(entry.id, { end_time: null } as Partial<TimeEntry>);
+      handleEntryChangeInternal();
+    } catch (error) {
+      console.error('Failed to resume entry:', error);
+    }
+  };
+
+  const handleRestart = async (entry: TimeEntry) => {
+    try {
+      await api.startEntry(entry.category_id, entry.task_name || undefined);
+      handleEntryChangeInternal();
+    } catch (error) {
+      console.error('Failed to restart entry:', error);
+    }
+  };
+
   const handleMergeEntries = async (candidate: MergeCandidate) => {
     const sorted = [...candidate.entries].sort((a, b) => 
       new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
@@ -793,6 +812,15 @@ export function TimeEntryList({ categories, onEntryChange, onCategoryChange, ref
   const getTotalMinutes = () => {
     return filteredEntries.reduce((sum, entry) => sum + (entry.duration_minutes || 0), 0);
   };
+
+  // Find the most recently completed entry (latest end_time) for resume vs restart logic
+  const mostRecentCompletedId = useMemo(() => {
+    const completed = filteredEntries.filter(e => e.end_time);
+    if (completed.length === 0) return null;
+    return completed.reduce((latest, e) =>
+      new Date(e.end_time!).getTime() > new Date(latest.end_time!).getTime() ? e : latest
+    ).id;
+  }, [filteredEntries]);
 
   const groupByDate = () => {
     const groups: { [key: string]: TimeEntry[] } = {};
@@ -1357,13 +1385,43 @@ export function TimeEntryList({ categories, onEntryChange, onCategoryChange, ref
                           ⚠️
                         </span>
                       )}
-                      <button 
-                        className="btn-icon delete-btn" 
-                        onClick={(e) => { e.stopPropagation(); handleDelete(entry.id); }}
-                        title="Delete"
-                      >
-                        ×
-                      </button>
+                      {entry.end_time && !activeEntry && (
+                        <div className="entry-actions">
+                          {entry.id === mostRecentCompletedId ? (
+                            <button
+                              className="btn-icon resume-btn"
+                              onClick={(e) => { e.stopPropagation(); handleResume(entry); }}
+                              title="Resume"
+                            >
+                              ▶
+                            </button>
+                          ) : (
+                            <button
+                              className="btn-icon restart-btn"
+                              onClick={(e) => { e.stopPropagation(); handleRestart(entry); }}
+                              title="Start new"
+                            >
+                              ↻
+                            </button>
+                          )}
+                          <button 
+                            className="btn-icon delete-btn" 
+                            onClick={(e) => { e.stopPropagation(); handleDelete(entry.id); }}
+                            title="Delete"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      )}
+                      {(!entry.end_time || activeEntry) && (
+                        <button 
+                          className="btn-icon delete-btn" 
+                          onClick={(e) => { e.stopPropagation(); handleDelete(entry.id); }}
+                          title="Delete"
+                        >
+                          ×
+                        </button>
+                      )}
                       </div>
                     </div>
                   );

@@ -66,6 +66,7 @@ describe('TimeEntryList', () => {
   it('opens manual entry modal and validates required fields', async () => {
     render(
       <TimeEntryList
+        activeEntry={null}
         categories={categories}
         onEntryChange={vi.fn()}
         onCategoryChange={vi.fn()}
@@ -108,6 +109,7 @@ describe('TimeEntryList', () => {
   it('submits a valid manual entry', async () => {
     render(
       <TimeEntryList
+        activeEntry={null}
         categories={categories}
         onEntryChange={vi.fn()}
         onCategoryChange={vi.fn()}
@@ -142,6 +144,7 @@ describe('TimeEntryList', () => {
   it('shows filters panel and clears filters', async () => {
     render(
       <TimeEntryList
+        activeEntry={null}
         categories={categories}
         onEntryChange={vi.fn()}
         onCategoryChange={vi.fn()}
@@ -172,6 +175,7 @@ describe('TimeEntryList', () => {
     const onEntryChange = vi.fn();
     render(
       <TimeEntryList
+        activeEntry={null}
         categories={categories}
         onEntryChange={onEntryChange}
         onCategoryChange={vi.fn()}
@@ -193,6 +197,7 @@ describe('TimeEntryList', () => {
 
     render(
       <TimeEntryList
+        activeEntry={null}
         categories={categories}
         onEntryChange={vi.fn()}
         onCategoryChange={vi.fn()}
@@ -229,6 +234,7 @@ describe('TimeEntryList', () => {
 
     render(
       <TimeEntryList
+        activeEntry={null}
         categories={categories}
         onEntryChange={vi.fn()}
         onCategoryChange={vi.fn()}
@@ -247,6 +253,7 @@ describe('TimeEntryList', () => {
 
     render(
       <TimeEntryList
+        activeEntry={null}
         categories={categories}
         onEntryChange={vi.fn()}
         onCategoryChange={vi.fn()}

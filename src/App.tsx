@@ -369,6 +369,7 @@ export function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLogge
             />
             <TimeEntryList
               categories={categories}
+              activeEntry={activeEntry}
               onEntryChange={handleEntryChange}
               onCategoryChange={handleCategoryChange}
               refreshKey={entryRefreshKey}

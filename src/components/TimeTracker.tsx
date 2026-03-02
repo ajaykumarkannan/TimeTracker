@@ -104,7 +104,6 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   const [showNewCategory, setShowNewCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryColor, setNewCategoryColor] = useState(nextColor);
-  const [pausedEntry, setPausedEntry] = useState<TimeEntry | null>(null);
   const [taskNamePrompt, setTaskNamePrompt] = useState<{ categoryId: number; categoryName: string; categoryColor: string | null } | null>(null);
   const [promptedTaskName, setPromptedTaskName] = useState('');
   const [showNewTaskForm, setShowNewTaskForm] = useState(false);
@@ -523,7 +522,6 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
     if (!activeEntry) return;
     try {
       await api.stopEntry(activeEntry.id);
-      setPausedEntry(null);
       onEntryChange();
     } catch (error) {
       console.error('Failed to stop entry:', error);
@@ -641,17 +639,6 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
       onEntryChange();
     } catch (error) {
       console.error('Failed to clear scheduled stop:', error);
-    }
-  };
-
-  const handleResume = async () => {
-    if (!pausedEntry) return;
-    try {
-      await api.startEntry(pausedEntry.category_id, pausedEntry.task_name || undefined);
-      setPausedEntry(null);
-      onEntryChange();
-    } catch (error) {
-      console.error('Failed to resume entry:', error);
     }
   };
 
@@ -1294,37 +1281,6 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                 </button>
               </>
             )}
-          </div>
-        </div>
-      ) : pausedEntry ? (
-        <div className="paused-tracker">
-          <div className="paused-info">
-            <span className="paused-label">⏸ Paused</span>
-            {(() => {
-              const colors = getCategoryColors(pausedEntry.category_color);
-              return (
-                <span 
-                  className="category-badge" 
-                  style={{ 
-                    backgroundColor: colors.bgColor,
-                    color: colors.textColor
-                  }}
-                >
-                  <span className="category-dot" style={{ backgroundColor: colors.dotColor }} />
-                  {pausedEntry.category_name}
-                </span>
-              );
-            })()}
-            {pausedEntry.task_name && <span className="timer-description">{pausedEntry.task_name}</span>}
-          </div>
-          <div className="timer-actions">
-            <button className="btn btn-success" onClick={handleResume}>
-              <span className="play-icon">▶</span>
-              Resume
-            </button>
-            <button className="btn btn-ghost" onClick={() => setPausedEntry(null)}>
-              Discard
-            </button>
           </div>
         </div>
       ) : (
