@@ -32,12 +32,10 @@ test.describe('Time Tracker E2E', () => {
     // Navigate back to tracker using desktop nav button
     await page.click('.desktop-nav button:has-text("Track")');
 
-    // Start tracking time via quick start category button
-    await page.click('.quick-start-category:has-text("Development")');
-    
-    // Fill in task name in the prompt modal and start
-    await page.fill('.task-prompt-input', 'Building time tracker app');
-    await page.click('.task-prompt-modal button:has-text("Start")');
+    // Start tracking time via the tracker form
+    await page.selectOption('.tracker-form select', { label: 'Development' });
+    await page.fill('.tracker-form input[placeholder="What are you working on?"]', 'Building time tracker app');
+    await page.click('.tracker-form .start-btn');
 
     // Verify timer is running
     await expect(page.locator('button:has-text("Stop")')).toBeVisible();
@@ -89,9 +87,9 @@ test.describe('Time Tracker E2E', () => {
   });
 
   test('displays time in history after tracking', async ({ page }) => {
-    // Use one of the default categories (Meetings) to track time
-    await page.click('.quick-start-category:has-text("Meetings")');
-    await page.click('.task-prompt-modal button:has-text("Start")');
+    // Use one of the default categories (Meetings) to track time via the form
+    await page.selectOption('.tracker-form select', { label: 'Meetings' });
+    await page.click('.tracker-form .start-btn');
     
     await page.waitForTimeout(2000);
     
@@ -110,22 +108,9 @@ test.describe('Time Tracker E2E', () => {
     // Wait a moment for categories to load
     await page.waitForTimeout(1000);
     
-    // Check if quick-start section exists (it should if categories loaded)
-    const quickStartSection = page.locator('.quick-start-section');
-    const hasQuickStart = await quickStartSection.isVisible();
-    
-    if (!hasQuickStart) {
-      // If no quick-start section, categories might not have loaded - skip this test
-      test.skip();
-      return;
-    }
-    
-    // Start timer using a default category
-    await page.click('.quick-start-category:has-text("Planning")');
-    
-    // Wait for modal and click start
-    await expect(page.locator('.task-prompt-modal')).toBeVisible({ timeout: 5000 });
-    await page.click('.task-prompt-modal button:has-text("Start")');
+    // Start timer using a default category via the form
+    await page.selectOption('.tracker-form select', { label: 'Planning' });
+    await page.click('.tracker-form .start-btn');
 
     // Wait for timer to be visible (this means the start was successful)
     await expect(page.locator('.timer-time')).toBeVisible({ timeout: 15000 });

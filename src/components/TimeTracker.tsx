@@ -104,7 +104,6 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   const [showNewCategory, setShowNewCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryColor, setNewCategoryColor] = useState(nextColor);
-  const [pausedEntry, setPausedEntry] = useState<TimeEntry | null>(null);
   const [taskNamePrompt, setTaskNamePrompt] = useState<{ categoryId: number; categoryName: string; categoryColor: string | null } | null>(null);
   const [promptedTaskName, setPromptedTaskName] = useState('');
   const [showNewTaskForm, setShowNewTaskForm] = useState(false);
@@ -498,15 +497,6 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
     }
   };
 
-  const handleCategoryQuickStart = (cat: Category) => {
-    setTaskNamePrompt({
-      categoryId: cat.id,
-      categoryName: cat.name,
-      categoryColor: cat.color
-    });
-    setPromptedTaskName('');
-  };
-
   const handlePromptedStart = async () => {
     if (!taskNamePrompt) return;
     try {
@@ -523,7 +513,6 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
     if (!activeEntry) return;
     try {
       await api.stopEntry(activeEntry.id);
-      setPausedEntry(null);
       onEntryChange();
     } catch (error) {
       console.error('Failed to stop entry:', error);
@@ -644,17 +633,6 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
     }
   };
 
-  const handleResume = async () => {
-    if (!pausedEntry) return;
-    try {
-      await api.startEntry(pausedEntry.category_id, pausedEntry.task_name || undefined);
-      setPausedEntry(null);
-      onEntryChange();
-    } catch (error) {
-      console.error('Failed to resume entry:', error);
-    }
-  };
-
   const handleSwitchTask = async (categoryId: number, taskDescription?: string) => {
     try {
       // The /start endpoint automatically stops any active entry, so just start the new one
@@ -722,7 +700,6 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
     );
   };
 
-  const displayCategories = categories.slice(0, 5);
 
   // Helper to get adaptive colors for a category
   const getCategoryColors = (color: string | null) => getAdaptiveCategoryColors(color, isDarkMode);
@@ -1296,37 +1273,6 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
             )}
           </div>
         </div>
-      ) : pausedEntry ? (
-        <div className="paused-tracker">
-          <div className="paused-info">
-            <span className="paused-label">⏸ Paused</span>
-            {(() => {
-              const colors = getCategoryColors(pausedEntry.category_color);
-              return (
-                <span 
-                  className="category-badge" 
-                  style={{ 
-                    backgroundColor: colors.bgColor,
-                    color: colors.textColor
-                  }}
-                >
-                  <span className="category-dot" style={{ backgroundColor: colors.dotColor }} />
-                  {pausedEntry.category_name}
-                </span>
-              );
-            })()}
-            {pausedEntry.task_name && <span className="timer-description">{pausedEntry.task_name}</span>}
-          </div>
-          <div className="timer-actions">
-            <button className="btn btn-success" onClick={handleResume}>
-              <span className="play-icon">▶</span>
-              Resume
-            </button>
-            <button className="btn btn-ghost" onClick={() => setPausedEntry(null)}>
-              Discard
-            </button>
-          </div>
-        </div>
       ) : (
         <div className="start-tracker">
           {/* Task name prompt modal */}
@@ -1410,46 +1356,24 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
             </div>
           )}
 
-          {/* Quick start section with tasks and categories */}
-          {(recentTasks.length > 0 || displayCategories.length > 0) && (
+          {/* Quick start section with recent tasks */}
+          {recentTasks.length > 0 && (
             <div className="quick-start-section">
-              {recentTasks.length > 0 && (
-                <div className="quick-start-group">
-                  <span className="quick-start-label">Recent tasks</span>
-                  <div className="quick-start-buttons">
-                      {recentTasks.map((task, idx) => {
-                      const colors = getCategoryColors(task.categoryColor);
-                      return (
-                        <button
-                          key={idx}
-                          className="quick-start-btn quick-start-task"
-                          onClick={() => handleQuickStartTask(task)}
-                          title={`${task.categoryName}: ${task.task_name}`}
-                        >
-                          <span className="category-dot" style={{ backgroundColor: colors.dotColor }} />
-                          <span className="task-description-text">{task.task_name}</span>
-                          <span className="task-category-hint">{task.categoryName}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-              
               <div className="quick-start-group">
-                <span className="quick-start-label">Categories</span>
+                <span className="quick-start-label">Recent tasks</span>
                 <div className="quick-start-buttons">
-                  {displayCategories.map(cat => {
-                    const colors = getCategoryColors(cat.color);
+                    {recentTasks.map((task, idx) => {
+                    const colors = getCategoryColors(task.categoryColor);
                     return (
                       <button
-                        key={cat.id}
-                        className="quick-start-btn quick-start-category"
-                        style={{ borderColor: colors.textColor, color: colors.textColor }}
-                        onClick={() => handleCategoryQuickStart(cat)}
+                        key={idx}
+                        className="quick-start-btn quick-start-task"
+                        onClick={() => handleQuickStartTask(task)}
+                        title={`${task.categoryName}: ${task.task_name}`}
                       >
                         <span className="category-dot" style={{ backgroundColor: colors.dotColor }} />
-                        {cat.name}
+                        <span className="task-description-text">{task.task_name}</span>
+                        <span className="task-category-hint">{task.categoryName}</span>
                       </button>
                     );
                   })}
