@@ -25,10 +25,6 @@ const faqs: FAQItem[] = [
     answer: 'Go to the Categories tab and click "Add Category". You can choose a name, color, and icon for your new category. Categories help you organize and analyze your time.'
   },
   {
-    question: 'What happens when I\'m idle?',
-    answer: 'ChronoFlow detects when you\'re inactive and will prompt you to either keep the idle time or discard it. This helps ensure accurate time tracking even if you step away.'
-  },
-  {
     question: 'How do I export my data?',
     answer: 'Go to Settings and use the "Export CSV" button. You can also export from the Analytics page. CSV files work great with spreadsheets.'
   },
