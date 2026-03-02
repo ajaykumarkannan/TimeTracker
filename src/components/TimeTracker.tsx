@@ -131,6 +131,11 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   const modalSuggestionsRef = useRef<HTMLDivElement>(null);
   const suppressModalSuggestionOpenRef = useRef(false);
 
+  // Forgotten timer state (8+ hours)
+  const [showForgottenPrompt, setShowForgottenPrompt] = useState(false);
+  const [forgottenEndTime, setForgottenEndTime] = useState('');
+  const forgottenDismissedRef = useRef(false);
+
   // Scheduled stop state
   const [showScheduleStopModal, setShowScheduleStopModal] = useState(false);
   const [scheduleMode, setScheduleMode] = useState<'duration' | 'time'>('duration');
@@ -412,13 +417,44 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   useEffect(() => {
     if (!activeEntry) {
       setElapsed(0);
+      forgottenDismissedRef.current = false;
+      setShowForgottenPrompt(false);
+      setForgottenEndTime('');
       return;
     }
 
     const updateElapsed = () => {
       const start = new Date(activeEntry.start_time).getTime();
       const now = Date.now();
-      setElapsed(Math.floor((now - start) / 1000));
+      const elapsedSecs = Math.floor((now - start) / 1000);
+      setElapsed(elapsedSecs);
+
+      // Check for forgotten timer (8+ hours = 28800 seconds)
+      if (elapsedSecs >= 28800 && !forgottenDismissedRef.current && !activeEntry.scheduled_end_time) {
+        setShowForgottenPrompt(true);
+        // Default end time to start date at 17:00 (end of typical workday)
+        if (!forgottenEndTime) {
+          const startDate = new Date(activeEntry.start_time);
+          const defaultEnd = new Date(startDate);
+          defaultEnd.setHours(17, 0, 0, 0);
+          // If that's before start time, use start time + 8h instead
+          if (defaultEnd <= startDate) {
+            defaultEnd.setTime(startDate.getTime() + 8 * 3600000);
+          }
+          // Cap to now
+          if (defaultEnd.getTime() > now) {
+            defaultEnd.setTime(now);
+          }
+          const pad = (n: number) => n.toString().padStart(2, '0');
+          setForgottenEndTime(
+            `${defaultEnd.getFullYear()}-${pad(defaultEnd.getMonth() + 1)}-${pad(defaultEnd.getDate())}T${pad(defaultEnd.getHours())}:${pad(defaultEnd.getMinutes())}`
+          );
+        }
+      } else if (elapsedSecs < 28800 || activeEntry.scheduled_end_time) {
+        // Dismiss prompt if elapsed dropped below 8h or a scheduled stop was set
+        setShowForgottenPrompt(false);
+        setForgottenEndTime('');
+      }
       
       // Update scheduled remaining time display
       if (activeEntry.scheduled_end_time) {
@@ -491,6 +527,25 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
       onEntryChange();
     } catch (error) {
       console.error('Failed to stop entry:', error);
+    }
+  };
+
+  const handleForgottenKeep = () => {
+    forgottenDismissedRef.current = true;
+    setShowForgottenPrompt(false);
+  };
+
+  const handleForgottenSetEndTime = async () => {
+    if (!activeEntry || !forgottenEndTime) return;
+    try {
+      await api.updateEntry(activeEntry.id, { end_time: forgottenEndTime });
+      await api.stopEntry(activeEntry.id);
+      setShowForgottenPrompt(false);
+      setForgottenEndTime('');
+      forgottenDismissedRef.current = true;
+      onEntryChange();
+    } catch (error) {
+      console.error('Failed to set end time:', error);
     }
   };
 
@@ -845,6 +900,38 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                   >
                     <span className="schedule-icon">⏱</span>
                     Schedule Stop
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Forgotten timer prompt (8+ hours) */}
+          {showForgottenPrompt && (
+            <div className="forgotten-timer-banner">
+              <div className="forgotten-timer-message">
+                <span className="forgotten-timer-icon">⏰</span>
+                <span>This timer has been running for over 8 hours. Did you forget to stop it?</span>
+              </div>
+              <div className="forgotten-timer-actions">
+                <button className="btn btn-ghost" onClick={handleForgottenKeep}>
+                  Keep all time
+                </button>
+                <div className="forgotten-timer-end-time">
+                  <input
+                    type="datetime-local"
+                    value={forgottenEndTime}
+                    onChange={(e) => setForgottenEndTime(e.target.value)}
+                    className="forgotten-time-input"
+                    max={new Date().toISOString().slice(0, 16)}
+                    min={activeEntry?.start_time ? new Date(activeEntry.start_time).toISOString().slice(0, 16) : undefined}
+                  />
+                  <button
+                    className="btn btn-primary"
+                    onClick={handleForgottenSetEndTime}
+                    disabled={!forgottenEndTime}
+                  >
+                    Set end time
                   </button>
                 </div>
               </div>
