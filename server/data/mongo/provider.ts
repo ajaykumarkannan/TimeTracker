@@ -64,7 +64,13 @@ export function createMongoProvider(): DatabaseProvider {
 
   const ensureIndexes = async () => {
     await collection('users').createIndex({ email: 1 }, { unique: true });
-    await collection('users').createIndex({ username: 1 }, { unique: true });
+    // Drop the old unique index on username if it exists — accounts are unique by email only
+    try {
+      await collection('users').dropIndex('username_1');
+    } catch {
+      // Index may not exist — that's fine
+    }
+    await collection('users').createIndex({ username: 1 });
     await collection('refresh_tokens').createIndex({ token: 1 }, { unique: true });
     await collection('refresh_tokens').createIndex({ user_id: 1 });
     await collection('refresh_tokens').createIndex({ expires_at: 1 });
