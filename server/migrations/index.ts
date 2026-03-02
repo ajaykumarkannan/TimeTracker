@@ -252,6 +252,33 @@ const migrations: Migration[] = [
       db.run(`ALTER TABLE time_entries ADD COLUMN scheduled_end_time DATETIME`);
     }
   },
+  {
+    version: 8,
+    name: 'remove_username_unique_constraint',
+    up: (db) => {
+      // Username should not be unique — accounts are unique by email only.
+      // SQLite doesn't support DROP CONSTRAINT, so we recreate the table.
+      db.run(`
+        CREATE TABLE users_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          email TEXT NOT NULL UNIQUE,
+          username TEXT NOT NULL,
+          password_hash TEXT NOT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
+      db.run(`
+        INSERT INTO users_new (id, email, username, password_hash, created_at, updated_at)
+        SELECT id, email, username, password_hash, created_at, updated_at
+        FROM users
+      `);
+
+      db.run(`DROP TABLE users`);
+      db.run(`ALTER TABLE users_new RENAME TO users`);
+    }
+  },
 ];
 
 export function runMigrations(db: SqlJsDatabase): void {
