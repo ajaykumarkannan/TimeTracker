@@ -22,6 +22,18 @@ function useDebounce<T>(value: T, delay: number): T {
 }
 
 // Simple fuzzy match - checks if all characters in query appear in order in target
+function formatBreakDuration(minutes: number): string {
+  if (minutes < 60) return `${minutes}m`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h < 24) return m > 0 ? `${h}h ${m}m` : `${h}h`;
+  const d = Math.floor(h / 24);
+  const rh = h % 24;
+  if (rh === 0 && m === 0) return `${d}d`;
+  if (m === 0) return `${d}d ${rh}h`;
+  return `${d}d ${rh}h ${m}m`;
+}
+
 function fuzzyMatch(query: string, target: string): { match: boolean; score: number } {
   const q = query.toLowerCase();
   const t = target.toLowerCase();
@@ -1206,7 +1218,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                           title="Click to add entry for this break"
                         >
                           <span className="break-line" />
-                          <span className="break-text">{breakMinutes}m break</span>
+                          <span className="break-text">{formatBreakDuration(breakMinutes)} break</span>
                           <span className="break-line" />
                         </button>
                       )}
