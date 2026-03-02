@@ -37,6 +37,9 @@ Both modes use the same server-side SQLite database - there is no localStorage-b
 
 - **Express.js** with TypeScript
 - **sql.js** (SQLite compiled to WebAssembly) or **MongoDB** (official driver) for database
+  - SQLite: Default, single-file database, ideal for self-hosted deployments
+  - MongoDB: Optional, for users who prefer document storage or need multi-instance scaling
+  - Switch via `DB_DRIVER` environment variable (`sqlite` or `mongo`)
 - **JWT** with refresh tokens for authentication
 - **Winston** for logging
 
@@ -64,7 +67,7 @@ Both modes use the same server-side SQLite database - there is no localStorage-b
 │   ├── components/   # React components with co-located CSS
 │   │   └── __tests__/ # Component tests
 │   ├── contexts/     # Auth & Theme React contexts
-│   ├── hooks/        # Custom hooks (useIdleDetection)
+│   ├── hooks/        # Custom hooks (useAdaptiveColors)
 │   ├── api.ts        # API client (handles both guest sessions and JWT auth)
 │   └── types.ts      # Shared TypeScript types
 ├── e2e/              # Playwright E2E tests
@@ -123,6 +126,12 @@ main (production-ready)
 2. **Delete unused code**: Remove dead code, unused imports, and deprecated functionality
 3. **DRY principle**: Avoid duplication; extract common patterns into reusable functions or components
 4. **Test coverage**: All new features must have corresponding tests. If existing features lack tests, add them
+5. **Regular code audits**: Periodically review the codebase to identify and remove:
+   - Unused functions, components, and utilities
+   - Commented-out code blocks
+   - Deprecated features or APIs
+   - Redundant type definitions or interfaces
+   - Unused dependencies in package.json
 
 ### Commands
 
