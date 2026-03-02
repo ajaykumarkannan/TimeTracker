@@ -419,6 +419,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
       setElapsed(0);
       forgottenDismissedRef.current = false;
       setShowForgottenPrompt(false);
+      setForgottenEndTime('');
       return;
     }
 
@@ -431,6 +432,24 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
       // Check for forgotten timer (8+ hours = 28800 seconds)
       if (elapsedSecs >= 28800 && !forgottenDismissedRef.current) {
         setShowForgottenPrompt(true);
+        // Default end time to start date at 17:00 (end of typical workday)
+        if (!forgottenEndTime) {
+          const startDate = new Date(activeEntry.start_time);
+          const defaultEnd = new Date(startDate);
+          defaultEnd.setHours(17, 0, 0, 0);
+          // If that's before start time, use start time + 8h instead
+          if (defaultEnd <= startDate) {
+            defaultEnd.setTime(startDate.getTime() + 8 * 3600000);
+          }
+          // Cap to now
+          if (defaultEnd.getTime() > now) {
+            defaultEnd.setTime(now);
+          }
+          const pad = (n: number) => n.toString().padStart(2, '0');
+          setForgottenEndTime(
+            `${defaultEnd.getFullYear()}-${pad(defaultEnd.getMonth() + 1)}-${pad(defaultEnd.getDate())}T${pad(defaultEnd.getHours())}:${pad(defaultEnd.getMinutes())}`
+          );
+        }
       }
       
       // Update scheduled remaining time display
