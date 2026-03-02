@@ -564,17 +564,6 @@
   min-width: 0;
 }
 
-/* Category quick start */
-.quick-start-category {
-  background: var(--bg-tertiary);
-  border: 1.5px solid;
-}
-
-.quick-start-category:hover {
-  background: var(--bg-hover);
-  transform: translateY(-1px);
-}
-
 /* Task name prompt modal */
 .task-prompt-overlay {
   position: fixed;
