@@ -1,7 +1,4 @@
-import { test, expect, devices } from '@playwright/test';
-
-// Use iPhone 13 viewport for mobile tests
-test.use({ ...devices['iPhone 13'] });
+import { test, expect } from '@playwright/test';
 
 /**
  * Mobile Modal Behavior Tests

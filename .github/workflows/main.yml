@@ -145,7 +145,7 @@ jobs:
           name: dist
           path: dist/
       
-      - run: npx playwright test --project=chromium
+      - run: npx playwright test
         env:
           HOME: /root
       
