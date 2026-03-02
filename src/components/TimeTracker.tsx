@@ -450,6 +450,10 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
             `${defaultEnd.getFullYear()}-${pad(defaultEnd.getMonth() + 1)}-${pad(defaultEnd.getDate())}T${pad(defaultEnd.getHours())}:${pad(defaultEnd.getMinutes())}`
           );
         }
+      } else if (elapsedSecs < 28800) {
+        // Start time was updated and elapsed dropped below 8h — dismiss prompt
+        setShowForgottenPrompt(false);
+        setForgottenEndTime('');
       }
       
       // Update scheduled remaining time display
