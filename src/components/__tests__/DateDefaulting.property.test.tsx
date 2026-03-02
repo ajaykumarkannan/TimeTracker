@@ -137,6 +137,7 @@ describe('Date Defaulting Property Tests', () => {
 
             const { container, unmount } = await renderWithTheme(
               <TimeEntryList 
+                activeEntry={null}
                 categories={mockCategories}
                 onEntryChange={mockOnEntryChange}
                 onCategoryChange={mockOnCategoryChange}
@@ -178,6 +179,7 @@ describe('Date Defaulting Property Tests', () => {
 
             const { container, unmount } = await renderWithTheme(
               <TimeEntryList 
+                activeEntry={null}
                 categories={mockCategories}
                 onEntryChange={mockOnEntryChange}
                 onCategoryChange={mockOnCategoryChange}
@@ -226,6 +228,7 @@ describe('Date Defaulting Property Tests', () => {
 
             const { container, unmount } = await renderWithTheme(
               <TimeEntryList 
+                activeEntry={null}
                 categories={mockCategories}
                 onEntryChange={mockOnEntryChange}
                 onCategoryChange={mockOnCategoryChange}
@@ -273,6 +276,7 @@ describe('Date Defaulting Property Tests', () => {
 
             const { container, unmount } = await renderWithTheme(
               <TimeEntryList 
+                activeEntry={null}
                 categories={mockCategories}
                 onEntryChange={mockOnEntryChange}
                 onCategoryChange={mockOnCategoryChange}
@@ -326,6 +330,7 @@ describe('Date Defaulting Property Tests', () => {
 
             const { container, unmount } = await renderWithTheme(
               <TimeEntryList 
+                activeEntry={null}
                 categories={mockCategories}
                 onEntryChange={mockOnEntryChange}
                 onCategoryChange={mockOnCategoryChange}
@@ -378,6 +383,7 @@ describe('Date Defaulting Property Tests', () => {
 
             const { container, unmount } = await renderWithTheme(
               <TimeEntryList 
+                activeEntry={null}
                 categories={mockCategories}
                 onEntryChange={mockOnEntryChange}
                 onCategoryChange={mockOnCategoryChange}
@@ -420,6 +426,7 @@ describe('Date Defaulting Property Tests', () => {
 
             const { container, unmount } = await renderWithTheme(
               <TimeEntryList 
+                activeEntry={null}
                 categories={mockCategories}
                 onEntryChange={mockOnEntryChange}
                 onCategoryChange={mockOnCategoryChange}

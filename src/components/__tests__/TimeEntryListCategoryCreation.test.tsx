@@ -64,6 +64,7 @@ describe('TimeEntryList - Category Creation in Add Entry Modal', () => {
     it('shows "+ Add category" option in the category dropdown', async () => {
       render(
         <TimeEntryList 
+          activeEntry={null}
           categories={mockCategories}
           onEntryChange={mockOnEntryChange}
           onCategoryChange={mockOnCategoryChange}
@@ -89,6 +90,7 @@ describe('TimeEntryList - Category Creation in Add Entry Modal', () => {
     it('shows all existing categories along with "+ Add category" option', async () => {
       render(
         <TimeEntryList 
+          activeEntry={null}
           categories={mockCategories}
           onEntryChange={mockOnEntryChange}
           onCategoryChange={mockOnCategoryChange}
@@ -115,6 +117,7 @@ describe('TimeEntryList - Category Creation in Add Entry Modal', () => {
     it('shows inline category creation form when "+ Add category" is selected', async () => {
       render(
         <TimeEntryList 
+          activeEntry={null}
           categories={mockCategories}
           onEntryChange={mockOnEntryChange}
           onCategoryChange={mockOnCategoryChange}
@@ -152,6 +155,7 @@ describe('TimeEntryList - Category Creation in Add Entry Modal', () => {
     it('auto-focuses the category name input when form appears', async () => {
       render(
         <TimeEntryList 
+          activeEntry={null}
           categories={mockCategories}
           onEntryChange={mockOnEntryChange}
           onCategoryChange={mockOnCategoryChange}
@@ -183,6 +187,7 @@ describe('TimeEntryList - Category Creation in Add Entry Modal', () => {
     it('hides inline form when Cancel button is clicked', async () => {
       render(
         <TimeEntryList 
+          activeEntry={null}
           categories={mockCategories}
           onEntryChange={mockOnEntryChange}
           onCategoryChange={mockOnCategoryChange}
@@ -231,6 +236,7 @@ describe('TimeEntryList - Category Creation in Add Entry Modal', () => {
     it('hides inline form when Escape key is pressed', async () => {
       render(
         <TimeEntryList 
+          activeEntry={null}
           categories={mockCategories}
           onEntryChange={mockOnEntryChange}
           onCategoryChange={mockOnCategoryChange}
@@ -277,6 +283,7 @@ describe('TimeEntryList - Category Creation in Add Entry Modal', () => {
     it('resets form state when cancelled', async () => {
       render(
         <TimeEntryList 
+          activeEntry={null}
           categories={mockCategories}
           onEntryChange={mockOnEntryChange}
           onCategoryChange={mockOnCategoryChange}
@@ -342,6 +349,7 @@ describe('TimeEntryList - Category Creation in Add Entry Modal', () => {
 
       render(
         <TimeEntryList 
+          activeEntry={null}
           categories={mockCategories}
           onEntryChange={mockOnEntryChange}
           onCategoryChange={mockOnCategoryChange}
@@ -399,6 +407,7 @@ describe('TimeEntryList - Category Creation in Add Entry Modal', () => {
 
       render(
         <TimeEntryList 
+          activeEntry={null}
           categories={mockCategories}
           onEntryChange={mockOnEntryChange}
           onCategoryChange={mockOnCategoryChange}
@@ -449,6 +458,7 @@ describe('TimeEntryList - Category Creation in Add Entry Modal', () => {
 
       render(
         <TimeEntryList 
+          activeEntry={null}
           categories={mockCategories}
           onEntryChange={mockOnEntryChange}
           onCategoryChange={mockOnCategoryChange}
@@ -494,6 +504,7 @@ describe('TimeEntryList - Category Creation in Add Entry Modal', () => {
     it('disables Create button when category name is empty', async () => {
       render(
         <TimeEntryList 
+          activeEntry={null}
           categories={mockCategories}
           onEntryChange={mockOnEntryChange}
           onCategoryChange={mockOnCategoryChange}
@@ -522,6 +533,7 @@ describe('TimeEntryList - Category Creation in Add Entry Modal', () => {
     it('enables Create button when category name has content', async () => {
       render(
         <TimeEntryList 
+          activeEntry={null}
           categories={mockCategories}
           onEntryChange={mockOnEntryChange}
           onCategoryChange={mockOnCategoryChange}
@@ -556,6 +568,7 @@ describe('TimeEntryList - Category Creation in Add Entry Modal', () => {
     it('does not create category when name is only whitespace', async () => {
       render(
         <TimeEntryList 
+          activeEntry={null}
           categories={mockCategories}
           onEntryChange={mockOnEntryChange}
           onCategoryChange={mockOnCategoryChange}
@@ -590,6 +603,7 @@ describe('TimeEntryList - Category Creation in Add Entry Modal', () => {
     it('resets category creation state when modal is closed', async () => {
       render(
         <TimeEntryList 
+          activeEntry={null}
           categories={mockCategories}
           onEntryChange={mockOnEntryChange}
           onCategoryChange={mockOnCategoryChange}
@@ -635,6 +649,7 @@ describe('TimeEntryList - Category Creation in Add Entry Modal', () => {
     it('resets category creation state when clicking overlay to close', async () => {
       render(
         <TimeEntryList 
+          activeEntry={null}
           categories={mockCategories}
           onEntryChange={mockOnEntryChange}
           onCategoryChange={mockOnCategoryChange}

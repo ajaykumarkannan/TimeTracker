@@ -577,8 +577,17 @@
   background: var(--primary-alpha);
 }
 
-.entry-item:hover .delete-btn {
+.entry-item:hover .delete-btn,
+.entry-item:hover .resume-btn,
+.entry-item:hover .restart-btn {
   opacity: 1;
+}
+
+.entry-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.125rem;
+  flex-shrink: 0;
 }
 
 .entry-indicator {
@@ -836,6 +845,36 @@
   color: var(--error);
 }
 
+.resume-btn {
+  opacity: 0;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.25rem;
+  transition: all 0.15s ease;
+}
+
+.resume-btn:hover {
+  color: var(--success);
+}
+
+.restart-btn {
+  opacity: 0;
+  font-size: 1rem;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.25rem;
+  transition: all 0.15s ease;
+}
+
+.restart-btn:hover {
+  color: var(--primary);
+}
+
 /* Animations */
 @keyframes fadeIn {
   from { opacity: 0; }
@@ -935,11 +974,33 @@
   
   .delete-btn {
     opacity: 1;
-    min-width: 44px;
+    min-width: 36px;
     min-height: 44px;
     display: flex;
     align-items: center;
     justify-content: center;
+  }
+
+  .resume-btn {
+    opacity: 1;
+    min-width: 36px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .restart-btn {
+    opacity: 1;
+    min-width: 36px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .entry-actions {
+    gap: 0;
   }
   
   .delete-day-btn {

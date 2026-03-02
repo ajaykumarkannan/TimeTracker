@@ -82,24 +82,53 @@ export function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLogge
   const mobileNavRef = useRef<HTMLDivElement>(null);
   const appVersion = __APP_VERSION__;
 
+  // Auto-resume an entry whose end_time is in the future (user edited it forward)
+  // Sets the future time as a scheduled stop so the countdown shows in the tracker
+  const autoResumeFutureEntry = useCallback(async (recentEnts: TimeEntry[], active: TimeEntry | null): Promise<TimeEntry | null> => {
+    if (active) return active; // Already tracking
+    // Find the most recent completed entry
+    const completed = recentEnts.filter(e => e.end_time);
+    if (completed.length === 0) return null;
+    const mostRecent = completed.reduce((latest, e) =>
+      new Date(e.end_time!).getTime() > new Date(latest.end_time!).getTime() ? e : latest
+    );
+    const futureEndTime = mostRecent.end_time!;
+    // If its end_time is in the future, resume it and set scheduled stop
+    if (new Date(futureEndTime).getTime() > Date.now()) {
+      try {
+        await api.updateEntry(mostRecent.id, { end_time: null } as Partial<TimeEntry>);
+        await api.scheduleStop(mostRecent.id, futureEndTime);
+        return await api.getActiveEntry();
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  }, []);
+
   // Handle sync events from other tabs/devices
   const handleSyncEvent = useCallback((event: { type: string; source: string }) => {
     if (event.type === 'time-entries' || event.type === 'all') {
-      // Refresh time entries and active entry
       Promise.all([
         api.getRecentEntries(20),
         api.getActiveEntry()
-      ]).then(([recentEnts, active]) => {
-        setEntries(recentEnts);
-        setActiveEntry(active);
+      ]).then(async ([recentEnts, active]) => {
+        const resolvedActive = await autoResumeFutureEntry(recentEnts, active);
+        if (resolvedActive && !active) {
+          const updatedEntries = await api.getRecentEntries(20);
+          setEntries(updatedEntries);
+          setActiveEntry(resolvedActive);
+        } else {
+          setEntries(recentEnts);
+          setActiveEntry(active);
+        }
         setEntryRefreshKey(k => k + 1);
       }).catch(console.error);
     }
     if (event.type === 'categories' || event.type === 'all') {
-      // Refresh categories
       api.getCategories().then(setCategories).catch(console.error);
     }
-  }, []);
+  }, [autoResumeFutureEntry]);
 
   // Set up real-time sync
   const { broadcastChange } = useSync({
@@ -138,6 +167,7 @@ export function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLogge
     setShowMobileNav(false);
   };
 
+  // Auto-resume an entry whose end_time is in the future (user edited it forward)
   const refreshTrackerData = useCallback(async () => {
     if (isRefreshingRef.current) return;
     isRefreshingRef.current = true;
@@ -146,8 +176,17 @@ export function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLogge
         api.getRecentEntries(20),
         api.getActiveEntry()
       ]);
-      setEntries(recentEnts);
-      setActiveEntry(active);
+      // Check for future end_time entries to auto-resume
+      const resolvedActive = await autoResumeFutureEntry(recentEnts, active);
+      if (resolvedActive && !active) {
+        // Re-fetch entries since one was modified
+        const updatedEntries = await api.getRecentEntries(20);
+        setEntries(updatedEntries);
+        setActiveEntry(resolvedActive);
+      } else {
+        setEntries(recentEnts);
+        setActiveEntry(active);
+      }
     } catch (error) {
       console.error('Failed to refresh tracker data:', error);
     } finally {
@@ -159,12 +198,20 @@ export function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLogge
     try {
       const [cats, recentEnts, active] = await Promise.all([
         api.getCategories(),
-        api.getRecentEntries(20), // Only load recent entries for quick-start suggestions
+        api.getRecentEntries(20),
         api.getActiveEntry()
       ]);
       setCategories(cats);
-      setEntries(recentEnts);
-      setActiveEntry(active);
+      // Check for future end_time entries to auto-resume
+      const resolvedActive = await autoResumeFutureEntry(recentEnts, active);
+      if (resolvedActive && !active) {
+        const updatedEntries = await api.getRecentEntries(20);
+        setEntries(updatedEntries);
+        setActiveEntry(resolvedActive);
+      } else {
+        setEntries(recentEnts);
+        setActiveEntry(active);
+      }
     } catch (error) {
       console.error('Failed to load data:', error);
     }
@@ -369,6 +416,7 @@ export function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLogge
             />
             <TimeEntryList
               categories={categories}
+              activeEntry={activeEntry}
               onEntryChange={handleEntryChange}
               onCategoryChange={handleCategoryChange}
               refreshKey={entryRefreshKey}
