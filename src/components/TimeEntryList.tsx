@@ -827,10 +827,10 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
 
   // Find the most recently completed entry (latest end_time) for resume vs restart logic
   const mostRecentCompletedId = useMemo(() => {
-    const completed = filteredEntries.filter(e => e.end_time);
+    const completed = filteredEntries.filter((e): e is TimeEntry & { end_time: string } => !!e.end_time);
     if (completed.length === 0) return null;
     return completed.reduce((latest, e) =>
-      new Date(e.end_time!).getTime() > new Date(latest.end_time!).getTime() ? e : latest
+      new Date(e.end_time).getTime() > new Date(latest.end_time).getTime() ? e : latest
     ).id;
   }, [filteredEntries]);
 
