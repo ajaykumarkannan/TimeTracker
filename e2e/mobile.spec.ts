@@ -289,15 +289,15 @@ test.describe('Mobile UI', () => {
       });
     }
     
-    // Scroll down using wheel event which is more reliable
-    await page.mouse.wheel(0, 400);
+    // Scroll down using evaluate (mouse.wheel not supported in mobile WebKit)
+    await page.evaluate(() => window.scrollBy(0, 400));
     await page.waitForTimeout(600);
     
     // Header should be hidden (has header-hidden class)
     await expect(header).toHaveClass(/header-hidden/);
     
     // Scroll back up
-    await page.mouse.wheel(0, -500);
+    await page.evaluate(() => window.scrollBy(0, -500));
     await page.waitForTimeout(600);
     
     // Header should be visible again
