@@ -1,17 +1,7 @@
-import { test, expect, devices } from '@playwright/test';
-
-// Use iPhone 13 viewport for mobile tests
-test.use({ ...devices['iPhone 13'] });
+import { test, expect } from '@playwright/test';
 
 /**
- * Mobile Modal Behavior Tests
- * 
- * **Validates: Requirements 1.2, 1.3, 1.4, 2.2, 2.3, 2.4**
- * 
- * Tests for mobile modal layout including:
- * - Modal z-index is above background elements
- * - Modal scrolling works on mobile viewport
- * - Background scroll is locked when modal is open
+ * Mobile Quick Start & Layout Tests
  */
 test.describe('Mobile Modal Behavior', () => {
   test.beforeEach(async ({ page }) => {
@@ -20,149 +10,78 @@ test.describe('Mobile Modal Behavior', () => {
       localStorage.clear();
     });
     await page.reload();
-    
+
     // Wait for landing page and click "Continue as Guest"
     await page.click('button:has-text("Continue as Guest")');
-    
+
     // Wait for main app to load
     await expect(page.locator('.hamburger-btn')).toBeVisible();
   });
 
-  /**
-   * Test modal z-index is above background elements
-   * **Validates: Requirements 1.2, 2.2**
-   */
-  test('task entry modal has z-index above background elements', async ({ page }) => {
-    // Click on a category to open the task entry modal
-    const categoryBtn = page.locator('.quick-start-category').first();
-    await expect(categoryBtn).toBeVisible();
-    await categoryBtn.click();
-    
-    // Wait for modal to appear
-    const modalOverlay = page.locator('.task-prompt-overlay');
-    await expect(modalOverlay).toBeVisible();
-    
-    // Verify modal overlay has z-index above header (header is z-index: 100)
-    const overlayZIndex = await modalOverlay.evaluate((el) => {
-      return window.getComputedStyle(el).zIndex;
-    });
-    expect(parseInt(overlayZIndex)).toBeGreaterThanOrEqual(1000);
-    
-    // Verify modal is visible and positioned above other content
-    const modal = page.locator('.task-prompt-modal');
-    await expect(modal).toBeVisible();
-    
-    // Verify the modal is in the viewport and not obscured
-    const modalBox = await modal.boundingBox();
-    expect(modalBox).not.toBeNull();
-    expect(modalBox!.width).toBeGreaterThan(0);
-    expect(modalBox!.height).toBeGreaterThan(0);
-    
-    // Verify modal input is focusable (proves it's on top)
-    const modalInput = modal.locator('.task-prompt-input');
-    await expect(modalInput).toBeVisible();
-    await modalInput.focus();
-    await expect(modalInput).toBeFocused();
+  test('quick start can start a task on mobile', async ({ page }) => {
+    const categorySelect = page.locator('select').first();
+    await expect(categorySelect).toBeVisible();
+
+    // Pick first real category option (skip placeholder)
+    const options = await categorySelect.locator('option').allTextContents();
+    expect(options.length).toBeGreaterThan(2);
+    await categorySelect.selectOption({ index: 1 });
+
+    const taskInput = page.locator('.description-input-wrapper input').first();
+    await taskInput.fill('Mobile quick start seed task');
+
+    await page.locator('button:has-text("Start")').first().click();
+    await expect(page.locator('.timer-time')).toBeVisible();
+
+    await page.locator('button:has-text("Stop")').first().click();
+
+    const quickStartBtn = page.locator('.quick-start-btn').first();
+    await expect(quickStartBtn).toBeVisible();
+
+    await quickStartBtn.click();
+    await expect(page.locator('.timer-time')).toBeVisible();
   });
 
-  /**
-   * Test modal is visible and usable on mobile viewport
-   * **Validates: Requirements 1.3, 2.3**
-   */
-  test('modal is visible and usable on mobile viewport', async ({ page }) => {
-    // Click on a category to open the task entry modal
-    const categoryBtn = page.locator('.quick-start-category').first();
-    await expect(categoryBtn).toBeVisible();
-    await categoryBtn.click();
-    
-    // Wait for modal to appear
-    const modal = page.locator('.task-prompt-modal');
-    await expect(modal).toBeVisible();
-    
-    // Verify modal is within viewport
-    const modalBox = await modal.boundingBox();
-    expect(modalBox).not.toBeNull();
-    expect(modalBox!.y).toBeGreaterThanOrEqual(0);
-    
-    // Verify modal input is usable
-    const modalInput = modal.locator('.task-prompt-input');
-    await expect(modalInput).toBeVisible();
-    await modalInput.fill('Test task');
-    await expect(modalInput).toHaveValue('Test task');
+  test('mobile nav overlay is visible and usable', async ({ page }) => {
+    const hamburger = page.locator('.hamburger-btn');
+    await hamburger.click();
+
+    const overlay = page.locator('.mobile-nav-overlay');
+    await expect(overlay).toBeVisible();
+
+    // Overlay should cover viewport area
+    const box = await overlay.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.width).toBeGreaterThan(0);
+    expect(box!.height).toBeGreaterThan(0);
+
+    // Clicking overlay closes nav
+    await overlay.click();
+    await expect(page.locator('.mobile-nav-panel')).not.toHaveClass(/open/);
   });
 
-  /**
-   * Test modal can be closed by clicking overlay
-   * **Validates: Requirements 1.4, 2.4**
-   */
-  test('modal can be closed by clicking overlay or cancel', async ({ page }) => {
-    // Click on a category to open the task entry modal
-    const categoryBtn = page.locator('.quick-start-category').first();
-    await expect(categoryBtn).toBeVisible();
-    await categoryBtn.click();
-    
-    // Wait for modal to appear
-    const modal = page.locator('.task-prompt-modal');
-    await expect(modal).toBeVisible();
-    
-    // Close modal by clicking cancel
-    await page.click('.task-prompt-modal button:has-text("Cancel")');
-    
-    // Verify modal is closed
-    await expect(modal).not.toBeVisible();
-    
-    // Open modal again
-    await categoryBtn.click();
-    await expect(modal).toBeVisible();
-    
-    // Close by clicking overlay (outside modal)
-    await page.click('.task-prompt-overlay', { position: { x: 10, y: 10 } });
-    
-    // Verify modal is closed
-    await expect(modal).not.toBeVisible();
+  test('task input is usable on mobile viewport', async ({ page }) => {
+    const taskInput = page.locator('.description-input-wrapper input').first();
+    await expect(taskInput).toBeVisible();
+    await taskInput.fill('Test task');
+    await expect(taskInput).toHaveValue('Test task');
   });
 
-  /**
-   * Test modal overlay covers entire screen
-   * **Validates: Requirements 1.5**
-   */
-  test('modal overlay covers entire screen on mobile', async ({ page }) => {
-    // Click on a category to open the task entry modal
-    const categoryBtn = page.locator('.quick-start-category').first();
-    await expect(categoryBtn).toBeVisible();
-    await categoryBtn.click();
-    
-    // Wait for modal overlay to appear
-    const modalOverlay = page.locator('.task-prompt-overlay');
-    await expect(modalOverlay).toBeVisible();
-    
-    // Verify overlay has position: fixed with inset: 0
-    const position = await modalOverlay.evaluate((el) => {
-      return window.getComputedStyle(el).position;
+  test('mobile nav overlay uses full-screen fixed positioning', async ({ page }) => {
+    await page.locator('.hamburger-btn').click();
+    const overlay = page.locator('.mobile-nav-overlay');
+    await expect(overlay).toBeVisible();
+
+    const style = await overlay.evaluate((el) => {
+      const s = window.getComputedStyle(el);
+      return { position: s.position, top: s.top, left: s.left, right: s.right, bottom: s.bottom };
     });
-    expect(position).toBe('fixed');
-    
-    // Verify inset values are 0 (covers entire screen)
-    const insetValues = await modalOverlay.evaluate((el) => {
-      const style = window.getComputedStyle(el);
-      return {
-        top: style.top,
-        right: style.right,
-        bottom: style.bottom,
-        left: style.left
-      };
-    });
-    expect(insetValues.top).toBe('0px');
-    expect(insetValues.right).toBe('0px');
-    expect(insetValues.bottom).toBe('0px');
-    expect(insetValues.left).toBe('0px');
-    
-    // Verify overlay prevents interaction with background by checking backdrop
-    const hasBackdrop = await modalOverlay.evaluate((el) => {
-      const style = window.getComputedStyle(el);
-      return style.backgroundColor !== 'rgba(0, 0, 0, 0)' || style.backdropFilter !== 'none';
-    });
-    expect(hasBackdrop).toBe(true);
+
+    expect(style.position).toBe('fixed');
+    expect(style.top).toBe('0px');
+    expect(style.left).toBe('0px');
+    expect(style.right).toBe('0px');
+    expect(style.bottom).toBe('0px');
   });
 });
 
@@ -230,21 +149,23 @@ test.describe('Mobile UI', () => {
   });
 
   test('timer is centered on mobile', async ({ page }) => {
-    // Start a timer using a default category
-    await page.click('.quick-start-category:has-text("Meetings")');
-    await page.click('.task-prompt-modal button:has-text("Start")');
-    
+    // Start a timer via form controls
+    const categorySelect = page.locator('select').first();
+    await categorySelect.selectOption({ index: 1 });
+    await page.locator('.description-input-wrapper input').first().fill('Timer alignment test');
+    await page.locator('button:has-text("Start")').first().click();
+
     // Wait for timer to be visible
     await expect(page.locator('.timer-time')).toBeVisible();
-    
-    // Check that active tracker has centered alignment
+
+    // Check that active tracker has centered alignment container
     const activeTracker = page.locator('.active-tracker');
     await expect(activeTracker).toBeVisible();
-    
-    // Verify the timer display is visible and centered (flex-direction: column on mobile)
+
+    // Verify the timer display is visible
     const timerDisplay = page.locator('.timer-display');
     await expect(timerDisplay).toBeVisible();
-    
+
     // Clean up
     await page.click('button:has-text("Stop")');
   });
@@ -292,15 +213,15 @@ test.describe('Mobile UI', () => {
       });
     }
     
-    // Scroll down using wheel event which is more reliable
-    await page.mouse.wheel(0, 400);
+    // Scroll down using evaluate (mouse.wheel not supported in mobile WebKit)
+    await page.evaluate(() => window.scrollBy(0, 400));
     await page.waitForTimeout(600);
     
     // Header should be hidden (has header-hidden class)
     await expect(header).toHaveClass(/header-hidden/);
     
     // Scroll back up
-    await page.mouse.wheel(0, -500);
+    await page.evaluate(() => window.scrollBy(0, -500));
     await page.waitForTimeout(600);
     
     // Header should be visible again

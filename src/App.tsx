@@ -87,12 +87,12 @@ export function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLogge
   const autoResumeFutureEntry = useCallback(async (recentEnts: TimeEntry[], active: TimeEntry | null): Promise<TimeEntry | null> => {
     if (active) return active; // Already tracking
     // Find the most recent completed entry
-    const completed = recentEnts.filter(e => e.end_time);
+    const completed = recentEnts.filter((e): e is TimeEntry & { end_time: string } => !!e.end_time);
     if (completed.length === 0) return null;
     const mostRecent = completed.reduce((latest, e) =>
-      new Date(e.end_time!).getTime() > new Date(latest.end_time!).getTime() ? e : latest
+      new Date(e.end_time).getTime() > new Date(latest.end_time).getTime() ? e : latest
     );
-    const futureEndTime = mostRecent.end_time!;
+    const futureEndTime = mostRecent.end_time;
     // If its end_time is in the future, resume it and set scheduled stop
     if (new Date(futureEndTime).getTime() > Date.now()) {
       try {
