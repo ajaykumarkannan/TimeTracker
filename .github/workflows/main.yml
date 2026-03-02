@@ -202,8 +202,21 @@ jobs:
       - name: Bump version
         id: bump
         run: |
-          npm version patch -m "chore(release): %s [ci skip]"
-          echo "version=$(node -p 'require("./package.json").version')" >> $GITHUB_OUTPUT
+          # Get current version from package.json
+          CURRENT=$(node -p 'require("./package.json").version')
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+
+          # Find the next patch version whose tag doesn't already exist
+          NEXT_PATCH=$((PATCH + 1))
+          while git rev-parse "v${MAJOR}.${MINOR}.${NEXT_PATCH}" >/dev/null 2>&1; do
+            echo "Tag v${MAJOR}.${MINOR}.${NEXT_PATCH} already exists, trying next..."
+            NEXT_PATCH=$((NEXT_PATCH + 1))
+          done
+
+          NEXT_VERSION="${MAJOR}.${MINOR}.${NEXT_PATCH}"
+          echo "Bumping to ${NEXT_VERSION}"
+          npm version "${NEXT_VERSION}" -m "chore(release): %s [ci skip]"
+          echo "version=${NEXT_VERSION}" >> $GITHUB_OUTPUT
       - run: git push origin $GITHUB_REF --tags && git push
 
   docker-build:

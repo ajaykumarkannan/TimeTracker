@@ -41,8 +41,27 @@ jobs:
       - name: Bump version
         id: bump
         run: |
-          npm version ${{ inputs.bump }} -m "chore(release): %s [ci skip]"
-          echo "new_version=v$(node -p 'require("./package.json").version')" >> $GITHUB_OUTPUT
+          # Get current version from package.json
+          CURRENT=$(node -p 'require("./package.json").version')
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+
+          BUMP_TYPE="${{ inputs.bump }}"
+          if [ "$BUMP_TYPE" = "major" ]; then
+            MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0
+          else
+            MINOR=$((MINOR + 1)); PATCH=0
+          fi
+
+          # Find the next version whose tag doesn't already exist
+          while git rev-parse "v${MAJOR}.${MINOR}.${PATCH}" >/dev/null 2>&1; do
+            echo "Tag v${MAJOR}.${MINOR}.${PATCH} already exists, trying next patch..."
+            PATCH=$((PATCH + 1))
+          done
+
+          NEXT_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+          echo "Bumping to ${NEXT_VERSION}"
+          npm version "${NEXT_VERSION}" -m "chore(release): %s [ci skip]"
+          echo "new_version=v${NEXT_VERSION}" >> $GITHUB_OUTPUT
 
       - name: Push version and tag
         run: git push origin HEAD:main --tags
