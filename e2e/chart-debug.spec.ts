@@ -17,19 +17,28 @@ test.describe('Analytics Daily Breakdown Chart', () => {
     const sessionId = await page.evaluate(() => localStorage.getItem('sessionId'));
     expect(sessionId).toBeTruthy();
     
-    // Use page.request which shares the page's context
-    // First, fetch the user's categories to get valid category IDs
-    const categoriesResponse = await page.request.get('/api/categories', {
-      headers: { 'X-Session-ID': sessionId! }
-    });
+    // Fetch categories with retry to handle rate limiting in CI
+    let categoriesResponse;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      categoriesResponse = await page.request.get('/api/categories', {
+        headers: { 'X-Session-ID': sessionId! }
+      });
+      if (categoriesResponse.ok()) break;
+      if (categoriesResponse.status() === 429) {
+        // Wait for rate limit window to reset before retrying
+        await page.waitForTimeout(2000 * (attempt + 1));
+      } else {
+        break;
+      }
+    }
     
     // Log response for debugging if it fails
-    if (!categoriesResponse.ok()) {
-      console.log('Categories response status:', categoriesResponse.status());
+    if (!categoriesResponse!.ok()) {
+      console.log('Categories response status:', categoriesResponse!.status());
       console.log('Session ID:', sessionId);
     }
-    expect(categoriesResponse.ok()).toBeTruthy();
-    const categories = await categoriesResponse.json();
+    expect(categoriesResponse!.ok()).toBeTruthy();
+    const categories = await categoriesResponse!.json();
     expect(categories.length).toBeGreaterThan(0);
     
     // Use the first two categories (should be Meetings and Deep Work)

@@ -145,9 +145,10 @@ jobs:
           name: dist
           path: dist/
       
-      - run: npx playwright test --project=chromium
+      - run: npx playwright test
         env:
           HOME: /root
+          DOCKER_CONFIG: /tmp
       
       - uses: actions/upload-artifact@v4
         if: always()

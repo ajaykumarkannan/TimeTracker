@@ -18,12 +18,23 @@ export default defineConfig({
       testIgnore: /mobile\.spec\.ts/,
     },
     {
-      name: 'mobile',
-      use: { 
-        ...devices['iPhone 13'],
-        // Override to use Chromium instead of WebKit for CI compatibility
-        browserName: 'chromium',
-      },
+      name: 'firefox',
+      use: { ...devices['Desktop Firefox'] },
+      testIgnore: /mobile\.spec\.ts/,
+    },
+    {
+      name: 'webkit',
+      use: { ...devices['Desktop Safari'] },
+      testIgnore: /mobile\.spec\.ts/,
+    },
+    {
+      name: 'mobile-ios',
+      use: { ...devices['iPhone 15'] },
+      testMatch: /mobile\.spec\.ts/,
+    },
+    {
+      name: 'mobile-android',
+      use: { ...devices['Pixel 7'] },
       testMatch: /mobile\.spec\.ts/,
     },
   ],
