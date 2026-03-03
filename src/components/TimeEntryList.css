@@ -999,10 +999,6 @@
     justify-content: center;
   }
 
-  .entry-actions {
-    gap: 0;
-  }
-  
   .delete-day-btn {
     opacity: 1;
     min-width: 44px;
@@ -1013,6 +1009,26 @@
   .entry-item {
     padding: 0.2rem 0.0rem;
     min-height: 60px;
+    align-items: stretch;
+  }
+
+  .entry-indicator {
+    align-self: stretch;
+    height: auto;
+  }
+
+  .entry-content {
+    align-self: stretch;
+  }
+
+  /* Align action buttons with the duration row */
+  .entry-actions {
+    gap: 0;
+    align-self: flex-end;
+  }
+
+  .entry-item > .delete-btn {
+    align-self: flex-end;
   }
   
   .entry-main {
@@ -1053,12 +1069,12 @@
   /* Inline edit time form on mobile */
   .inline-edit-time-form {
     width: 100%;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
   }
   
   .inline-edit-time {
     flex: 1;
-    min-width: 10rem;
+    min-width: 0;
     min-height: 44px;
     font-size: 0.875rem;
     padding: 0.5rem;
@@ -1069,6 +1085,7 @@
     width: 44px;
     height: 44px;
     font-size: 1.125rem;
+    flex-shrink: 0;
   }
   
   /* Filter inputs touch targets */
