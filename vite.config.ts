@@ -2,16 +2,19 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { version } from './package.json'
 
+const vitePort = parseInt(process.env.VITE_PORT || '4848', 10);
+const apiPort = parseInt(process.env.PORT || '4847', 10);
+
 export default defineConfig({
   plugins: [react()],
   define: {
     __APP_VERSION__: JSON.stringify(version)
   },
   server: {
-    port: 4848,
+    port: vitePort,
     proxy: {
       '/api': {
-        target: 'http://localhost:4847',
+        target: `http://localhost:${apiPort}`,
         changeOrigin: true
       }
     }

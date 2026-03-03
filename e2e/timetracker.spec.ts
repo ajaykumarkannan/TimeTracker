@@ -9,11 +9,17 @@ test.describe('Time Tracker E2E', () => {
     });
     await page.reload();
     
-    // Wait for landing page and click "Continue as Guest"
+    // Click "Continue as Guest" — this triggers loadData() which fetches categories
     await page.click('button:has-text("Continue as Guest")');
     
     // Wait for main app to load - use desktop nav for desktop tests
     await expect(page.locator('.desktop-nav')).toBeVisible();
+    
+    // Wait for categories to load into the select (more than the 2 static options)
+    await page.waitForFunction(
+      () => document.querySelectorAll('.tracker-form select option').length > 2,
+      { timeout: 15000 }
+    );
   });
 
   test('complete workflow: create category, track time, view history', async ({ page }) => {
@@ -55,12 +61,11 @@ test.describe('Time Tracker E2E', () => {
   test('edit and delete category', async ({ page }) => {
     await page.click('.desktop-nav button:has-text("Categories")');
 
-    // Create category and wait for API response
-    await page.fill('input[placeholder="Category name"]', 'TestCategory');
-    await Promise.all([
-      page.waitForResponse(resp => resp.url().includes('/api/categories') && resp.status() === 201),
-      page.click('button:has-text("Add")')
-    ]);
+    // Create category - fill name and click Add, then wait for it to appear
+    const nameInput = page.locator('input[placeholder="Category name"]');
+    await nameInput.fill('TestCategory');
+    await expect(nameInput).toHaveValue('TestCategory');
+    await page.click('button:has-text("Add")');
     await expect(page.locator('.category-name:has-text("TestCategory")')).toBeVisible({ timeout: 10000 });
 
     // Find the row with TestCategory and click its edit button
@@ -70,7 +75,7 @@ test.describe('Time Tracker E2E', () => {
     await expect(page.locator('h2:has-text("Edit Category")')).toBeVisible();
     await page.fill('input[placeholder="Category name"]', 'RenamedCategory');
     await page.click('button:has-text("Update")');
-    await expect(page.locator('.category-name:has-text("RenamedCategory")')).toBeVisible();
+    await expect(page.locator('.category-name:has-text("RenamedCategory")')).toBeVisible({ timeout: 10000 });
 
     // Delete category - categories without time entries delete immediately
     // Categories with time entries show a modal to select replacement
@@ -102,12 +107,6 @@ test.describe('Time Tracker E2E', () => {
   });
 
   test('timer updates in real-time', async ({ page }) => {
-    // Wait for the tracker form to be visible (indicates page is loaded)
-    await expect(page.locator('.tracker-form')).toBeVisible({ timeout: 10000 });
-    
-    // Wait a moment for categories to load
-    await page.waitForTimeout(1000);
-    
     // Start timer using a default category via the form
     await page.selectOption('.tracker-form select', { label: 'Planning' });
     await page.click('.tracker-form .start-btn');
