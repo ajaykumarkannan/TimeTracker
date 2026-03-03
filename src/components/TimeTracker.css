@@ -454,6 +454,8 @@
   font-size: 0.8125rem;
   background: var(--input-bg);
   color: var(--text-primary);
+  box-sizing: border-box;
+  height: 2.125rem;
 }
 
 .switch-category-select {

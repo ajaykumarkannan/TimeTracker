@@ -11,21 +11,25 @@ test.describe('Mobile Modal Behavior', () => {
     });
     await page.reload();
 
-    // Wait for landing page and click "Continue as Guest"
+    // Click "Continue as Guest" — this triggers loadData() which fetches categories
     await page.click('button:has-text("Continue as Guest")');
 
     // Wait for main app to load
     await expect(page.locator('.hamburger-btn')).toBeVisible();
+
+    // Wait for categories to load into the select (more than the 2 static options)
+    await page.waitForFunction(
+      () => document.querySelectorAll('.tracker-form select option').length > 2,
+      { timeout: 15000 }
+    );
   });
 
   test('quick start can start a task on mobile', async ({ page }) => {
-    const categorySelect = page.locator('select').first();
+    const categorySelect = page.locator('.tracker-form select');
     await expect(categorySelect).toBeVisible();
 
-    // Pick first real category option (skip placeholder)
-    const options = await categorySelect.locator('option').allTextContents();
-    expect(options.length).toBeGreaterThan(2);
-    await categorySelect.selectOption({ index: 1 });
+    // Select a known default category by label
+    await categorySelect.selectOption({ label: 'Meetings' });
 
     const taskInput = page.locator('.description-input-wrapper input').first();
     await taskInput.fill('Mobile quick start seed task');
@@ -93,11 +97,17 @@ test.describe('Mobile UI', () => {
     });
     await page.reload();
     
-    // Wait for landing page and click "Continue as Guest"
+    // Click "Continue as Guest" — this triggers loadData() which fetches categories
     await page.click('button:has-text("Continue as Guest")');
     
     // Wait for main app to load - hamburger button should be visible on mobile
     await expect(page.locator('.hamburger-btn')).toBeVisible();
+    
+    // Wait for categories to load into the select (more than the 2 static options)
+    await page.waitForFunction(
+      () => document.querySelectorAll('.tracker-form select option').length > 2,
+      { timeout: 15000 }
+    );
   });
 
   test('hamburger menu navigation works', async ({ page }) => {
@@ -149,9 +159,10 @@ test.describe('Mobile UI', () => {
   });
 
   test('timer is centered on mobile', async ({ page }) => {
-    // Start a timer via form controls
-    const categorySelect = page.locator('select').first();
-    await categorySelect.selectOption({ index: 1 });
+    // Start a timer via form controls — categories already loaded in beforeEach
+    const categorySelect = page.locator('.tracker-form select');
+
+    await categorySelect.selectOption({ label: 'Meetings' });
     await page.locator('.description-input-wrapper input').first().fill('Timer alignment test');
     await page.locator('button:has-text("Start")').first().click();
 
