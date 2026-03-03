@@ -76,6 +76,12 @@ test.describe('Analytics Daily Breakdown Chart', () => {
     // Reload to ensure data is fetched
     await page.reload();
     await expect(page.locator('.desktop-nav')).toBeVisible();
+    
+    // Wait for categories to load into the select after reload
+    await page.waitForFunction(
+      () => document.querySelectorAll('.tracker-form select option').length > 2,
+      { timeout: 15000 }
+    );
   });
 
   test('displays stacked bar chart with category colors', async ({ page }) => {
