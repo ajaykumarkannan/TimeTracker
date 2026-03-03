@@ -10,35 +10,27 @@ test.describe('Analytics Daily Breakdown Chart', () => {
     await page.click('button:has-text("Continue as Guest")');
     await expect(page.locator('.desktop-nav')).toBeVisible();
     
-    // Wait for the app to fully initialize and fetch categories
-    await page.waitForTimeout(500);
+    // Wait for the app to fully initialize — sessionId is created on first API call
+    // Poll until sessionId appears in localStorage (set after categories are fetched)
+    await page.waitForFunction(() => localStorage.getItem('sessionId') !== null, null, { timeout: 10000 });
     
-    // Get the session ID from the page context
     const sessionId = await page.evaluate(() => localStorage.getItem('sessionId'));
     expect(sessionId).toBeTruthy();
     
-    // Fetch categories with retry to handle rate limiting in CI
-    let categoriesResponse;
+    // Fetch categories — retry on rate limiting
+    let categories: { id: number; name: string }[] = [];
     for (let attempt = 0; attempt < 5; attempt++) {
-      categoriesResponse = await page.request.get('/api/categories', {
+      const resp = await page.request.get('/api/categories', {
         headers: { 'X-Session-ID': sessionId! }
       });
-      if (categoriesResponse.ok()) break;
-      if (categoriesResponse.status() === 429) {
-        // Wait for rate limit window to reset before retrying
-        await page.waitForTimeout(2000 * (attempt + 1));
-      } else {
+      if (resp.ok()) {
+        categories = await resp.json();
         break;
       }
+      if (resp.status() === 429) {
+        await page.waitForTimeout(2000 * (attempt + 1));
+      }
     }
-    
-    // Log response for debugging if it fails
-    if (!categoriesResponse!.ok()) {
-      console.log('Categories response status:', categoriesResponse!.status());
-      console.log('Session ID:', sessionId);
-    }
-    expect(categoriesResponse!.ok()).toBeTruthy();
-    const categories = await categoriesResponse!.json();
     expect(categories.length).toBeGreaterThan(0);
     
     // Use the first two categories (should be Meetings and Deep Work)

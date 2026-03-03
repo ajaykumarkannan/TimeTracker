@@ -22,6 +22,9 @@ test.describe('Mobile Modal Behavior', () => {
     const categorySelect = page.locator('select').first();
     await expect(categorySelect).toBeVisible();
 
+    // Wait for category options to load from API
+    await expect(categorySelect.locator('option:not([value=""])')).not.toHaveCount(0, { timeout: 10000 });
+
     // Pick first real category option (skip placeholder)
     const options = await categorySelect.locator('option').allTextContents();
     expect(options.length).toBeGreaterThan(2);
@@ -151,6 +154,10 @@ test.describe('Mobile UI', () => {
   test('timer is centered on mobile', async ({ page }) => {
     // Start a timer via form controls
     const categorySelect = page.locator('select').first();
+
+    // Wait for category options to load from API
+    await expect(categorySelect.locator('option:not([value=""])')).not.toHaveCount(0, { timeout: 10000 });
+
     await categorySelect.selectOption({ index: 1 });
     await page.locator('.description-input-wrapper input').first().fill('Timer alignment test');
     await page.locator('button:has-text("Start")').first().click();

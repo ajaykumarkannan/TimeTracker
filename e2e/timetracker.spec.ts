@@ -55,12 +55,11 @@ test.describe('Time Tracker E2E', () => {
   test('edit and delete category', async ({ page }) => {
     await page.click('.desktop-nav button:has-text("Categories")');
 
-    // Create category and wait for API response
-    await page.fill('input[placeholder="Category name"]', 'TestCategory');
-    await Promise.all([
-      page.waitForResponse(resp => resp.url().includes('/api/categories') && resp.status() === 201),
-      page.click('button:has-text("Add")')
-    ]);
+    // Create category - fill name and click Add, then wait for it to appear
+    const nameInput = page.locator('input[placeholder="Category name"]');
+    await nameInput.fill('TestCategory');
+    await expect(nameInput).toHaveValue('TestCategory');
+    await page.click('button:has-text("Add")');
     await expect(page.locator('.category-name:has-text("TestCategory")')).toBeVisible({ timeout: 10000 });
 
     // Find the row with TestCategory and click its edit button
@@ -87,6 +86,9 @@ test.describe('Time Tracker E2E', () => {
   });
 
   test('displays time in history after tracking', async ({ page }) => {
+    // Wait for categories to load into the select before interacting
+    await expect(page.locator('.tracker-form select option:not([value=""])')).not.toHaveCount(0, { timeout: 10000 });
+
     // Use one of the default categories (Meetings) to track time via the form
     await page.selectOption('.tracker-form select', { label: 'Meetings' });
     await page.click('.tracker-form .start-btn');
@@ -105,8 +107,8 @@ test.describe('Time Tracker E2E', () => {
     // Wait for the tracker form to be visible (indicates page is loaded)
     await expect(page.locator('.tracker-form')).toBeVisible({ timeout: 10000 });
     
-    // Wait a moment for categories to load
-    await page.waitForTimeout(1000);
+    // Wait for categories to load into the select
+    await expect(page.locator('.tracker-form select option:not([value=""])')).not.toHaveCount(0, { timeout: 10000 });
     
     // Start timer using a default category via the form
     await page.selectOption('.tracker-form select', { label: 'Planning' });
