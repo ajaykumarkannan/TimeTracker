@@ -3,34 +3,8 @@ import { Category, TimeEntry } from '../types';
 import { api } from '../api';
 import { useTheme } from '../contexts/ThemeContext';
 import { getAdaptiveCategoryColors } from '../hooks/useAdaptiveColors';
+import { fuzzyMatch } from '../utils/fuzzyMatch';
 import './TimeTracker.css';
-
-// Simple fuzzy match - checks if all characters in query appear in order in target
-function fuzzyMatch(query: string, target: string): { match: boolean; score: number } {
-  const q = query.toLowerCase();
-  const t = target.toLowerCase();
-  
-  if (!q) return { match: true, score: 1 };
-  if (t.includes(q)) return { match: true, score: 2 }; // Exact substring match scores highest
-  
-  let qIdx = 0;
-  let consecutiveMatches = 0;
-  let maxConsecutive = 0;
-  
-  for (let tIdx = 0; tIdx < t.length && qIdx < q.length; tIdx++) {
-    if (t[tIdx] === q[qIdx]) {
-      qIdx++;
-      consecutiveMatches++;
-      maxConsecutive = Math.max(maxConsecutive, consecutiveMatches);
-    } else {
-      consecutiveMatches = 0;
-    }
-  }
-  
-  const match = qIdx === q.length;
-  const score = match ? maxConsecutive / q.length : 0;
-  return { match, score };
-}
 
 // Primary color palette - visually distinct colors
 const COLOR_PALETTE = [
