@@ -660,31 +660,57 @@ export function createMongoProvider(): DatabaseProvider {
         };
       }).sort((a, b) => b.minutes - a.minutes);
 
-      const entries: TimeEntry[] = await collection('time_entries').find({
-        user_id: params.userId,
-        start_time: { $gte: params.start, $lt: params.end }
-      }).toArray();
+      // Use aggregation pipeline for daily breakdown instead of loading all entries into memory
+      const dailyAgg = await collection('time_entries').aggregate([
+        {
+          $match: {
+            user_id: params.userId,
+            start_time: { $gte: params.start, $lt: params.end }
+          }
+        },
+        {
+          $addFields: {
+            date: { $substr: ['$start_time', 0, 10] }
+          }
+        },
+        {
+          $group: {
+            _id: { date: '$date', category_id: '$category_id' },
+            minutes: { $sum: { $ifNull: ['$duration_minutes', 0] } }
+          }
+        },
+        {
+          $group: {
+            _id: '$_id.date',
+            totalMinutes: { $sum: '$minutes' },
+            categoryBreakdown: {
+              $push: {
+                category_id: '$_id.category_id',
+                minutes: '$minutes'
+              }
+            }
+          }
+        },
+        { $sort: { _id: 1 } }
+      ]).toArray();
 
-      const dailyMap: Record<string, DailySummary> = {};
-      const dailyByCategory: Record<string, Record<string, number>> = {};
-      entries.forEach((entry) => {
-        const date = entry.start_time.substring(0, 10);
-        if (!dailyMap[date]) {
-          dailyMap[date] = { date, minutes: 0, byCategory: {} };
-          dailyByCategory[date] = {};
+      const daily: DailySummary[] = dailyAgg.map((row) => {
+        const r = row as unknown as {
+          _id: string;
+          totalMinutes: number;
+          categoryBreakdown: Array<{ category_id: number; minutes: number }>;
+        };
+        const byCategory: Record<string, number> = {};
+        for (const cb of r.categoryBreakdown) {
+          const categoryName = categoryMap.get(cb.category_id)?.name || 'Unknown';
+          byCategory[categoryName] = (byCategory[categoryName] || 0) + cb.minutes;
         }
-        const minutes = entry.duration_minutes || 0;
-        dailyMap[date].minutes += minutes;
-        const categoryName = categoryMap.get(entry.category_id)?.name || 'Unknown';
-        dailyByCategory[date][categoryName] = (dailyByCategory[date][categoryName] || 0) + minutes;
+        return {
+          date: r._id,
+          minutes: r.totalMinutes,
+          byCategory
+        };
       });
-
-      const daily: DailySummary[] = Object.values(dailyMap)
-        .sort((a, b) => a.date.localeCompare(b.date))
-        .map(item => ({
-          ...item,
-          byCategory: dailyByCategory[item.date] || {}
-        }));
 
       const topTasksAgg = await collection('time_entries').aggregate([
         {
@@ -740,25 +766,33 @@ export function createMongoProvider(): DatabaseProvider {
       return { byCategory, daily, topTasks, previousTotal };
     },
     async listExportRows(userId: number) {
-      const entries: TimeEntry[] = await collection('time_entries')
-        .find({ user_id: userId })
-        .sort({ start_time: -1 })
-        .toArray();
-      if (entries.length === 0) return [];
-      const categories: Category[] = await collection('categories')
-        .find({ user_id: userId })
-        .toArray();
-      const categoryMap = new Map<number, Category>(categories.map((cat) => [cat.id, cat]));
-      return entries.map((entry) => {
-        const category = categoryMap.get(entry.category_id);
-        return {
-          category_name: category?.name || 'Unknown',
-          category_color: category?.color || null,
-          task_name: entry.task_name,
-          start_time: entry.start_time,
-          end_time: entry.end_time
-        } as TimeEntryExportRow;
-      });
+      // Use $lookup to join categories in a single query instead of N+1 pattern
+      const results = await collection('time_entries').aggregate([
+        { $match: { user_id: userId } },
+        { $sort: { start_time: -1 } },
+        {
+          $lookup: {
+            from: 'categories',
+            let: { catId: '$category_id', uid: '$user_id' },
+            pipeline: [
+              { $match: { $expr: { $and: [{ $eq: ['$id', '$$catId'] }, { $eq: ['$user_id', '$$uid'] }] } } }
+            ],
+            as: 'category'
+          }
+        },
+        { $unwind: { path: '$category', preserveNullAndEmptyArrays: true } },
+        {
+          $project: {
+            category_name: { $ifNull: ['$category.name', 'Unknown'] },
+            category_color: { $ifNull: ['$category.color', null] },
+            task_name: 1,
+            start_time: 1,
+            end_time: 1
+          }
+        }
+      ]).toArray();
+
+      return results as unknown as TimeEntryExportRow[];
     },
     async getUserSettings(userId: number) {
       return collection('user_settings').findOne({ user_id: userId });
