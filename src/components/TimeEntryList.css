@@ -891,6 +891,96 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* Mobile time-edit modal */
+.time-edit-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 1000;
+  padding: 0;
+  animation: fadeIn 0.15s ease;
+}
+
+.time-edit-modal {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  width: 100%;
+  max-width: 32rem;
+  box-shadow: var(--shadow-xl);
+  animation: slideUp 0.2s ease;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.time-edit-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.time-edit-header h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.time-edit-body {
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.time-edit-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.time-edit-input {
+  width: 100%;
+  min-height: 44px;
+  padding: 0.5rem 0.75rem;
+  font-size: 1rem;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.time-edit-input:focus {
+  border-color: var(--primary);
+}
+
+.time-edit-actions {
+  display: flex;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  border-top: 1px solid var(--border);
+}
+
+.time-edit-actions .btn {
+  flex: 1;
+  min-height: 44px;
+  font-size: 0.9375rem;
+}
+
 /* Responsive */
 @media (max-width: 640px) {
   .filter-row {
@@ -946,7 +1036,7 @@
     display: flex;
     align-items: center;
     justify-content: flex-start;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     gap: 0.5rem;
   }
   
@@ -961,6 +1051,12 @@
     flex-shrink: 0;
     min-width: 4rem;
     text-align: right;
+  }
+  
+  /* When editing time inline, the form takes full width so it doesn't
+     cramp the datetime-local picker against other elements */
+  .entry-meta .inline-edit-time-form {
+    flex: 1 1 100%;
   }
   
   /* Use compact time format on mobile (4:18p instead of 4:18 PM) */
@@ -1075,6 +1171,7 @@
   .inline-edit-time {
     flex: 1;
     min-width: 0;
+    max-width: calc(100% - 96px);
     min-height: 44px;
     font-size: 0.875rem;
     padding: 0.5rem;
