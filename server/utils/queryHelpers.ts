@@ -37,60 +37,6 @@ export function rowToTimeEntry(row: unknown[]): TimeEntry & { category_name: str
 }
 
 /**
- * Convert multiple database rows to TimeEntry array
- */
-export function rowsToTimeEntries(result: { values: unknown[][] }[]): (TimeEntry & { category_name: string; category_color: string | null })[] {
-  if (result.length === 0 || result[0].values.length === 0) {
-    return [];
-  }
-  return result[0].values.map(rowToTimeEntry);
-}
-
-/**
- * Build a time entries query with optional WHERE clause
- */
-export function buildTimeEntriesQuery(whereClause?: string, orderBy?: string, limit?: number, offset?: number): string {
-  let query = TIME_ENTRIES_WITH_CATEGORIES_QUERY;
-  
-  if (whereClause) {
-    query += ` WHERE ${whereClause}`;
-  }
-  
-  if (orderBy) {
-    query += ` ORDER BY ${orderBy}`;
-  }
-  
-  if (limit !== undefined) {
-    query += ` LIMIT ${limit}`;
-    if (offset !== undefined) {
-      query += ` OFFSET ${offset}`;
-    }
-  }
-  
-  return query;
-}
-
-/**
- * Build WHERE clause for user and date range
- */
-export function buildDateRangeWhere(userId: number, startDate?: string, endDate?: string): { clause: string; params: (number | string)[] } {
-  const params: (number | string)[] = [userId];
-  let clause = 'te.user_id = ?';
-  
-  if (startDate) {
-    clause += ' AND te.start_time >= ?';
-    params.push(startDate);
-  }
-  
-  if (endDate) {
-    clause += ' AND te.start_time <= ?';
-    params.push(endDate);
-  }
-  
-  return { clause, params };
-}
-
-/**
  * Calculate duration in minutes between two ISO timestamps
  */
 export function calculateDurationMinutes(startTime: string, endTime: string): number {

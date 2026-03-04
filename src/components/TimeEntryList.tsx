@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { TimeEntry, Category } from '../types';
 import { api } from '../api';
 import { formatTime, formatTimeCompact, formatDuration, formatDate, formatDateTimeLocal, formatDateOnly, formatTimeOnly, combineDateAndTime } from '../utils/timeUtils';
+import { fuzzyMatch } from '../utils/fuzzyMatch';
 import './TimeEntryList.css';
 
 // Debounce hook for search input
@@ -21,7 +22,6 @@ function useDebounce<T>(value: T, delay: number): T {
   return debouncedValue;
 }
 
-// Simple fuzzy match - checks if all characters in query appear in order in target
 function formatBreakDuration(minutes: number): string {
   if (minutes < 60) return `${minutes}m`;
   const h = Math.floor(minutes / 60);
@@ -32,32 +32,6 @@ function formatBreakDuration(minutes: number): string {
   if (rh === 0 && m === 0) return `${d}d`;
   if (m === 0) return `${d}d ${rh}h`;
   return `${d}d ${rh}h ${m}m`;
-}
-
-function fuzzyMatch(query: string, target: string): { match: boolean; score: number } {
-  const q = query.toLowerCase();
-  const t = target.toLowerCase();
-  
-  if (!q) return { match: true, score: 1 };
-  if (t.includes(q)) return { match: true, score: 2 }; // Exact substring match scores highest
-  
-  let qIdx = 0;
-  let consecutiveMatches = 0;
-  let maxConsecutive = 0;
-  
-  for (let tIdx = 0; tIdx < t.length && qIdx < q.length; tIdx++) {
-    if (t[tIdx] === q[qIdx]) {
-      qIdx++;
-      consecutiveMatches++;
-      maxConsecutive = Math.max(maxConsecutive, consecutiveMatches);
-    } else {
-      consecutiveMatches = 0;
-    }
-  }
-  
-  const match = qIdx === q.length;
-  const score = match ? maxConsecutive / q.length : 0;
-  return { match, score };
 }
 
 interface Props {

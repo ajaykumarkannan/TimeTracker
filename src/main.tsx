@@ -4,6 +4,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import App from './App';
 import './index.css';
+import './components/shared.css';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
