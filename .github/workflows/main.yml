@@ -70,7 +70,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: coverage-report
-          path: coverage/
+          path: .test-output/coverage/
           retention-days: 30
       
       - name: Coverage summary
@@ -78,7 +78,7 @@ jobs:
         run: |
           echo "## Coverage Report" >> $GITHUB_STEP_SUMMARY
           node -e "
-            const c = require('./coverage/coverage-summary.json').total;
+            const c = require('./.test-output/coverage/coverage-summary.json').total;
             console.log('| Metric | Coverage |');
             console.log('|--------|----------|');
             console.log('| Statements | ' + c.statements.pct.toFixed(1) + '% |');
@@ -87,7 +87,7 @@ jobs:
             console.log('| Lines | ' + c.lines.pct.toFixed(1) + '% |');
           " >> $GITHUB_STEP_SUMMARY
           # Extract lines coverage percentage for badge
-          COVERAGE=$(node -p "require('./coverage/coverage-summary.json').total.lines.pct.toFixed(0)")
+          COVERAGE=$(node -p "require('./.test-output/coverage/coverage-summary.json').total.lines.pct.toFixed(0)")
           echo "percentage=$COVERAGE" >> $GITHUB_OUTPUT
       
       # Update coverage badge on main only
@@ -154,7 +154,7 @@ jobs:
         if: always()
         with:
           name: playwright-report
-          path: playwright-report/
+          path: .test-output/playwright-report/
           retention-days: 7
 
   # PR-only Docker validation - just needs build artifact

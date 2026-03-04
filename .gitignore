@@ -19,9 +19,7 @@ logs/
 *.log
 
 # Test output
-coverage/
-playwright-report/
-test-results/
+.test-output/
 
 # IDE
 .vscode/
