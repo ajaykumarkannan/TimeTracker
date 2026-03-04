@@ -37,9 +37,10 @@ function formatBreakDuration(minutes: number): string {
 interface Props {
   categories: Category[];
   activeEntry: TimeEntry | null;
-  onEntryChange: () => void;
+  onEntryChange: (optimistic?: { active?: TimeEntry | null; stopped?: TimeEntry }) => void;
   onCategoryChange: () => void;
   refreshKey?: number;
+  lastOptimistic?: { active?: TimeEntry | null; stopped?: TimeEntry } | null;
 }
 
 type EditField = 'category' | 'description' | 'startTime' | 'endTime' | null;
@@ -55,7 +56,7 @@ interface ShortEntry {
   durationSeconds: number;
 }
 
-export function TimeEntryList({ categories, activeEntry, onEntryChange, onCategoryChange, refreshKey }: Props) {
+export function TimeEntryList({ categories, activeEntry, onEntryChange, onCategoryChange, refreshKey, lastOptimistic }: Props) {
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<number | null>(null);
@@ -243,6 +244,24 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
       loadEntries();
     }
   }, [refreshKey, loadEntries]);
+
+  // Apply optimistic updates from parent without a full reload
+  useEffect(() => {
+    if (!lastOptimistic) return;
+    const { stopped, active } = lastOptimistic;
+    setEntries(prev => {
+      let updated = prev;
+      if (stopped) {
+        updated = updated.map(e => e.id === stopped.id ? stopped : e);
+      }
+      if (active) {
+        if (!updated.some(e => e.id === active.id)) {
+          updated = [active, ...updated];
+        }
+      }
+      return updated;
+    });
+  }, [lastOptimistic]);
 
   // Reload entries when onEntryChange is triggered externally
   const handleEntryChangeInternal = useCallback(async () => {
