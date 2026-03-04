@@ -50,7 +50,7 @@ interface Props {
   categories: Category[];
   activeEntry: TimeEntry | null;
   entries: TimeEntry[];
-  onEntryChange: () => void;
+  onEntryChange: (optimistic?: { active?: TimeEntry | null; stopped?: TimeEntry }) => void;
   onCategoryChange: () => void;
 }
 
@@ -434,8 +434,8 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
         const remaining = new Date(activeEntry.scheduled_end_time).getTime() - now;
         if (remaining <= 0) {
           // Time to auto-stop - trigger stop and refresh
-          api.stopEntry(activeEntry.id).then(() => {
-            onEntryChange();
+          api.stopEntry(activeEntry.id).then((stopped) => {
+            onEntryChange({ active: null, stopped });
           }).catch(console.error);
           setScheduledRemaining(null);
         } else {
@@ -454,9 +454,9 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   const handleStart = async () => {
     if (!selectedCategory) return;
     try {
-      await api.startEntry(selectedCategory, description || undefined);
+      const entry = await api.startEntry(selectedCategory, description || undefined);
       setDescription('');
-      onEntryChange();
+      onEntryChange({ active: entry });
     } catch (error) {
       console.error('Failed to start entry:', error);
     }
@@ -464,8 +464,8 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
 
   const handleQuickStartTask = async (task: RecentTask) => {
     try {
-      await api.startEntry(task.categoryId, task.task_name);
-      onEntryChange();
+      const entry = await api.startEntry(task.categoryId, task.task_name);
+      onEntryChange({ active: entry });
     } catch (error) {
       console.error('Failed to start entry:', error);
     }
@@ -474,10 +474,10 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   const handlePromptedStart = async () => {
     if (!taskNamePrompt) return;
     try {
-      await api.startEntry(taskNamePrompt.categoryId, promptedTaskName || undefined);
+      const entry = await api.startEntry(taskNamePrompt.categoryId, promptedTaskName || undefined);
       setTaskNamePrompt(null);
       setPromptedTaskName('');
-      onEntryChange();
+      onEntryChange({ active: entry });
     } catch (error) {
       console.error('Failed to start entry:', error);
     }
@@ -486,8 +486,8 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   const handleStop = async () => {
     if (!activeEntry) return;
     try {
-      await api.stopEntry(activeEntry.id);
-      onEntryChange();
+      const stopped = await api.stopEntry(activeEntry.id);
+      onEntryChange({ active: null, stopped });
     } catch (error) {
       console.error('Failed to stop entry:', error);
     }
@@ -502,11 +502,11 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
     if (!activeEntry || !forgottenEndTime) return;
     try {
       await api.updateEntry(activeEntry.id, { end_time: forgottenEndTime });
-      await api.stopEntry(activeEntry.id);
+      const stopped = await api.stopEntry(activeEntry.id);
       setShowForgottenPrompt(false);
       setForgottenEndTime('');
       forgottenDismissedRef.current = true;
-      onEntryChange();
+      onEntryChange({ active: null, stopped });
     } catch (error) {
       console.error('Failed to set end time:', error);
     }
@@ -591,7 +591,8 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
     try {
       await api.scheduleStop(activeEntry.id, scheduledEndTime.toISOString());
       setShowScheduleStopModal(false);
-      onEntryChange();
+      const updated = await api.getActiveEntry();
+      onEntryChange({ active: updated });
     } catch (error) {
       console.error('Failed to schedule stop:', error);
     }
@@ -600,8 +601,8 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   const handleClearScheduledStop = async () => {
     if (!activeEntry) return;
     try {
-      await api.clearScheduledStop(activeEntry.id);
-      onEntryChange();
+      const updated = await api.clearScheduledStop(activeEntry.id);
+      onEntryChange({ active: updated });
     } catch (error) {
       console.error('Failed to clear scheduled stop:', error);
     }
@@ -610,11 +611,11 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   const handleSwitchTask = async (categoryId: number, taskDescription?: string) => {
     try {
       // The /start endpoint automatically stops any active entry, so just start the new one
-      await api.startEntry(categoryId, taskDescription);
+      const entry = await api.startEntry(categoryId, taskDescription);
       setShowNewTaskForm(false);
       setSwitchTaskPrompt(null);
       setSwitchTaskName('');
-      onEntryChange();
+      onEntryChange({ active: entry });
     } catch (error) {
       console.error('Failed to switch task:', error);
     }

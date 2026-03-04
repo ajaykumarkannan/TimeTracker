@@ -280,52 +280,85 @@ export function createMongoProvider(): DatabaseProvider {
         ];
       }
 
-      const entries: TimeEntry[] = await collection('time_entries')
-        .find(match)
-        .sort({ start_time: -1 })
-        .skip(params.offset)
-        .limit(params.limit)
-        .toArray();
+      const entries = await collection('time_entries').aggregate([
+        { $match: match },
+        { $sort: { start_time: -1 } },
+        { $skip: params.offset },
+        { $limit: params.limit },
+        {
+          $lookup: {
+            from: 'categories',
+            let: { catId: '$category_id', uid: '$user_id' },
+            pipeline: [
+              { $match: { $expr: { $and: [{ $eq: ['$id', '$$catId'] }, { $eq: ['$user_id', '$$uid'] }] } } }
+            ],
+            as: 'category'
+          }
+        },
+        { $unwind: { path: '$category', preserveNullAndEmptyArrays: true } },
+        {
+          $addFields: {
+            category_name: { $ifNull: ['$category.name', 'Unknown'] },
+            category_color: { $ifNull: ['$category.color', null] }
+          }
+        },
+        { $project: { category: 0 } }
+      ]).toArray();
 
-      if (entries.length === 0) return [];
-
-      const categoryIds = [...new Set(entries.map((entry) => entry.category_id))];
-      const categories: Category[] = await collection('categories')
-        .find({ user_id: params.userId, id: { $in: categoryIds } })
-        .toArray();
-      const categoryMap = new Map<number, Category>(categories.map((cat) => [cat.id, cat]));
-
-      return entries.map((entry) => {
-        const category = categoryMap.get(entry.category_id);
-        return {
-          ...entry,
-          category_name: category?.name || 'Unknown',
-          category_color: category?.color || null
-        };
-      });
+      return entries as unknown as (TimeEntry & { category_name: string; category_color: string | null })[];
     },
     async getActiveTimeEntry(userId: number) {
-      const entry = await collection('time_entries').findOne({ user_id: userId, end_time: null });
-      if (!entry) return null;
-      const category = await collection('categories').findOne({ user_id: userId, id: entry.category_id });
-      return {
-        ...entry,
-        category_name: category?.name || 'Unknown',
-        category_color: category?.color || null
-      };
+      const results = await collection('time_entries').aggregate([
+        { $match: { user_id: userId, end_time: null } },
+        { $limit: 1 },
+        {
+          $lookup: {
+            from: 'categories',
+            let: { catId: '$category_id', uid: '$user_id' },
+            pipeline: [
+              { $match: { $expr: { $and: [{ $eq: ['$id', '$$catId'] }, { $eq: ['$user_id', '$$uid'] }] } } }
+            ],
+            as: 'category'
+          }
+        },
+        { $unwind: { path: '$category', preserveNullAndEmptyArrays: true } },
+        {
+          $addFields: {
+            category_name: { $ifNull: ['$category.name', 'Unknown'] },
+            category_color: { $ifNull: ['$category.color', null] }
+          }
+        },
+        { $project: { category: 0 } }
+      ]).toArray();
+      return results.length ? results[0] as unknown as TimeEntry & { category_name: string; category_color: string | null } : null;
     },
     async findTimeEntryById(userId: number, id: number) {
       return collection('time_entries').findOne({ id, user_id: userId });
     },
     async findTimeEntryWithCategoryById(userId: number, id: number) {
-      const entry = await collection('time_entries').findOne({ id, user_id: userId });
-      if (!entry) return null;
-      const category = await collection('categories').findOne({ user_id: userId, id: entry.category_id });
-      return {
-        ...entry,
-        category_name: category?.name || 'Unknown',
-        category_color: category?.color || null
-      };
+      const results = await collection('time_entries').aggregate([
+        { $match: { id, user_id: userId } },
+        { $limit: 1 },
+        {
+          $lookup: {
+            from: 'categories',
+            let: { catId: '$category_id', uid: '$user_id' },
+            pipeline: [
+              { $match: { $expr: { $and: [{ $eq: ['$id', '$$catId'] }, { $eq: ['$user_id', '$$uid'] }] } } }
+            ],
+            as: 'category'
+          }
+        },
+        { $unwind: { path: '$category', preserveNullAndEmptyArrays: true } },
+        {
+          $addFields: {
+            category_name: { $ifNull: ['$category.name', 'Unknown'] },
+            category_color: { $ifNull: ['$category.color', null] }
+          }
+        },
+        { $project: { category: 0 } }
+      ]).toArray();
+      return results.length ? results[0] as unknown as TimeEntry & { category_name: string; category_color: string | null } : null;
     },
     async findActiveTimeEntry(userId: number) {
       return collection('time_entries').findOne({ user_id: userId, end_time: null });

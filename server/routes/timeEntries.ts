@@ -113,11 +113,13 @@ router.post('/start', async (req: AuthRequest, res: Response) => {
       duration_minutes: null
     });
     broadcastSyncEvent(req.userId as number, 'time-entries');
-    const entry = await provider.getActiveTimeEntry(req.userId as number);
-    if (!entry) {
-      logger.error('Failed to retrieve created time entry', { userId: req.userId as number });
-      return res.status(201).json(created);
-    }
+    // Build response directly from created entry + category we already looked up
+    // instead of re-querying via getActiveTimeEntry
+    const entry = {
+      ...created,
+      category_name: category.name,
+      category_color: category.color
+    };
     logger.info('Time entry started', { entryId: entry.id, userId: req.userId as number });
     res.status(201).json(entry);
   } catch (error) {
