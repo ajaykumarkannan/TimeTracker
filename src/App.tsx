@@ -73,6 +73,7 @@ export function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLogge
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [activeEntry, setActiveEntry] = useState<TimeEntry | null>(null);
   const [entryRefreshKey, setEntryRefreshKey] = useState(0);
+  const [lastOptimistic, setLastOptimistic] = useState<{ active?: TimeEntry | null; stopped?: TimeEntry } | null>(null);
   const isRefreshingRef = useRef(false);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -247,7 +248,32 @@ export function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLogge
     broadcastChange('categories');
   };
 
-  const handleEntryChange = async () => {
+  const handleEntryChange = async (optimistic?: { active?: TimeEntry | null; stopped?: TimeEntry }) => {
+    if (optimistic) {
+      // Apply optimistic update from the API response — no refetch needed
+      if (optimistic.active !== undefined) {
+        setActiveEntry(optimistic.active);
+      }
+      const { stopped, active } = optimistic;
+      if (stopped) {
+        setEntries(prev => {
+          const updated = prev.map(e => e.id === stopped.id ? stopped : e);
+          if (active && !updated.some(e => e.id === active.id)) {
+            return [active, ...updated];
+          }
+          return updated;
+        });
+      } else if (active) {
+        setEntries(prev =>
+          prev.some(e => e.id === active.id) ? prev : [active, ...prev]
+        );
+      }
+      // Signal TimeEntryList to patch its own state without a full reload
+      setLastOptimistic(optimistic);
+      broadcastChange('time-entries');
+      return;
+    }
+    // Fallback: full refetch for operations without optimistic data (delete, bulk, etc.)
     const [recentEnts, active] = await Promise.all([
       api.getRecentEntries(20),
       api.getActiveEntry()
@@ -255,7 +281,6 @@ export function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLogge
     setEntries(recentEnts);
     setActiveEntry(active);
     setEntryRefreshKey(k => k + 1);
-    // Broadcast to other tabs in same browser
     broadcastChange('time-entries');
   };
 
@@ -420,6 +445,7 @@ export function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLogge
               onEntryChange={handleEntryChange}
               onCategoryChange={handleCategoryChange}
               refreshKey={entryRefreshKey}
+              lastOptimistic={lastOptimistic}
             />
           </>
         )}
