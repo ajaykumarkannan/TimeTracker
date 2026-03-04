@@ -92,6 +92,20 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
   const [editStartTime, setEditStartTime] = useState<string>('');
   const [editEndTime, setEditEndTime] = useState<string>('');
   
+  // Track current edit field in a ref so deferred blur can check it
+  const editFieldRef = useRef<EditField>(null);
+  const editingIdRef = useRef<number | null>(null);
+
+  // Mobile time-edit modal state
+  const [showTimeEditModal, setShowTimeEditModal] = useState(false);
+  const isMobileRef = useRef(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 640px)');
+    isMobileRef.current = mq.matches;
+    const handler = (e: MediaQueryListEvent) => { isMobileRef.current = e.matches; };
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
   // Inline new category form state
   const [showNewCategory, setShowNewCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -456,10 +470,16 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
   const startEdit = (entry: TimeEntry, field: EditField) => {
     setEditingId(entry.id);
     setEditField(field);
+    editingIdRef.current = entry.id;
+    editFieldRef.current = field;
     setEditCategory(entry.category_id);
     setEditDescription(entry.task_name || '');
     setEditStartTime(formatDateTimeLocal(entry.start_time));
     setEditEndTime(entry.end_time ? formatDateTimeLocal(entry.end_time) : '');
+    // On mobile, use a modal for time editing instead of inline
+    if (isMobileRef.current && (field === 'startTime' || field === 'endTime')) {
+      setShowTimeEditModal(true);
+    }
   };
 
   const openManualEntry = () => {
@@ -649,6 +669,8 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
       }));
       setEditingId(null);
       setEditField(null);
+      editingIdRef.current = null;
+      editFieldRef.current = null;
       // Notify parent to refresh (important for active entry updates)
       onEntryChange();
     } catch (error) {
@@ -659,9 +681,74 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
   const handleCancel = () => {
     setEditingId(null);
     setEditField(null);
+    editingIdRef.current = null;
+    editFieldRef.current = null;
     setShowNewCategory(false);
     setNewCategoryName('');
     setNewCategoryColor('#6366f1');
+  };
+
+  // Deferred blur handler: gives click/touch events on sibling edit buttons
+  // time to fire startEdit before we save and clear the editing state.
+  // Mobile touch-to-click can be delayed, so we use a timeout rather than rAF.
+  const handleTimeBlur = (entryId: number, field: EditField) => {
+    const snapshotField = field;
+    const snapshotId = entryId;
+    setTimeout(() => {
+      // If the user tapped another editable field, startEdit already ran
+      // and changed the refs — bail out so we don't clobber the new edit.
+      if (editFieldRef.current !== snapshotField || editingIdRef.current !== snapshotId) return;
+      handleSave(entryId);
+    }, 150);
+  };
+
+  // Save handler for the mobile time-edit modal — saves both start and end.
+  const handleTimeModalSave = async () => {
+    if (!editingId) return;
+    const entry = entries.find(e => e.id === editingId);
+    if (!entry) return;
+
+    const newStart = new Date(editStartTime).toISOString();
+    const newEnd = editEndTime ? new Date(editEndTime).toISOString() : entry.end_time;
+
+    try {
+      await api.updateEntry(editingId, {
+        category_id: editCategory,
+        task_name: editDescription || null,
+        start_time: newStart,
+        end_time: newEnd
+      });
+      const category = categories.find(c => c.id === editCategory) || null;
+      setEntries(prev => prev.map(e => {
+        if (e.id !== editingId) return e;
+        const updated: TimeEntry = {
+          ...e,
+          category_id: editCategory,
+          category_name: category ? category.name : e.category_name,
+          category_color: category ? category.color : e.category_color,
+          task_name: editDescription || null,
+          start_time: newStart,
+          end_time: newEnd
+        };
+        if (updated.end_time) {
+          const durMs = new Date(updated.end_time).getTime() - new Date(updated.start_time).getTime();
+          updated.duration_minutes = Math.max(0, Math.round(durMs / 60000));
+        }
+        return updated;
+      }));
+      handleTimeModalClose();
+      onEntryChange();
+    } catch (error) {
+      console.error('Failed to update entry:', error);
+    }
+  };
+
+  const handleTimeModalClose = () => {
+    setShowTimeEditModal(false);
+    setEditingId(null);
+    setEditField(null);
+    editingIdRef.current = null;
+    editFieldRef.current = null;
   };
 
   const handleCreateCategory = async () => {
@@ -1320,7 +1407,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                           )}
                         </div>
                         <div className="entry-meta">
-                          {isEditing && editField === 'startTime' ? (
+                          {isEditing && editField === 'startTime' && !showTimeEditModal ? (
                             <form 
                               className="inline-edit-time-form"
                               onSubmit={(e) => handleTimeInputSubmit(e, entry.id)}
@@ -1331,7 +1418,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                                 className="inline-edit-time"
                                 value={editStartTime}
                                 onChange={(e) => setEditStartTime(e.target.value)}
-                                onBlur={() => handleSave(entry.id)}
+                                onBlur={() => handleTimeBlur(entry.id, 'startTime')}
                                 onKeyDown={(e) => handleKeyDown(e, entry.id)}
                                 autoFocus
                               />
@@ -1341,7 +1428,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                           ) : (
                             <button 
                               className="entry-time-btn editable"
-                              onClick={(e) => { e.stopPropagation(); startEdit(entry, 'startTime'); }}
+                              onPointerDown={(e) => { e.stopPropagation(); e.preventDefault(); startEdit(entry, 'startTime'); }}
                               title="Tap to edit start time"
                             >
                               <span className="time-full">{formatTime(entry.start_time)}</span>
@@ -1349,7 +1436,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                             </button>
                           )}
                           <span className="time-separator">–</span>
-                          {isEditing && editField === 'endTime' ? (
+                          {isEditing && editField === 'endTime' && !showTimeEditModal ? (
                             <form 
                               className="inline-edit-time-form"
                               onSubmit={(e) => handleTimeInputSubmit(e, entry.id)}
@@ -1360,7 +1447,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                                 className="inline-edit-time"
                                 value={editEndTime}
                                 onChange={(e) => setEditEndTime(e.target.value)}
-                                onBlur={() => handleSave(entry.id)}
+                                onBlur={() => handleTimeBlur(entry.id, 'endTime')}
                                 onKeyDown={(e) => handleKeyDown(e, entry.id)}
                                 autoFocus
                               />
@@ -1370,9 +1457,10 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                           ) : (
                             <button 
                               className={`entry-time-btn editable ${!entry.end_time ? 'active-time' : ''}`}
-                              onClick={(e) => { 
+                              onPointerDown={(e) => { 
                                 if (entry.end_time) {
                                   e.stopPropagation(); 
+                                  e.preventDefault();
                                   startEdit(entry, 'endTime'); 
                                 }
                               }}
@@ -1441,6 +1529,46 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Mobile time-edit modal */}
+      {showTimeEditModal && editingId && (
+        <div className="time-edit-overlay" onClick={handleTimeModalClose}>
+          <div className="time-edit-modal" onClick={e => e.stopPropagation()}>
+            <div className="time-edit-header">
+              <h3>Edit Time</h3>
+              <button className="btn-icon" onClick={handleTimeModalClose} title="Close">✕</button>
+            </div>
+            <div className="time-edit-body">
+              <label className="time-edit-label">
+                Start
+                <input
+                  type="datetime-local"
+                  className="time-edit-input"
+                  value={editStartTime}
+                  onChange={(e) => setEditStartTime(e.target.value)}
+                  autoFocus={editField === 'startTime'}
+                />
+              </label>
+              {editEndTime !== '' && (
+                <label className="time-edit-label">
+                  End
+                  <input
+                    type="datetime-local"
+                    className="time-edit-input"
+                    value={editEndTime}
+                    onChange={(e) => setEditEndTime(e.target.value)}
+                    autoFocus={editField === 'endTime'}
+                  />
+                </label>
+              )}
+            </div>
+            <div className="time-edit-actions">
+              <button className="btn btn-secondary" onClick={handleTimeModalClose}>Cancel</button>
+              <button className="btn btn-primary" onClick={handleTimeModalSave}>Save</button>
+            </div>
+          </div>
         </div>
       )}
     </div>
