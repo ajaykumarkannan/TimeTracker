@@ -91,33 +91,32 @@ export function formatDate(dateStr: string): string {
 }
 
 /**
+ * Convert a date string to a local Date adjusted for timezone offset.
+ */
+function toLocalDate(dateStr: string): Date {
+  const date = new Date(dateStr);
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+}
+
+/**
  * Convert datetime string to local datetime-local format
  */
 export function formatDateTimeLocal(dateStr: string): string {
-  const date = new Date(dateStr);
-  const offset = date.getTimezoneOffset();
-  const local = new Date(date.getTime() - offset * 60000);
-  return local.toISOString().slice(0, 16);
+  return toLocalDate(dateStr).toISOString().slice(0, 16);
 }
 
 /**
  * Convert datetime string to local date format (YYYY-MM-DD)
  */
 export function formatDateOnly(dateStr: string): string {
-  const date = new Date(dateStr);
-  const offset = date.getTimezoneOffset();
-  const local = new Date(date.getTime() - offset * 60000);
-  return local.toISOString().slice(0, 10);
+  return toLocalDate(dateStr).toISOString().slice(0, 10);
 }
 
 /**
  * Convert datetime string to local time format (HH:MM)
  */
 export function formatTimeOnly(dateStr: string): string {
-  const date = new Date(dateStr);
-  const offset = date.getTimezoneOffset();
-  const local = new Date(date.getTime() - offset * 60000);
-  return local.toISOString().slice(11, 16);
+  return toLocalDate(dateStr).toISOString().slice(11, 16);
 }
 
 /**
