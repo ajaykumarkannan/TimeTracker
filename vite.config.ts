@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { version } from './package.json'
@@ -27,7 +28,7 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'json-summary', 'html', 'lcov'],
-      reportsDirectory: './coverage',
+      reportsDirectory: './.test-output/coverage',
       exclude: [
         'node_modules/**',
         'dist/**',

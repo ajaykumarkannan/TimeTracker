@@ -230,8 +230,40 @@ async function apiFetch(url: string, options: RequestInit = {}): Promise<Respons
   return res;
 }
 
+/** Fetch via apiFetch, throw on error, return parsed JSON */
+async function apiGet<T>(url: string, errorMsg: string): Promise<T> {
+  const res = await apiFetch(url);
+  if (!res.ok) throw new Error(errorMsg);
+  return res.json();
+}
+
+/** Fetch via apiFetch with method/body, throw on error (with server error message if available), return parsed JSON */
+async function apiMutate<T>(url: string, method: string, body?: unknown, errorMsg = 'Request failed'): Promise<T> {
+  const res = await apiFetch(url, {
+    method,
+    ...(body !== undefined ? { body: JSON.stringify(body) } : {})
+  });
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ error: errorMsg }));
+    throw new Error(error.error || errorMsg);
+  }
+  return res.json();
+}
+
+/** Like apiMutate but returns void (for DELETE operations that return no body) */
+async function apiVoid(url: string, method: string, body?: unknown, errorMsg = 'Request failed'): Promise<void> {
+  const res = await apiFetch(url, {
+    method,
+    ...(body !== undefined ? { body: JSON.stringify(body) } : {})
+  });
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ error: errorMsg }));
+    throw new Error(error.error || errorMsg);
+  }
+}
+
 export const api = {
-  // Auth
+  // Auth - these have side effects (token management) so they use raw fetch
   async register(email: string, name: string, password: string): Promise<AuthResponse> {
     const res = await fetch(`${API_BASE}/auth/register`, {
       method: 'POST',
@@ -278,48 +310,13 @@ export const api = {
     clearTokens();
   },
 
-  async getMe(): Promise<User> {
-    const res = await apiFetch(`${API_BASE}/auth/me`);
-    if (!res.ok) throw new Error('Failed to get user');
-    return res.json();
-  },
+  getMe: () => apiGet<User>(`${API_BASE}/auth/me`, 'Failed to get user'),
 
   // Categories
-  async getCategories(): Promise<Category[]> {
-    const res = await apiFetch(`${API_BASE}/categories`);
-    if (!res.ok) throw new Error('Failed to fetch categories');
-    return res.json();
-  },
-
-  async createCategory(name: string, color?: string): Promise<Category> {
-    const res = await apiFetch(`${API_BASE}/categories`, {
-      method: 'POST',
-      body: JSON.stringify({ name, color })
-    });
-    if (!res.ok) throw new Error('Failed to create category');
-    return res.json();
-  },
-
-  async updateCategory(id: number, name: string, color?: string): Promise<Category> {
-    const res = await apiFetch(`${API_BASE}/categories/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify({ name, color })
-    });
-    if (!res.ok) throw new Error('Failed to update category');
-    return res.json();
-  },
-
-  async deleteCategory(id: number, replacementCategoryId?: number): Promise<void> {
-    const res = await apiFetch(`${API_BASE}/categories/${id}`, {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ replacementCategoryId })
-    });
-    if (!res.ok) {
-      const error = await res.json().catch(() => ({ error: 'Failed to delete category' }));
-      throw new Error(error.error || 'Failed to delete category');
-    }
-  },
+  getCategories: () => apiGet<Category[]>(`${API_BASE}/categories`, 'Failed to fetch categories'),
+  createCategory: (name: string, color?: string) => apiMutate<Category>(`${API_BASE}/categories`, 'POST', { name, color }, 'Failed to create category'),
+  updateCategory: (id: number, name: string, color?: string) => apiMutate<Category>(`${API_BASE}/categories/${id}`, 'PUT', { name, color }, 'Failed to update category'),
+  deleteCategory: (id: number, replacementCategoryId?: number) => apiVoid(`${API_BASE}/categories/${id}`, 'DELETE', { replacementCategoryId }, 'Failed to delete category'),
 
   // Time entries
   async getTimeEntries(startDate?: string, endDate?: string, categoryId?: number, search?: string): Promise<TimeEntry[]> {
@@ -328,178 +325,57 @@ export const api = {
     if (endDate) params.append('endDate', endDate);
     if (categoryId) params.append('categoryId', categoryId.toString());
     if (search) params.append('search', search);
-    const queryString = params.toString();
-    const url = queryString ? `${API_BASE}/time-entries?${queryString}` : `${API_BASE}/time-entries`;
-    const res = await apiFetch(url);
-    if (!res.ok) throw new Error('Failed to fetch time entries');
-    return res.json();
+    const qs = params.toString();
+    return apiGet<TimeEntry[]>(qs ? `${API_BASE}/time-entries?${qs}` : `${API_BASE}/time-entries`, 'Failed to fetch time entries');
   },
 
-  async getRecentEntries(limit: number = 20): Promise<TimeEntry[]> {
-    const res = await apiFetch(`${API_BASE}/time-entries?limit=${limit}`);
-    if (!res.ok) throw new Error('Failed to fetch recent entries');
-    return res.json();
-  },
+  getRecentEntries: (limit = 20) => apiGet<TimeEntry[]>(`${API_BASE}/time-entries?limit=${limit}`, 'Failed to fetch recent entries'),
 
-  async getTaskNameSuggestions(categoryId?: number, query?: string): Promise<{ task_name: string; categoryId: number; count: number; totalMinutes: number; lastUsed: string }[]> {
+  async getTaskNameSuggestions(categoryId?: number, query?: string) {
     const params = new URLSearchParams();
     if (categoryId) params.set('categoryId', categoryId.toString());
     if (query) params.set('q', query);
-    params.set('limit', '50'); // Fetch more for client-side caching
-    const res = await apiFetch(`${API_BASE}/time-entries/suggestions?${params}`);
-    if (!res.ok) throw new Error('Failed to fetch suggestions');
-    return res.json();
+    params.set('limit', '50');
+    return apiGet<{ task_name: string; categoryId: number; count: number; totalMinutes: number; lastUsed: string }[]>(`${API_BASE}/time-entries/suggestions?${params}`, 'Failed to fetch suggestions');
   },
 
-  async mergeTaskNames(sourceTaskNames: string[], targetTaskName: string, targetCategoryName?: string): Promise<{ merged: number; entriesUpdated: number; targetTaskName: string }> {
-    const res = await apiFetch(`${API_BASE}/time-entries/merge-task-names`, {
-      method: 'POST',
-      body: JSON.stringify({ sourceTaskNames, targetTaskName, targetCategoryName })
-    });
-    if (!res.ok) {
-      const error = await res.json();
-      throw new Error(error.error || 'Failed to merge task names');
-    }
-    return res.json();
-  },
+  mergeTaskNames: (sourceTaskNames: string[], targetTaskName: string, targetCategoryName?: string) =>
+    apiMutate<{ merged: number; entriesUpdated: number; targetTaskName: string }>(`${API_BASE}/time-entries/merge-task-names`, 'POST', { sourceTaskNames, targetTaskName, targetCategoryName }, 'Failed to merge task names'),
 
-  async updateTaskNameBulk(oldTaskName: string, oldCategoryName: string, newTaskName?: string, newCategoryName?: string): Promise<{ entriesUpdated: number }> {
-    const res = await apiFetch(`${API_BASE}/time-entries/update-task-name-bulk`, {
-      method: 'POST',
-      body: JSON.stringify({ oldTaskName, oldCategoryName, newTaskName, newCategoryName })
-    });
-    if (!res.ok) {
-      const error = await res.json();
-      throw new Error(error.error || 'Failed to update task names');
-    }
-    return res.json();
-  },
+  updateTaskNameBulk: (oldTaskName: string, oldCategoryName: string, newTaskName?: string, newCategoryName?: string) =>
+    apiMutate<{ entriesUpdated: number }>(`${API_BASE}/time-entries/update-task-name-bulk`, 'POST', { oldTaskName, oldCategoryName, newTaskName, newCategoryName }, 'Failed to update task names'),
 
-  async getActiveEntry(): Promise<TimeEntry | null> {
-    const res = await apiFetch(`${API_BASE}/time-entries/active`);
-    if (!res.ok) throw new Error('Failed to fetch active entry');
-    return res.json();
-  },
-
-  async startEntry(category_id: number, task_name?: string): Promise<TimeEntry> {
-    const res = await apiFetch(`${API_BASE}/time-entries/start`, {
-      method: 'POST',
-      body: JSON.stringify({ category_id, task_name })
-    });
-    if (!res.ok) throw new Error('Failed to start entry');
-    return res.json();
-  },
-
-  async stopEntry(id: number): Promise<TimeEntry> {
-    const res = await apiFetch(`${API_BASE}/time-entries/${id}/stop`, {
-      method: 'POST'
-    });
-    if (!res.ok) throw new Error('Failed to stop entry');
-    return res.json();
-  },
-
-  async scheduleStop(id: number, scheduledEndTime: string): Promise<TimeEntry> {
-    const res = await apiFetch(`${API_BASE}/time-entries/${id}/schedule-stop`, {
-      method: 'POST',
-      body: JSON.stringify({ scheduled_end_time: scheduledEndTime })
-    });
-    if (!res.ok) {
-      const error = await res.json();
-      throw new Error(error.error || 'Failed to schedule stop');
-    }
-    return res.json();
-  },
-
-  async clearScheduledStop(id: number): Promise<TimeEntry> {
-    const res = await apiFetch(`${API_BASE}/time-entries/${id}/schedule-stop`, {
-      method: 'DELETE'
-    });
-    if (!res.ok) throw new Error('Failed to clear scheduled stop');
-    return res.json();
-  },
-
-  async updateEntry(id: number, data: Partial<TimeEntry>): Promise<TimeEntry> {
-    const res = await apiFetch(`${API_BASE}/time-entries/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(data)
-    });
-    if (!res.ok) throw new Error('Failed to update entry');
-    return res.json();
-  },
-
-  async deleteEntry(id: number): Promise<void> {
-    const res = await apiFetch(`${API_BASE}/time-entries/${id}`, {
-      method: 'DELETE'
-    });
-    if (!res.ok) throw new Error('Failed to delete entry');
-  },
-
-  async deleteEntriesByDate(date: string): Promise<{ deleted: number }> {
-    const res = await apiFetch(`${API_BASE}/time-entries/by-date/${date}`, {
-      method: 'DELETE'
-    });
-    if (!res.ok) {
-      const error = await res.json().catch(() => ({ error: 'Failed to delete entries' }));
-      throw new Error(error.error || 'Failed to delete entries');
-    }
-    return res.json();
-  },
-
-  async createManualEntry(category_id: number, start_time: string, end_time: string, task_name?: string): Promise<TimeEntry> {
-    const res = await apiFetch(`${API_BASE}/time-entries`, {
-      method: 'POST',
-      body: JSON.stringify({ category_id, start_time, end_time, task_name })
-    });
-    if (!res.ok) throw new Error('Failed to create entry');
-    return res.json();
-  },
+  getActiveEntry: () => apiGet<TimeEntry | null>(`${API_BASE}/time-entries/active`, 'Failed to fetch active entry'),
+  startEntry: (category_id: number, task_name?: string) => apiMutate<TimeEntry>(`${API_BASE}/time-entries/start`, 'POST', { category_id, task_name }, 'Failed to start entry'),
+  stopEntry: (id: number) => apiMutate<TimeEntry>(`${API_BASE}/time-entries/${id}/stop`, 'POST', undefined, 'Failed to stop entry'),
+  scheduleStop: (id: number, scheduledEndTime: string) => apiMutate<TimeEntry>(`${API_BASE}/time-entries/${id}/schedule-stop`, 'POST', { scheduled_end_time: scheduledEndTime }, 'Failed to schedule stop'),
+  clearScheduledStop: (id: number) => apiMutate<TimeEntry>(`${API_BASE}/time-entries/${id}/schedule-stop`, 'DELETE', undefined, 'Failed to clear scheduled stop'),
+  updateEntry: (id: number, data: Partial<TimeEntry>) => apiMutate<TimeEntry>(`${API_BASE}/time-entries/${id}`, 'PUT', data, 'Failed to update entry'),
+  deleteEntry: (id: number) => apiVoid(`${API_BASE}/time-entries/${id}`, 'DELETE', undefined, 'Failed to delete entry'),
+  deleteEntriesByDate: (date: string) => apiMutate<{ deleted: number }>(`${API_BASE}/time-entries/by-date/${date}`, 'DELETE', undefined, 'Failed to delete entries'),
+  createManualEntry: (category_id: number, start_time: string, end_time: string, task_name?: string) =>
+    apiMutate<TimeEntry>(`${API_BASE}/time-entries`, 'POST', { category_id, start_time, end_time, task_name }, 'Failed to create entry'),
 
   // Analytics
   async getAnalytics(start: string, end: string): Promise<AnalyticsData> {
     const timezoneOffset = new Date().getTimezoneOffset();
-    const res = await apiFetch(`${API_BASE}/analytics?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}&timezoneOffset=${timezoneOffset}`);
-    if (!res.ok) throw new Error('Failed to fetch analytics');
-    return res.json();
+    return apiGet<AnalyticsData>(`${API_BASE}/analytics?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}&timezoneOffset=${timezoneOffset}`, 'Failed to fetch analytics');
   },
 
-  async getCategoryDrilldown(categoryName: string, start: string, end: string, page: number = 1, pageSize: number = 20): Promise<CategoryDrilldown> {
-    const params = new URLSearchParams({
-      start,
-      end,
-      page: page.toString(),
-      pageSize: pageSize.toString()
-    });
-    const res = await apiFetch(`${API_BASE}/analytics/category/${encodeURIComponent(categoryName)}?${params}`);
-    if (!res.ok) throw new Error('Failed to fetch category drilldown');
-    return res.json();
+  getCategoryDrilldown(categoryName: string, start: string, end: string, page = 1, pageSize = 20) {
+    const params = new URLSearchParams({ start, end, page: page.toString(), pageSize: pageSize.toString() });
+    return apiGet<CategoryDrilldown>(`${API_BASE}/analytics/category/${encodeURIComponent(categoryName)}?${params}`, 'Failed to fetch category drilldown');
   },
 
-  async getTaskNames(start: string, end: string, page: number = 1, pageSize: number = 20, sortBy: 'time' | 'alpha' | 'count' | 'recent' = 'time', search?: string, category?: string): Promise<TaskNamesPaginated> {
-    const params = new URLSearchParams({
-      start,
-      end,
-      page: page.toString(),
-      pageSize: pageSize.toString(),
-      sortBy
-    });
+  getTaskNames(start: string, end: string, page = 1, pageSize = 20, sortBy: 'time' | 'alpha' | 'count' | 'recent' = 'time', search?: string, category?: string) {
+    const params = new URLSearchParams({ start, end, page: page.toString(), pageSize: pageSize.toString(), sortBy });
     if (search) params.append('search', search);
     if (category) params.append('category', category);
-    const res = await apiFetch(`${API_BASE}/analytics/task-names?${params}`);
-    if (!res.ok) throw new Error('Failed to fetch task names');
-    return res.json();
+    return apiGet<TaskNamesPaginated>(`${API_BASE}/analytics/task-names?${params}`, 'Failed to fetch task names');
   },
 
-  async updateTaskName(oldTaskName: string, newTaskName?: string, newCategoryId?: number): Promise<{ success: boolean; updatedCount: number; oldTaskName: string; newTaskName: string; newCategoryId?: number }> {
-    const res = await apiFetch(`${API_BASE}/analytics/task-names`, {
-      method: 'PUT',
-      body: JSON.stringify({ oldTaskName, newTaskName, newCategoryId })
-    });
-    if (!res.ok) {
-      const error = await res.json();
-      throw new Error(error.error || 'Failed to update task name');
-    }
-    return res.json();
-  },
+  updateTaskName: (oldTaskName: string, newTaskName?: string, newCategoryId?: number) =>
+    apiMutate<{ success: boolean; updatedCount: number; oldTaskName: string; newTaskName: string; newCategoryId?: number }>(`${API_BASE}/analytics/task-names`, 'PUT', { oldTaskName, newTaskName, newCategoryId }, 'Failed to update task name'),
 
   // Export
   async exportCSV(): Promise<string> {
@@ -508,55 +384,21 @@ export const api = {
     return res.text();
   },
 
-  async importCSV(csv: string, columnMapping?: ColumnMapping, entries?: ImportEntry[]): Promise<{ imported: number; skipped: number; errors: string[] }> {
-    const res = await apiFetch(`${API_BASE}/export/csv`, {
-      method: 'POST',
-      body: JSON.stringify({ csv, columnMapping, entries })
-    });
-    if (!res.ok) {
-      const error = await res.json();
-      throw new Error(error.error || 'Failed to import CSV');
-    }
-    return res.json();
-  },
+  importCSV: (csv: string, columnMapping?: ColumnMapping, entries?: ImportEntry[]) =>
+    apiMutate<{ imported: number; skipped: number; errors: string[] }>(`${API_BASE}/export/csv`, 'POST', { csv, columnMapping, entries }, 'Failed to import CSV'),
 
-  async previewCSV(csv: string, columnMapping?: ColumnMapping, timeOffsetMinutes?: number): Promise<CSVPreviewResponse> {
-    const res = await apiFetch(`${API_BASE}/export/csv/preview`, {
-      method: 'POST',
-      body: JSON.stringify({ csv, columnMapping, timeOffsetMinutes })
-    });
-    if (!res.ok) {
-      const error = await res.json();
-      throw new Error(error.error || 'Failed to preview CSV');
-    }
-    return res.json();
-  },
+  previewCSV: (csv: string, columnMapping?: ColumnMapping, timeOffsetMinutes?: number) =>
+    apiMutate<CSVPreviewResponse>(`${API_BASE}/export/csv/preview`, 'POST', { csv, columnMapping, timeOffsetMinutes }, 'Failed to preview CSV'),
 
   // Settings
-  async getSettings(): Promise<UserSettings> {
-    const res = await apiFetch(`${API_BASE}/settings`);
-    if (!res.ok) throw new Error('Failed to fetch settings');
-    return res.json();
-  },
+  getSettings: () => apiGet<UserSettings>(`${API_BASE}/settings`, 'Failed to fetch settings'),
+  updateSettings: (settings: Partial<UserSettings>) => apiMutate<UserSettings>(`${API_BASE}/settings`, 'PUT', settings, 'Failed to update settings'),
 
-  async updateSettings(settings: Partial<UserSettings>): Promise<UserSettings> {
-    const res = await apiFetch(`${API_BASE}/settings`, {
-      method: 'PUT',
-      body: JSON.stringify(settings)
-    });
-    if (!res.ok) {
-      const error = await res.json();
-      throw new Error(error.error || 'Failed to update settings');
-    }
-    return res.json();
-  },
-
-  // Settings
   async convertGuestToAccount(email: string, name: string, password: string): Promise<AuthResponse> {
     const currentSessionId = getSessionId();
     const res = await fetch(`${API_BASE}/auth/convert`, {
       method: 'POST',
-      headers: { 
+      headers: {
         'Content-Type': 'application/json',
         'X-Session-ID': currentSessionId
       },
@@ -569,38 +411,21 @@ export const api = {
     const data: AuthResponse = await res.json();
     setTokens(data.accessToken, data.refreshToken);
     setStoredUser(data.user);
-    // Clear session ID since we're now a registered user
     sessionId = null;
     localStorage.removeItem('sessionId');
     return data;
   },
 
-  async resetAllData(): Promise<void> {
-    const res = await apiFetch(`${API_BASE}/settings/reset`, {
-      method: 'POST'
-    });
-    if (!res.ok) throw new Error('Failed to reset data');
-  },
+  resetAllData: () => apiVoid(`${API_BASE}/settings/reset`, 'POST', undefined, 'Failed to reset data'),
 
   async updateAccount(data: { name?: string; email?: string; currentPassword?: string; newPassword?: string }): Promise<User> {
-    const res = await apiFetch(`${API_BASE}/auth/update`, {
-      method: 'PUT',
-      body: JSON.stringify(data)
-    });
-    if (!res.ok) {
-      const error = await res.json();
-      throw new Error(error.error || 'Update failed');
-    }
-    const user = await res.json();
+    const user = await apiMutate<User>(`${API_BASE}/auth/update`, 'PUT', data, 'Update failed');
     setStoredUser(user);
     return user;
   },
 
   async deleteAccount(): Promise<void> {
-    const res = await apiFetch(`${API_BASE}/auth/delete`, {
-      method: 'DELETE'
-    });
-    if (!res.ok) throw new Error('Failed to delete account');
+    await apiVoid(`${API_BASE}/auth/delete`, 'DELETE', undefined, 'Failed to delete account');
     clearTokens();
   },
 

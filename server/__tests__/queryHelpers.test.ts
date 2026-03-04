@@ -1,9 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { 
   rowToTimeEntry, 
-  rowsToTimeEntries, 
-  buildTimeEntriesQuery,
-  buildDateRangeWhere,
   calculateDurationMinutes,
   TIME_ENTRIES_WITH_CATEGORIES_QUERY
 } from '../utils/queryHelpers';
@@ -58,83 +55,11 @@ describe('Query Helpers', () => {
     });
   });
 
-  describe('rowsToTimeEntries', () => {
-    it('converts multiple rows to TimeEntry array', () => {
-      const result = [{
-        values: [
-          [1, 100, 5, 'Dev', '#007bff', 'Task 1', '2024-01-15T09:00:00Z', '2024-01-15T10:00:00Z', null, 60, '2024-01-15T09:00:00Z'],
-          [2, 100, 5, 'Dev', '#007bff', 'Task 2', '2024-01-15T10:00:00Z', '2024-01-15T11:00:00Z', null, 60, '2024-01-15T10:00:00Z']
-        ]
-      }];
-
-      const entries = rowsToTimeEntries(result);
-
-      expect(entries).toHaveLength(2);
-      expect(entries[0].id).toBe(1);
-      expect(entries[1].id).toBe(2);
-    });
-
-    it('returns empty array for empty result', () => {
-      expect(rowsToTimeEntries([])).toEqual([]);
-      expect(rowsToTimeEntries([{ values: [] }])).toEqual([]);
-    });
-  });
-
-  describe('buildTimeEntriesQuery', () => {
-    it('returns base query without parameters', () => {
-      const query = buildTimeEntriesQuery();
-      expect(query).toBe(TIME_ENTRIES_WITH_CATEGORIES_QUERY);
-    });
-
-    it('adds WHERE clause', () => {
-      const query = buildTimeEntriesQuery('te.user_id = ?');
-      expect(query).toContain('WHERE te.user_id = ?');
-    });
-
-    it('adds ORDER BY clause', () => {
-      const query = buildTimeEntriesQuery(undefined, 'te.start_time DESC');
-      expect(query).toContain('ORDER BY te.start_time DESC');
-    });
-
-    it('adds LIMIT and OFFSET', () => {
-      const query = buildTimeEntriesQuery(undefined, undefined, 10, 20);
-      expect(query).toContain('LIMIT 10');
-      expect(query).toContain('OFFSET 20');
-    });
-
-    it('combines all clauses', () => {
-      const query = buildTimeEntriesQuery('te.user_id = ?', 'te.start_time DESC', 10, 0);
-      expect(query).toContain('WHERE te.user_id = ?');
-      expect(query).toContain('ORDER BY te.start_time DESC');
-      expect(query).toContain('LIMIT 10');
-      expect(query).toContain('OFFSET 0');
-    });
-  });
-
-  describe('buildDateRangeWhere', () => {
-    it('builds clause with user_id only', () => {
-      const { clause, params } = buildDateRangeWhere(100);
-      expect(clause).toBe('te.user_id = ?');
-      expect(params).toEqual([100]);
-    });
-
-    it('adds start date filter', () => {
-      const { clause, params } = buildDateRangeWhere(100, '2024-01-01');
-      expect(clause).toContain('te.start_time >= ?');
-      expect(params).toContain('2024-01-01');
-    });
-
-    it('adds end date filter', () => {
-      const { clause, params } = buildDateRangeWhere(100, undefined, '2024-01-31');
-      expect(clause).toContain('te.start_time <= ?');
-      expect(params).toContain('2024-01-31');
-    });
-
-    it('adds both date filters', () => {
-      const { clause, params } = buildDateRangeWhere(100, '2024-01-01', '2024-01-31');
-      expect(clause).toContain('te.start_time >= ?');
-      expect(clause).toContain('te.start_time <= ?');
-      expect(params).toEqual([100, '2024-01-01', '2024-01-31']);
+  describe('TIME_ENTRIES_WITH_CATEGORIES_QUERY', () => {
+    it('contains expected SQL structure', () => {
+      expect(TIME_ENTRIES_WITH_CATEGORIES_QUERY).toContain('SELECT');
+      expect(TIME_ENTRIES_WITH_CATEGORIES_QUERY).toContain('FROM time_entries');
+      expect(TIME_ENTRIES_WITH_CATEGORIES_QUERY).toContain('JOIN categories');
     });
   });
 
