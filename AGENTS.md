@@ -293,8 +293,12 @@ When making changes to the database schema, follow these guidelines:
 
 ## Release Process
 
-### Automatic Patch Releases
-Every merge to `main` automatically triggers a patch version bump and Docker image publish. No manual intervention needed.
+### Automatic Releases
+Version bumping happens in PRs, not on main. This keeps the git history clean:
+
+1. **PR CI**: After tests pass, CI automatically bumps the patch version and commits to the PR branch (if needed)
+2. **Main merge**: When merged to main, CI creates a version tag and publishes the Docker image
+3. **Conflict resolution**: If multiple PRs target the same version, main CI resolves conflicts automatically
 
 ### Manual Minor/Major Releases
 When bumping a minor or major version, use the manual workflow so the tag is created on `main`:

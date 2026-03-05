@@ -8,12 +8,10 @@ on:
     branches: [main]
   workflow_dispatch:
 
-# Concurrency control:
-# - PRs: cancel in-progress runs when new commits are pushed
-# - main: queue deployments to prevent version bump race conditions
+# Concurrency: cancel in-progress runs to prevent race conditions
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: true
 
 env:
   REGISTRY: ghcr.io
@@ -157,6 +155,52 @@ jobs:
           path: .test-output/playwright-report/
           retention-days: 7
 
+  # PR version bump - commits version change to PR branch
+  pr-version-bump:
+    name: Bump Version (PR)
+    runs-on: ubuntu-latest
+    needs: [lint, test, build, e2e]
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.head_ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+      - name: Check if version bump needed
+        id: check
+        run: |
+          CURRENT=$(node -p 'require("./package.json").version')
+          # Check if this version tag already exists
+          if git rev-parse "v${CURRENT}" >/dev/null 2>&1; then
+            echo "needs_bump=true" >> $GITHUB_OUTPUT
+          else
+            echo "needs_bump=false" >> $GITHUB_OUTPUT
+          fi
+          echo "Current version: ${CURRENT}, needs bump: $(cat $GITHUB_OUTPUT | grep needs_bump)"
+      - name: Bump version
+        if: steps.check.outputs.needs_bump == 'true'
+        run: |
+          CURRENT=$(node -p 'require("./package.json").version')
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+          
+          # Find next available patch version
+          NEXT_PATCH=$((PATCH + 1))
+          while git rev-parse "v${MAJOR}.${MINOR}.${NEXT_PATCH}" >/dev/null 2>&1; do
+            NEXT_PATCH=$((NEXT_PATCH + 1))
+          done
+          
+          NEXT_VERSION="${MAJOR}.${MINOR}.${NEXT_PATCH}"
+          echo "Bumping to ${NEXT_VERSION}"
+          npm version "${NEXT_VERSION}" --no-git-tag-version
+          git add package.json package-lock.json
+          git commit -m "chore: bump version to ${NEXT_VERSION}"
+          git push
+
   # PR-only Docker validation - just needs build artifact
   docker-test:
     name: Docker Build Test
@@ -184,14 +228,14 @@ jobs:
   # DEPLOYMENT JOBS - Run on main push only
   # ============================================================================
 
-  version-bump:
-    name: Bump Version
+  version-tag:
+    name: Create Version Tag
     runs-on: ubuntu-latest
     needs: [lint, test, build, e2e]
     # Only on direct push to main (not tags or workflow_dispatch)
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     outputs:
-      version: ${{ steps.bump.outputs.version }}
+      version: ${{ steps.tag.outputs.version }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -200,36 +244,44 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-      - name: Bump version
-        id: bump
+      - name: Create version tag
+        id: tag
         run: |
-          # Get current version from package.json
-          CURRENT=$(node -p 'require("./package.json").version')
-          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
-
-          # Find the next patch version whose tag doesn't already exist
-          NEXT_PATCH=$((PATCH + 1))
-          while git rev-parse "v${MAJOR}.${MINOR}.${NEXT_PATCH}" >/dev/null 2>&1; do
-            echo "Tag v${MAJOR}.${MINOR}.${NEXT_PATCH} already exists, trying next..."
-            NEXT_PATCH=$((NEXT_PATCH + 1))
-          done
-
-          NEXT_VERSION="${MAJOR}.${MINOR}.${NEXT_PATCH}"
-          echo "Bumping to ${NEXT_VERSION}"
-          npm version "${NEXT_VERSION}" -m "chore(release): %s [ci skip]"
-          echo "version=${NEXT_VERSION}" >> $GITHUB_OUTPUT
-      - run: git push origin $GITHUB_REF --tags && git push
+          # Get version from package.json (should already be bumped by PR)
+          VERSION=$(node -p 'require("./package.json").version')
+          
+          # If tag exists (conflict), find next available
+          if git rev-parse "v${VERSION}" >/dev/null 2>&1; then
+            echo "Tag v${VERSION} exists, finding next available..."
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+            NEXT_PATCH=$((PATCH + 1))
+            while git rev-parse "v${MAJOR}.${MINOR}.${NEXT_PATCH}" >/dev/null 2>&1; do
+              NEXT_PATCH=$((NEXT_PATCH + 1))
+            done
+            VERSION="${MAJOR}.${MINOR}.${NEXT_PATCH}"
+            
+            # Update package.json with conflict-resolved version
+            npm version "${VERSION}" --no-git-tag-version
+            git add package.json package-lock.json
+            git commit -m "chore: resolve version conflict to ${VERSION}"
+            git push
+          fi
+          
+          # Create and push tag
+          git tag -a "v${VERSION}" -m "Release ${VERSION}"
+          git push origin "v${VERSION}"
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
 
   docker-build:
     name: Docker (${{ matrix.arch }})
     runs-on: ${{ matrix.runner }}
-    needs: [lint, test, build, e2e, version-bump]
-    # Run on main push (after version bump) or tag push
+    needs: [lint, test, build, e2e, version-tag]
+    # Run on main push (after version tag) or tag push
     if: |
       always() &&
       (needs.lint.result == 'success' && needs.test.result == 'success' && needs.build.result == 'success' && needs.e2e.result == 'success') &&
       (
-        (github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.version-bump.result == 'success') ||
+        (github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.version-tag.result == 'success') ||
         (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) ||
         (github.event_name == 'workflow_dispatch' && startsWith(github.ref, 'refs/tags/'))
       )
@@ -252,7 +304,7 @@ jobs:
           if [[ "${{ github.ref }}" == refs/tags/* ]]; then
             echo "version=${{ github.ref_name }}" >> $GITHUB_OUTPUT
           else
-            echo "version=v${{ needs.version-bump.outputs.version }}" >> $GITHUB_OUTPUT
+            echo "version=v${{ needs.version-tag.outputs.version }}" >> $GITHUB_OUTPUT
           fi
       
       - name: Set image name
@@ -297,7 +349,7 @@ jobs:
   release:
     name: Publish & Release
     runs-on: ubuntu-latest
-    needs: [docker-build, version-bump]
+    needs: [docker-build, version-tag]
     if: always() && needs.docker-build.result == 'success'
     steps:
       - uses: actions/checkout@v4
@@ -308,7 +360,7 @@ jobs:
           if [[ "${{ github.ref }}" == refs/tags/* ]]; then
             echo "version=${{ github.ref_name }}" >> $GITHUB_OUTPUT
           else
-            echo "version=v${{ needs.version-bump.outputs.version }}" >> $GITHUB_OUTPUT
+            echo "version=v${{ needs.version-tag.outputs.version }}" >> $GITHUB_OUTPUT
           fi
       
       - uses: actions/download-artifact@v4
