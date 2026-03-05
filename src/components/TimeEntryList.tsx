@@ -1540,7 +1540,10 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                   type="datetime-local"
                   className="time-edit-input"
                   value={editStartTime}
-                  onChange={(e) => setEditStartTime(e.target.value)}
+                  onChange={(e) => {
+                    // Prevent backspace from clearing the value on mobile
+                    if (e.target.value) setEditStartTime(e.target.value);
+                  }}
                   autoFocus={editField === 'startTime'}
                 />
               </label>
@@ -1551,7 +1554,10 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                     type="datetime-local"
                     className="time-edit-input"
                     value={editEndTime}
-                    onChange={(e) => setEditEndTime(e.target.value)}
+                    onChange={(e) => {
+                      // Prevent backspace from clearing the value on mobile
+                      if (e.target.value) setEditEndTime(e.target.value);
+                    }}
                     autoFocus={editField === 'endTime'}
                   />
                 </label>
