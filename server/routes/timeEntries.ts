@@ -240,7 +240,7 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
     await provider.updateTimeEntry(req.userId as number, Number(id), {
       category_id: category_id || null,
       task_name,
-      start_time: start_time || null,
+      start_time: start_time, // Keep undefined if not provided, so provider preserves existing value
       end_time: newEnd,
       duration_minutes: duration
     });
