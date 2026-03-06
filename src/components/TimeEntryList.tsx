@@ -465,7 +465,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
     setEditField(field);
     editingIdRef.current = entry.id;
     editFieldRef.current = field;
-    setEditCategory(entry.category_id);
+    setEditCategory(entry.category_id ?? categories[0]?.id ?? 0);
     setEditDescription(entry.task_name || '');
     setEditStartTime(formatDateTimeLocal(entry.start_time));
     setEditEndTime(entry.end_time ? formatDateTimeLocal(entry.end_time) : '');
