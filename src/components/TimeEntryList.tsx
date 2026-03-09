@@ -1421,7 +1421,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                           ) : (
                             <button 
                               className="entry-time-btn editable"
-                              onPointerDown={(e) => { e.stopPropagation(); e.preventDefault(); startEdit(entry, 'startTime'); }}
+                              onClick={(e) => { e.stopPropagation(); startEdit(entry, 'startTime'); }}
                               title="Tap to edit start time"
                             >
                               <span className="time-full">{formatTime(entry.start_time)}</span>
@@ -1450,10 +1450,9 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                           ) : (
                             <button 
                               className={`entry-time-btn editable ${!entry.end_time ? 'active-time' : ''}`}
-                              onPointerDown={(e) => { 
+                              onClick={(e) => { 
                                 if (entry.end_time) {
                                   e.stopPropagation(); 
-                                  e.preventDefault();
                                   startEdit(entry, 'endTime'); 
                                 }
                               }}
