@@ -221,13 +221,27 @@ export function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLogge
   useEffect(() => {
     const intervalMs = 15000;
     const lastRefreshRef = { current: 0 };
+    let hiddenAt: number | null = null;
 
     const refreshIfVisible = () => {
-      if (document.visibilityState !== 'visible') return;
+      if (document.visibilityState !== 'visible') {
+        // Track when we became hidden
+        hiddenAt = Date.now();
+        return;
+      }
+      
       const now = Date.now();
-      if (now - lastRefreshRef.current < intervalMs) return;
+      // Check if we've been hidden for more than 30 seconds (likely sleep/wake)
+      const wasLongHidden = hiddenAt !== null && (now - hiddenAt > 30000);
+      hiddenAt = null;
+      
+      // Skip debounce if we were hidden for a long time (sleep/wake scenario)
+      if (!wasLongHidden && now - lastRefreshRef.current < intervalMs) return;
+      
       lastRefreshRef.current = now;
       refreshTrackerData();
+      // Signal TimeEntryList to reload its filtered data (important after sleep/wake)
+      setEntryRefreshKey(k => k + 1);
     };
 
     const intervalId = window.setInterval(refreshIfVisible, intervalMs);
@@ -278,8 +292,17 @@ export function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLogge
       api.getRecentEntries(20),
       api.getActiveEntry()
     ]);
-    setEntries(recentEnts);
-    setActiveEntry(active);
+    // Check for future end_time entries to auto-resume (e.g., user edited end_time to future)
+    const resolvedActive = await autoResumeFutureEntry(recentEnts, active);
+    if (resolvedActive && !active) {
+      // Re-fetch entries since one was modified
+      const updatedEntries = await api.getRecentEntries(20);
+      setEntries(updatedEntries);
+      setActiveEntry(resolvedActive);
+    } else {
+      setEntries(recentEnts);
+      setActiveEntry(active);
+    }
     setEntryRefreshKey(k => k + 1);
     broadcastChange('time-entries');
   };
