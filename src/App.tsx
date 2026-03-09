@@ -14,6 +14,7 @@ import { ThemeToggle } from './components/ThemeToggle';
 import { SettingsIcon, LogoutIcon, HelpIcon, ClockIcon, TagIcon, ChartIcon } from './components/Icons';
 import { api } from './api';
 import { useSync } from './hooks/useSync';
+import { useAppBadge } from './hooks/useAppBadge';
 import { Category, TimeEntry } from './types';
 import './App.css';
 
@@ -82,6 +83,9 @@ export function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLogge
   const menuRef = useRef<HTMLDivElement>(null);
   const mobileNavRef = useRef<HTMLDivElement>(null);
   const appVersion = __APP_VERSION__;
+
+  // Show tracking indicator on browser tab favicon and PWA dock badge
+  useAppBadge(activeEntry !== null);
 
   // Auto-resume an entry whose end_time is in the future (user edited it forward)
   // Sets the future time as a scheduled stop so the countdown shows in the tracker
