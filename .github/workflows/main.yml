@@ -156,6 +156,7 @@ jobs:
           retention-days: 7
 
   # PR version bump - commits version change to PR branch
+  # Always bumps to next available patch version to ensure each PR gets a unique version
   pr-version-bump:
     name: Bump Version (PR)
     runs-on: ubuntu-latest
@@ -171,35 +172,36 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-      - name: Check if version bump needed
-        id: check
-        run: |
-          CURRENT=$(node -p 'require("./package.json").version')
-          # Check if this version tag already exists
-          if git rev-parse "v${CURRENT}" >/dev/null 2>&1; then
-            echo "needs_bump=true" >> $GITHUB_OUTPUT
-          else
-            echo "needs_bump=false" >> $GITHUB_OUTPUT
-          fi
-          echo "Current version: ${CURRENT}, needs bump: $(cat $GITHUB_OUTPUT | grep needs_bump)"
       - name: Bump version
-        if: steps.check.outputs.needs_bump == 'true'
         run: |
           CURRENT=$(node -p 'require("./package.json").version')
           IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
           
-          # Find next available patch version
-          NEXT_PATCH=$((PATCH + 1))
+          # Always bump to next available patch version
+          # Start from current patch if tag doesn't exist, otherwise increment
+          if git rev-parse "v${CURRENT}" >/dev/null 2>&1; then
+            NEXT_PATCH=$((PATCH + 1))
+          else
+            NEXT_PATCH=$PATCH
+          fi
+          
+          # Find next available version (handles concurrent PRs)
           while git rev-parse "v${MAJOR}.${MINOR}.${NEXT_PATCH}" >/dev/null 2>&1; do
             NEXT_PATCH=$((NEXT_PATCH + 1))
           done
           
           NEXT_VERSION="${MAJOR}.${MINOR}.${NEXT_PATCH}"
-          echo "Bumping to ${NEXT_VERSION}"
-          npm version "${NEXT_VERSION}" --no-git-tag-version
-          git add package.json package-lock.json
-          git commit -m "chore: bump version to ${NEXT_VERSION}"
-          git push
+          
+          # Only commit if version actually changed
+          if [ "$CURRENT" != "$NEXT_VERSION" ]; then
+            echo "Bumping from ${CURRENT} to ${NEXT_VERSION}"
+            npm version "${NEXT_VERSION}" --no-git-tag-version
+            git add package.json package-lock.json
+            git commit -m "chore: bump version to ${NEXT_VERSION}"
+            git push
+          else
+            echo "Version ${CURRENT} is already the next available version"
+          fi
 
   # PR-only Docker validation - just needs build artifact
   docker-test:
@@ -249,22 +251,31 @@ jobs:
         run: |
           # Get version from package.json (should already be bumped by PR)
           VERSION=$(node -p 'require("./package.json").version')
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
           
-          # If tag exists (conflict), find next available
+          # Always ensure we use the next available version
+          # This handles: tag conflicts, PRs that didn't bump, direct pushes to main
           if git rev-parse "v${VERSION}" >/dev/null 2>&1; then
             echo "Tag v${VERSION} exists, finding next available..."
-            IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
             NEXT_PATCH=$((PATCH + 1))
-            while git rev-parse "v${MAJOR}.${MINOR}.${NEXT_PATCH}" >/dev/null 2>&1; do
-              NEXT_PATCH=$((NEXT_PATCH + 1))
-            done
-            VERSION="${MAJOR}.${MINOR}.${NEXT_PATCH}"
-            
-            # Update package.json with conflict-resolved version
-            npm version "${VERSION}" --no-git-tag-version
+          else
+            NEXT_PATCH=$PATCH
+          fi
+          
+          while git rev-parse "v${MAJOR}.${MINOR}.${NEXT_PATCH}" >/dev/null 2>&1; do
+            NEXT_PATCH=$((NEXT_PATCH + 1))
+          done
+          
+          NEW_VERSION="${MAJOR}.${MINOR}.${NEXT_PATCH}"
+          
+          # Update package.json if version changed
+          if [ "$VERSION" != "$NEW_VERSION" ]; then
+            echo "Bumping version from ${VERSION} to ${NEW_VERSION}"
+            npm version "${NEW_VERSION}" --no-git-tag-version
             git add package.json package-lock.json
-            git commit -m "chore: resolve version conflict to ${VERSION}"
+            git commit -m "chore: bump version to ${NEW_VERSION}"
             git push
+            VERSION="$NEW_VERSION"
           fi
           
           # Create and push tag
