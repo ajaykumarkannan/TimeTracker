@@ -77,6 +77,8 @@ export function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLogge
   const [lastOptimistic, setLastOptimistic] = useState<{ active?: TimeEntry | null; stopped?: TimeEntry } | null>(null);
   const isRefreshingRef = useRef(false);
   const [updateAvailable, setUpdateAvailable] = useState(false);
+  const dismissedVersionRef = useRef<string | null>(null);
+  const serverVersionRef = useRef<string | null>(null);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
@@ -238,7 +240,9 @@ export function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLogge
         const res = await fetch('/api/version');
         if (res.ok) {
           const data = await res.json();
-          if (data.app && data.app !== appVersion && appVersion !== '0.0.0') {
+          if (data.app && data.app !== '0.0.0' && data.app !== appVersion && appVersion !== '0.0.0'
+              && data.app !== dismissedVersionRef.current) {
+            serverVersionRef.current = data.app;
             setUpdateAvailable(true);
           }
         }
@@ -472,7 +476,10 @@ export function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLogge
             <button className="btn-small btn-primary" onClick={() => window.location.reload()}>
               Refresh
             </button>
-            <button className="btn-small btn-ghost" onClick={() => setUpdateAvailable(false)}>
+            <button className="btn-small btn-ghost" onClick={() => {
+              dismissedVersionRef.current = serverVersionRef.current;
+              setUpdateAvailable(false);
+            }}>
               Later
             </button>
           </div>
