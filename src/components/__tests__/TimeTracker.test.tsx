@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { TimeTracker } from '../TimeTracker';
 import { ThemeProvider } from '../../contexts/ThemeContext';
+import type { TimeEntry } from '../../types';
 
 // Mock the api module
 vi.mock('../../api', () => ({
@@ -162,6 +163,135 @@ describe('TimeTracker', () => {
     await waitFor(() => {
       expect(api.stopEntry).toHaveBeenCalledWith(1);
       expect(mockOnEntryChange).toHaveBeenCalled();
+    });
+  });
+
+  it('optimistically clears active entry before stop API resolves', async () => {
+    // Make stopEntry hang so we can assert the optimistic call happens first
+    let resolveStop: (value: TimeEntry) => void;
+    vi.mocked(api.stopEntry).mockImplementation(() => new Promise<TimeEntry>(r => { resolveStop = r; }));
+
+    const activeEntry = {
+      id: 1,
+      category_id: 1,
+      category_name: 'Development',
+      category_color: '#007bff',
+      task_name: null,
+      start_time: new Date().toISOString(),
+      end_time: null,
+      scheduled_end_time: null,
+      duration_minutes: null,
+      created_at: '2024-01-01'
+    };
+
+    await renderWithTheme(
+      <TimeTracker
+        categories={mockCategories}
+        activeEntry={activeEntry}
+        entries={mockEntries}
+        onEntryChange={mockOnEntryChange}
+        onCategoryChange={mockOnCategoryChange}
+      />
+    );
+
+    const stopButton = screen.getByRole('button', { name: /stop/i });
+    await act(async () => {
+      fireEvent.click(stopButton);
+    });
+
+    // onEntryChange should be called optimistically BEFORE the API resolves
+    expect(mockOnEntryChange).toHaveBeenCalledWith({ active: null });
+
+    // Now resolve the API call
+    const stoppedEntry = { ...activeEntry, end_time: new Date().toISOString(), duration_minutes: 5 };
+    await act(async () => {
+      resolveStop!(stoppedEntry);
+    });
+
+    // After resolve, it should be called again with the stopped entry data
+    expect(mockOnEntryChange).toHaveBeenCalledWith({ active: null, stopped: stoppedEntry });
+  });
+
+  it('rolls back active entry when stop API fails', async () => {
+    vi.mocked(api.stopEntry).mockRejectedValueOnce(new Error('Network error'));
+
+    const activeEntry = {
+      id: 1,
+      category_id: 1,
+      category_name: 'Development',
+      category_color: '#007bff',
+      task_name: null,
+      start_time: new Date().toISOString(),
+      end_time: null,
+      scheduled_end_time: null,
+      duration_minutes: null,
+      created_at: '2024-01-01'
+    };
+
+    await renderWithTheme(
+      <TimeTracker
+        categories={mockCategories}
+        activeEntry={activeEntry}
+        entries={mockEntries}
+        onEntryChange={mockOnEntryChange}
+        onCategoryChange={mockOnCategoryChange}
+      />
+    );
+
+    const stopButton = screen.getByRole('button', { name: /stop/i });
+    await act(async () => {
+      fireEvent.click(stopButton);
+    });
+
+    await waitFor(() => {
+      // First call: optimistic clear
+      expect(mockOnEntryChange).toHaveBeenCalledWith({ active: null });
+      // Second call: rollback with original entry
+      expect(mockOnEntryChange).toHaveBeenCalledWith({ active: activeEntry });
+    });
+  });
+
+  it('disables stop button while stop request is in flight', async () => {
+    let resolveStop: (value: TimeEntry) => void;
+    vi.mocked(api.stopEntry).mockImplementation(() => new Promise<TimeEntry>(r => { resolveStop = r; }));
+
+    const activeEntry = {
+      id: 1,
+      category_id: 1,
+      category_name: 'Development',
+      category_color: '#007bff',
+      task_name: null,
+      start_time: new Date().toISOString(),
+      end_time: null,
+      scheduled_end_time: null,
+      duration_minutes: null,
+      created_at: '2024-01-01'
+    };
+
+    await renderWithTheme(
+      <TimeTracker
+        categories={mockCategories}
+        activeEntry={activeEntry}
+        entries={mockEntries}
+        onEntryChange={mockOnEntryChange}
+        onCategoryChange={mockOnCategoryChange}
+      />
+    );
+
+    const stopButton = screen.getByRole('button', { name: /stop/i });
+    expect(stopButton).not.toBeDisabled();
+
+    await act(async () => {
+      fireEvent.click(stopButton);
+    });
+
+    // Button should be disabled while request is in flight
+    expect(stopButton).toBeDisabled();
+
+    // Resolve the request
+    const stoppedEntry = { ...activeEntry, end_time: new Date().toISOString(), duration_minutes: 5 };
+    await act(async () => {
+      resolveStop!(stoppedEntry);
     });
   });
 
