@@ -309,6 +309,28 @@ describe('AppContent refresh behavior', () => {
 
     expect(screen.queryByText('A new version of ChronoFlow is available.')).not.toBeInTheDocument();
 
+    // Simulate enough time passing to allow another version check (>5 min)
+    fetchSpy.mockClear();
+    vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 6 * 60 * 1000);
+
+    // Re-trigger visibility change — should NOT show banner again for same version
+    setVisibilityState('hidden');
+    await act(async () => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    setVisibilityState('visible');
+    await act(async () => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+
+    await act(async () => {
+      await new Promise(r => setTimeout(r, 50));
+    });
+
+    // Banner should NOT reappear — the dismissed version is remembered
+    expect(screen.queryByText('A new version of ChronoFlow is available.')).not.toBeInTheDocument();
+
+    vi.restoreAllMocks();
     fetchSpy.mockRestore();
   });
 

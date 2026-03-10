@@ -12,7 +12,7 @@ import analyticsRouter from './routes/analytics';
 import exportRouter from './routes/export';
 import settingsRouter from './routes/settings';
 import syncRouter from './routes/sync';
-import { readFileSync } from 'fs';
+import { version as APP_VERSION } from '../package.json';
 
 // Validate configuration
 validateConfig();
@@ -70,20 +70,12 @@ app.use('/api/sync', syncRouter);
 
 // Version endpoint
 app.get('/api/version', async (req, res) => {
-  let appVersion = '0.0.0';
-  try {
-    const pkg = JSON.parse(readFileSync(path.join(__dirname, '..', 'package.json'), 'utf-8'));
-    appVersion = pkg.version;
-  } catch {
-    // Use default if package.json not found
-  }
-  
   const provider = getProvider();
   const dbVersion = await provider.getCurrentVersion();
   const latestVersion = await provider.getLatestVersion();
   
   res.json({
-    app: appVersion,
+    app: APP_VERSION,
     database: {
       current: dbVersion,
       latest: latestVersion,
