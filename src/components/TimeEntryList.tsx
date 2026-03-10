@@ -201,8 +201,9 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
   }, []);
 
   // Load entries based on date filter
-  const loadEntries = useCallback(async () => {
-    setLoading(true);
+  const loadEntries = useCallback(async (background = false) => {
+    // Only show loading spinner on initial load, not background refreshes
+    if (!background) setLoading(true);
     try {
       // Convert local date strings to local timezone ISO strings
       // This ensures the server filters based on the user's intended local dates
@@ -230,7 +231,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
     } catch (error) {
       console.error('Failed to load entries:', error);
     }
-    setLoading(false);
+    if (!background) setLoading(false);
   }, [dateFrom, dateTo, categoryFilter, debouncedSearchQuery]);
 
   // Load entries when date filter changes
@@ -241,7 +242,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
   // Reload entries when parent signals a change via refreshKey
   useEffect(() => {
     if (refreshKey !== undefined && refreshKey > 0) {
-      loadEntries();
+      loadEntries(true); // background refresh — no loading spinner
     }
   }, [refreshKey, loadEntries]);
 

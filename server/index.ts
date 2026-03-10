@@ -135,6 +135,8 @@ app.get('/api/ready', async (req, res) => {
 // Serve frontend for all other routes in production
 if (config.nodeEnv === 'production') {
   app.get('*', (req, res) => {
+    // index.html should never be cached — Vite already hashes JS/CSS assets
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     res.sendFile(path.join(__dirname, '../index.html'));
   });
 }

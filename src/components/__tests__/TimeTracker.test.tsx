@@ -2452,4 +2452,103 @@ describe('Modal suggestion mouse interactions', () => {
       }
     }
   });
+
+  describe('forgotten timer prompt', () => {
+    const mockEntries = [
+      {
+        id: 1,
+        category_id: 1,
+        category_name: 'Development',
+        category_color: '#007bff',
+        task_name: 'Previous task',
+        start_time: '2024-01-01T10:00:00Z',
+        end_time: '2024-01-01T11:00:00Z',
+        scheduled_end_time: null,
+        duration_minutes: 60,
+        created_at: '2024-01-01'
+      }
+    ];
+
+    it('shows forgotten timer banner after 8+ hours', async () => {
+      const nineHoursAgo = new Date(Date.now() - 9 * 3600 * 1000).toISOString();
+      const activeEntry = {
+        id: 99,
+        category_id: 1,
+        category_name: 'Development',
+        category_color: '#007bff',
+        task_name: 'Long running task',
+        start_time: nineHoursAgo,
+        end_time: null,
+        scheduled_end_time: null,
+        duration_minutes: null,
+        created_at: nineHoursAgo
+      };
+
+      await renderWithTheme(
+        <TimeTracker
+          categories={mockCategories}
+          activeEntry={activeEntry}
+          entries={mockEntries}
+          onEntryChange={mockOnEntryChange}
+          onCategoryChange={mockOnCategoryChange}
+        />
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText(/running for over 8 hours/i)).toBeInTheDocument();
+      });
+    });
+
+    it('preserves user-edited forgotten end time across ticks', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      const nineHoursAgo = new Date(Date.now() - 9 * 3600 * 1000).toISOString();
+      const activeEntry = {
+        id: 99,
+        category_id: 1,
+        category_name: 'Development',
+        category_color: '#007bff',
+        task_name: 'Forgotten task',
+        start_time: nineHoursAgo,
+        end_time: null,
+        scheduled_end_time: null,
+        duration_minutes: null,
+        created_at: nineHoursAgo
+      };
+
+      await renderWithTheme(
+        <TimeTracker
+          categories={mockCategories}
+          activeEntry={activeEntry}
+          entries={mockEntries}
+          onEntryChange={mockOnEntryChange}
+          onCategoryChange={mockOnCategoryChange}
+        />
+      );
+
+      // Wait for the forgotten prompt to appear
+      await waitFor(() => {
+        expect(screen.getByText(/running for over 8 hours/i)).toBeInTheDocument();
+      });
+
+      // Find the datetime-local input and change to a user-chosen value
+      const dateTimeInput = document.querySelector('input[type="datetime-local"]') as HTMLInputElement;
+      expect(dateTimeInput).toBeTruthy();
+
+      const userValue = '2025-01-15T14:30';
+      await act(async () => {
+        fireEvent.change(dateTimeInput, { target: { value: userValue } });
+      });
+
+      expect(dateTimeInput.value).toBe(userValue);
+
+      // Advance several ticks — the value must not revert
+      await act(async () => {
+        vi.advanceTimersByTime(3000);
+      });
+
+      expect(dateTimeInput.value).toBe(userValue);
+
+      vi.useRealTimers();
+    });
+  });
 });

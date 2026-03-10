@@ -406,7 +406,10 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
       if (elapsedSecs >= 28800 && !forgottenDismissedRef.current && !activeEntry.scheduled_end_time) {
         setShowForgottenPrompt(true);
         // Default end time to start date at 17:00 (end of typical workday)
-        if (!forgottenEndTime) {
+        // Use functional update to only set the default when currently empty,
+        // without needing forgottenEndTime in the closure (which would go stale).
+        setForgottenEndTime(prev => {
+          if (prev) return prev; // User already set a value — don't overwrite
           const startDate = new Date(activeEntry.start_time);
           const defaultEnd = new Date(startDate);
           defaultEnd.setHours(17, 0, 0, 0);
@@ -419,10 +422,8 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
             defaultEnd.setTime(now);
           }
           const pad = (n: number) => n.toString().padStart(2, '0');
-          setForgottenEndTime(
-            `${defaultEnd.getFullYear()}-${pad(defaultEnd.getMonth() + 1)}-${pad(defaultEnd.getDate())}T${pad(defaultEnd.getHours())}:${pad(defaultEnd.getMinutes())}`
-          );
-        }
+          return `${defaultEnd.getFullYear()}-${pad(defaultEnd.getMonth() + 1)}-${pad(defaultEnd.getDate())}T${pad(defaultEnd.getHours())}:${pad(defaultEnd.getMinutes())}`;
+        });
       } else if (elapsedSecs < 28800 || activeEntry.scheduled_end_time) {
         // Dismiss prompt if elapsed dropped below 8h or a scheduled stop was set
         setShowForgottenPrompt(false);
