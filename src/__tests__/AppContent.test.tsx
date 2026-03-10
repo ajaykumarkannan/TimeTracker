@@ -81,17 +81,8 @@ const setVisibilityState = (state: 'visible' | 'hidden') => {
 };
 
 describe('AppContent refresh behavior', () => {
-  let intervalCallbacks: Array<() => void> = [];
-
   beforeEach(() => {
     setVisibilityState('visible');
-
-    intervalCallbacks = [];
-    vi.spyOn(window, 'setInterval').mockImplementation((cb) => {
-      intervalCallbacks.push(cb as () => void);
-      return 1 as unknown as NodeJS.Timeout;
-    });
-    vi.spyOn(window, 'clearInterval').mockImplementation(() => undefined);
 
     // Resolve mock values for this test run
     mockApi.getCategories.mockResolvedValue([]);
@@ -112,7 +103,9 @@ describe('AppContent refresh behavior', () => {
     vi.clearAllMocks();
   });
 
-  it('refreshes tracker data on interval when visible', async () => {
+  it('does not use setInterval for polling', async () => {
+    const setIntervalSpy = vi.spyOn(window, 'setInterval');
+
     render(
       <AppContent
         isLoggedIn={false}
@@ -123,29 +116,15 @@ describe('AppContent refresh behavior', () => {
 
     await waitFor(() => {
       expect(mockApi.getCategories).toHaveBeenCalled();
-      expect(mockApi.getRecentEntries).toHaveBeenCalled();
-      expect(mockApi.getActiveEntry).toHaveBeenCalled();
     });
 
-    await waitFor(() => {
-      expect(intervalCallbacks.length).toBeGreaterThan(0);
-    });
-
-    // Clear previous calls before advancing timer
-    mockApi.getRecentEntries.mockClear();
-    mockApi.getActiveEntry.mockClear();
-
-    await act(async () => {
-      intervalCallbacks.forEach((cb) => cb());
-    });
-    await act(async () => {
-      await Promise.resolve();
-    });
-
-    await waitFor(() => {
-      expect(mockApi.getRecentEntries).toHaveBeenCalledTimes(1);
-      expect(mockApi.getActiveEntry).toHaveBeenCalledTimes(1);
-    });
+    // No polling interval should be registered for refresh (intervals > 1s)
+    // Other libraries may use short intervals (e.g. debounce at 50ms)
+    const pollingCalls = setIntervalSpy.mock.calls.filter(
+      ([, ms]) => typeof ms === 'number' && ms >= 1000
+    );
+    expect(pollingCalls).toHaveLength(0);
+    setIntervalSpy.mockRestore();
   });
 
   it('refreshes tracker data when tab becomes visible', async () => {
@@ -283,5 +262,90 @@ describe('AppContent refresh behavior', () => {
 
     expect(acceptDetectedTimezone).toHaveBeenCalled();
     expect(dismissTimezonePrompt).toHaveBeenCalled();
+  });
+
+  it('shows update banner when server version differs from client', async () => {
+    // Mock fetch for /api/version to return a different version
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ app: '99.0.0' })
+    } as Response);
+
+    render(
+      <AppContent
+        isLoggedIn={false}
+        onLogout={vi.fn()}
+        onConvertSuccess={vi.fn()}
+      />
+    );
+
+    await waitFor(() => {
+      expect(mockApi.getCategories).toHaveBeenCalled();
+    });
+
+    // Trigger visibility change to fire the version check
+    mockApi.getRecentEntries.mockClear();
+    mockApi.getActiveEntry.mockClear();
+
+    setVisibilityState('visible');
+    await act(async () => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+
+    await waitFor(() => {
+      expect(fetchSpy).toHaveBeenCalledWith('/api/version');
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('A new version of ChronoFlow is available.')).toBeInTheDocument();
+      expect(screen.getByText('Refresh')).toBeInTheDocument();
+      expect(screen.getByText('Later')).toBeInTheDocument();
+    });
+
+    // Dismiss the banner
+    await act(async () => {
+      screen.getByText('Later').click();
+    });
+
+    expect(screen.queryByText('A new version of ChronoFlow is available.')).not.toBeInTheDocument();
+
+    fetchSpy.mockRestore();
+  });
+
+  it('does not show update banner when versions match', async () => {
+    // Mock fetch for /api/version to return the same version as the client build
+    // __APP_VERSION__ is resolved from package.json by Vitest's define config
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      if (typeof input === 'string' && input === '/api/version') {
+        return { ok: true, json: async () => ({ app: __APP_VERSION__ }) } as Response;
+      }
+      return { ok: false } as Response;
+    });
+
+    render(
+      <AppContent
+        isLoggedIn={false}
+        onLogout={vi.fn()}
+        onConvertSuccess={vi.fn()}
+      />
+    );
+
+    await waitFor(() => {
+      expect(mockApi.getCategories).toHaveBeenCalled();
+    });
+
+    setVisibilityState('visible');
+    await act(async () => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+
+    // Give it time to process
+    await act(async () => {
+      await new Promise(r => setTimeout(r, 50));
+    });
+
+    expect(screen.queryByText('A new version of ChronoFlow is available.')).not.toBeInTheDocument();
+
+    fetchSpy.mockRestore();
   });
 });

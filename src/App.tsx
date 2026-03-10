@@ -76,6 +76,7 @@ export function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLogge
   const [entryRefreshKey, setEntryRefreshKey] = useState(0);
   const [lastOptimistic, setLastOptimistic] = useState<{ active?: TimeEntry | null; stopped?: TimeEntry } | null>(null);
   const isRefreshingRef = useRef(false);
+  const [updateAvailable, setUpdateAvailable] = useState(false);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
@@ -223,11 +224,30 @@ export function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLogge
   };
 
   useEffect(() => {
-    const intervalMs = 15000;
+    // Minimum gap between refreshes to avoid duplicate triggers
+    const debounceMs = 5000;
     const lastRefreshRef = { current: 0 };
+    const lastVersionCheckRef = { current: 0 };
     let hiddenAt: number | null = null;
 
-    const refreshIfVisible = () => {
+    const checkVersion = async (now: number) => {
+      // Check version at most once per 5 minutes
+      if (now - lastVersionCheckRef.current < 300000) return;
+      lastVersionCheckRef.current = now;
+      try {
+        const res = await fetch('/api/version');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.app && data.app !== appVersion && appVersion !== '0.0.0') {
+            setUpdateAvailable(true);
+          }
+        }
+      } catch {
+        // Ignore — version check is best-effort
+      }
+    };
+
+    const refreshOnResume = () => {
       if (document.visibilityState !== 'visible') {
         // Track when we became hidden
         hiddenAt = Date.now();
@@ -235,27 +255,31 @@ export function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLogge
       }
       
       const now = Date.now();
-      // Check if we've been hidden for more than 30 seconds (likely sleep/wake)
-      const wasLongHidden = hiddenAt !== null && (now - hiddenAt > 30000);
-      hiddenAt = null;
-      
-      // Skip debounce if we were hidden for a long time (sleep/wake scenario)
-      if (!wasLongHidden && now - lastRefreshRef.current < intervalMs) return;
+      // Debounce — visibilitychange and focus can fire in quick succession
+      if (now - lastRefreshRef.current < debounceMs) return;
       
       lastRefreshRef.current = now;
       refreshTrackerData();
-      // Signal TimeEntryList to reload its filtered data (important after sleep/wake)
-      setEntryRefreshKey(k => k + 1);
+
+      // Only reload the entry list after a long absence (sleep/wake, long tab switch)
+      // Short tab switches don't need a full entry list reload — SSE/BroadcastChannel
+      // handle real-time sync for changes made on other tabs/devices.
+      const wasLongHidden = hiddenAt !== null && (now - hiddenAt > 30000);
+      hiddenAt = null;
+      if (wasLongHidden) {
+        setEntryRefreshKey(k => k + 1);
+      }
+
+      // Lightweight version check (throttled to once per 5 min)
+      checkVersion(now);
     };
 
-    const intervalId = window.setInterval(refreshIfVisible, intervalMs);
-    document.addEventListener('visibilitychange', refreshIfVisible);
-    window.addEventListener('focus', refreshIfVisible);
+    document.addEventListener('visibilitychange', refreshOnResume);
+    window.addEventListener('focus', refreshOnResume);
 
     return () => {
-      window.clearInterval(intervalId);
-      document.removeEventListener('visibilitychange', refreshIfVisible);
-      window.removeEventListener('focus', refreshIfVisible);
+      document.removeEventListener('visibilitychange', refreshOnResume);
+      window.removeEventListener('focus', refreshOnResume);
     };
   }, [refreshTrackerData]);
 
@@ -435,6 +459,21 @@ export function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLogge
             </button>
             <button className="btn-small btn-ghost" onClick={dismissTimezonePrompt}>
               Dismiss
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Update available banner */}
+      {updateAvailable && (
+        <div className="timezone-prompt">
+          <span>A new version of ChronoFlow is available.</span>
+          <div className="timezone-prompt-actions">
+            <button className="btn-small btn-primary" onClick={() => window.location.reload()}>
+              Refresh
+            </button>
+            <button className="btn-small btn-ghost" onClick={() => setUpdateAvailable(false)}>
+              Later
             </button>
           </div>
         </div>

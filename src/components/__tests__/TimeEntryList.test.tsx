@@ -272,4 +272,46 @@ describe('TimeEntryList', () => {
       expect(mockApi.deleteEntriesByDate).toHaveBeenCalled();
     });
   });
+
+  it('does not show loading spinner on background refresh via refreshKey', async () => {
+    const entries = [baseEntry({ id: 30, task_name: 'Existing task' })];
+    mockApi.getTimeEntries.mockResolvedValue(entries);
+
+    const { rerender } = render(
+      <TimeEntryList
+        activeEntry={null}
+        categories={categories}
+        onEntryChange={vi.fn()}
+        onCategoryChange={vi.fn()}
+        refreshKey={0}
+      />
+    );
+
+    // Wait for initial load to complete and entries to appear
+    await waitFor(() => {
+      expect(screen.getByText('Existing task')).toBeInTheDocument();
+    });
+
+    // Trigger a background refresh via refreshKey increment
+    const updatedEntries = [baseEntry({ id: 30, task_name: 'Updated task' })];
+    mockApi.getTimeEntries.mockResolvedValue(updatedEntries);
+
+    rerender(
+      <TimeEntryList
+        activeEntry={null}
+        categories={categories}
+        onEntryChange={vi.fn()}
+        onCategoryChange={vi.fn()}
+        refreshKey={1}
+      />
+    );
+
+    // The loading spinner should NOT appear during background refresh
+    expect(screen.queryByText('Loading entries...')).not.toBeInTheDocument();
+
+    // The updated data should eventually appear
+    await waitFor(() => {
+      expect(screen.getByText('Updated task')).toBeInTheDocument();
+    });
+  });
 });
