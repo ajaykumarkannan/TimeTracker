@@ -717,6 +717,36 @@
   flex-shrink: 0;
 }
 
+/* New category modal form layout */
+.new-category-modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.new-category-input-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.new-category-input-row input[type="text"] {
+  flex: 1;
+  min-width: 0;
+}
+
+.new-category-input-row .color-picker {
+  width: 36px;
+  height: 36px;
+  padding: 2px;
+}
+
+.new-category-modal-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
 .color-picker {
   width: 44px;
   height: 44px;

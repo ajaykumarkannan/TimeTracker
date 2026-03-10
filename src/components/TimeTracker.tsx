@@ -1189,37 +1189,6 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                 >
                   ✕
                 </button>
-                {showNewCategory && (
-                  <div className="new-category-form animate-slide-in">
-                    <input
-                      type="text"
-                      value={newCategoryName}
-                      onChange={(e) => setNewCategoryName(e.target.value)}
-                      placeholder="Category name"
-                      autoFocus
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleCreateCategory();
-                        if (e.key === 'Escape') setShowNewCategory(false);
-                      }}
-                    />
-                    <input
-                      type="color"
-                      value={newCategoryColor}
-                      onChange={(e) => setNewCategoryColor(e.target.value)}
-                      className="color-picker"
-                    />
-                    <button className="btn btn-ghost" onClick={() => setShowNewCategory(false)}>
-                      Cancel
-                    </button>
-                    <button 
-                      className="btn btn-primary" 
-                      onClick={handleCreateCategory}
-                      disabled={!newCategoryName.trim()}
-                    >
-                      Create
-                    </button>
-                  </div>
-                )}
               </div>
             ) : (
               <>
@@ -1445,8 +1414,19 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
               </div>
             </div>
 
-            {showNewCategory && (
-              <div className="new-category-form animate-slide-in">
+          </div>
+        </div>
+      )}
+
+      {/* New category modal (shared by start form and switch task inline) */}
+      {showNewCategory && (
+        <div className="task-prompt-overlay" onClick={() => setShowNewCategory(false)}>
+          <div className="task-prompt-modal" onClick={e => e.stopPropagation()}>
+            <div className="task-prompt-header">
+              <span className="task-prompt-title">New Category</span>
+            </div>
+            <div className="new-category-modal-form">
+              <div className="new-category-input-row">
                 <input
                   type="text"
                   value={newCategoryName}
@@ -1454,7 +1434,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                   placeholder="Category name"
                   autoFocus
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleCreateCategory();
+                    if (e.key === 'Enter' && newCategoryName.trim()) handleCreateCategory();
                     if (e.key === 'Escape') setShowNewCategory(false);
                   }}
                 />
@@ -1464,18 +1444,20 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                   onChange={(e) => setNewCategoryColor(e.target.value)}
                   className="color-picker"
                 />
+              </div>
+              <div className="new-category-modal-actions">
                 <button className="btn btn-ghost" onClick={() => setShowNewCategory(false)}>
                   Cancel
                 </button>
-                <button 
-                  className="btn btn-primary" 
+                <button
+                  className="btn btn-primary"
                   onClick={handleCreateCategory}
                   disabled={!newCategoryName.trim()}
                 >
                   Create
                 </button>
               </div>
-            )}
+            </div>
           </div>
         </div>
       )}
