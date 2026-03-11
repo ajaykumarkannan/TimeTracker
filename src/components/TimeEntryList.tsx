@@ -626,7 +626,6 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
     setManualEndTime(newTime);
     if (newEndDate !== manualEndDate) {
       setManualEndDate(newEndDate);
-      setEndDateManuallySet(true);
     }
   };
 
