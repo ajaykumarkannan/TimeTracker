@@ -178,9 +178,12 @@ async function fetchWithTimeout(
   }
 }
 
-async function apiFetch(url: string, options: RequestInit = {}): Promise<Response> {
-  // Proactively refresh token if it's about to expire (prevents failed requests)
-  if (accessToken && refreshToken) {
+async function apiFetch(url: string, options: RequestInit = {}, { skipProactiveRefresh = false } = {}): Promise<Response> {
+  // Proactively refresh token if it's about to expire (prevents failed requests).
+  // Mutations can opt out via skipProactiveRefresh so the request isn't blocked by
+  // a slow refresh round-trip (e.g. after wake from sleep). The 401 retry path below
+  // handles expired tokens as a fallback.
+  if (!skipProactiveRefresh && accessToken && refreshToken) {
     await proactiveRefresh();
   }
 
@@ -237,12 +240,14 @@ async function apiGet<T>(url: string, errorMsg: string): Promise<T> {
   return res.json();
 }
 
-/** Fetch via apiFetch with method/body, throw on error (with server error message if available), return parsed JSON */
+/** Fetch via apiFetch with method/body, throw on error (with server error message if available), return parsed JSON.
+ *  Skips proactive token refresh so mutations aren't blocked by a slow refresh round-trip
+ *  (e.g. after waking from sleep). The 401 retry in apiFetch handles expired tokens. */
 async function apiMutate<T>(url: string, method: string, body?: unknown, errorMsg = 'Request failed'): Promise<T> {
   const res = await apiFetch(url, {
     method,
     ...(body !== undefined ? { body: JSON.stringify(body) } : {})
-  });
+  }, { skipProactiveRefresh: true });
   if (!res.ok) {
     const error = await res.json().catch(() => ({ error: errorMsg }));
     throw new Error(error.error || errorMsg);
@@ -255,7 +260,7 @@ async function apiVoid(url: string, method: string, body?: unknown, errorMsg = '
   const res = await apiFetch(url, {
     method,
     ...(body !== undefined ? { body: JSON.stringify(body) } : {})
-  });
+  }, { skipProactiveRefresh: true });
   if (!res.ok) {
     const error = await res.json().catch(() => ({ error: errorMsg }));
     throw new Error(error.error || errorMsg);

@@ -109,6 +109,9 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   const [forgottenEndTime, setForgottenEndTime] = useState('');
   const forgottenDismissedRef = useRef(false);
 
+  // Stop-in-progress state for optimistic UI
+  const [stopping, setStopping] = useState(false);
+
   // Scheduled stop state
   const [showScheduleStopModal, setShowScheduleStopModal] = useState(false);
   const [scheduleMode, setScheduleMode] = useState<'duration' | 'time'>('duration');
@@ -485,12 +488,19 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   };
 
   const handleStop = async () => {
-    if (!activeEntry) return;
+    if (!activeEntry || stopping) return;
+    setStopping(true);
+    // Optimistic UI: immediately clear the active entry so the timer stops visually
+    onEntryChange({ active: null });
     try {
       const stopped = await api.stopEntry(activeEntry.id);
       onEntryChange({ active: null, stopped });
     } catch (error) {
+      // Rollback: restore the active entry if the request failed
+      onEntryChange({ active: activeEntry });
       console.error('Failed to stop entry:', error);
+    } finally {
+      setStopping(false);
     }
   };
 
@@ -708,9 +718,9 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
             </div>
             <div className="timer-actions">
               <div className={`stop-button-group ${activeEntry.scheduled_end_time ? 'has-schedule' : ''}`}>
-                <button className="btn btn-danger stop-main" onClick={handleStop}>
+                <button className="btn btn-danger stop-main" onClick={handleStop} disabled={stopping}>
                   <span className="stop-icon">■</span>
-                  {activeEntry.scheduled_end_time ? null : 'Stop'}
+                  {activeEntry.scheduled_end_time ? null : (stopping ? 'Stopping…' : 'Stop')}
                 </button>
                 {activeEntry.scheduled_end_time ? (
                   <button 
