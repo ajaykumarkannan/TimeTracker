@@ -24,15 +24,15 @@ const categories: Category[] = [
 ];
 
 // Helper to get dates relative to "today" so entries fall within default "This Week" filter
-const getRelativeDate = (hoursAgo: number): string => {
+const getRelativeDate = (minutesAgo: number): string => {
   const date = new Date();
-  date.setHours(date.getHours() - hoursAgo);
+  date.setMinutes(date.getMinutes() - minutesAgo);
   return date.toISOString();
 };
 
 const baseEntry = (overrides: Partial<TimeEntry>): TimeEntry => {
-  const startTime = getRelativeDate(2); // 2 hours ago
-  const endTime = getRelativeDate(1.5); // 1.5 hours ago
+  const startTime = getRelativeDate(120); // 120 minutes ago
+  const endTime = getRelativeDate(90); // 90 minutes ago
   return {
     id: 1,
     user_id: 1,
@@ -227,8 +227,8 @@ describe('TimeEntryList', () => {
   it('shows overlap warning when entries intersect', async () => {
     // Create overlapping entries: entry1 ends after entry2 starts
     const entries = [
-      baseEntry({ id: 1, start_time: getRelativeDate(2), end_time: getRelativeDate(1) }),
-      baseEntry({ id: 2, start_time: getRelativeDate(1.5), end_time: getRelativeDate(0.5) })
+      baseEntry({ id: 1, start_time: getRelativeDate(120), end_time: getRelativeDate(60) }),
+      baseEntry({ id: 2, start_time: getRelativeDate(90), end_time: getRelativeDate(30) })
     ];
     mockApi.getTimeEntries.mockResolvedValueOnce(entries);
 
