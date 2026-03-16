@@ -132,6 +132,15 @@ describe('Analytics', () => {
     });
     
     await waitFor(() => {
+      expect(screen.getByText('Total Time')).toBeInTheDocument();
+    });
+    
+    // Default is last7, switch to week view
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^week$/i }));
+    });
+    
+    await waitFor(() => {
       expect(screen.getByText('Daily Breakdown')).toBeInTheDocument();
     });
     
@@ -357,12 +366,21 @@ describe('Analytics', () => {
 
   // Previous dropdown (last N days) tests
   it('shows previous dropdown menu', async () => {
+    // Switch to week first so "Last 7 days" only appears in the dropdown
     await act(async () => {
       render(<Analytics />);
     });
     
     await waitFor(() => {
       expect(screen.getByText('Total Time')).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^week$/i }));
+    });
+
+    await waitFor(() => {
+      expect(api.getAnalytics).toHaveBeenCalledTimes(2);
     });
     
     // Click Previous dropdown trigger (has dropdown-trigger class)
@@ -378,7 +396,7 @@ describe('Analytics', () => {
     }
   });
 
-  it('selects last 7 days period', async () => {
+  it('selects last 30 days period from dropdown', async () => {
     await act(async () => {
       render(<Analytics />);
     });
@@ -387,7 +405,7 @@ describe('Analytics', () => {
       expect(screen.getByText('Total Time')).toBeInTheDocument();
     });
     
-    // Open dropdown and select last 7 days
+    // Open dropdown and select last 30 days
     const dropdownTrigger = document.querySelector('.dropdown-trigger');
     if (dropdownTrigger) {
       await act(async () => {
@@ -395,7 +413,7 @@ describe('Analytics', () => {
       });
       
       await act(async () => {
-        fireEvent.click(screen.getByText('Last 7 days'));
+        fireEvent.click(screen.getByText('Last 30 days'));
       });
       
       await waitFor(() => {
