@@ -8,85 +8,59 @@
   gap: 0.5rem;
 }
 
-.today-total {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  padding: 0.375rem 0.75rem;
-  background: var(--success-bg);
-  border-radius: var(--radius-full);
-  margin-right: 0.25rem;
-}
-
-.today-label {
-  font-size: 0.6875rem;
-  font-weight: 600;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.today-time {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--success);
-}
-
-.add-entry-btn {
-  white-space: nowrap;
-}
-
-.export-btn {
-  padding: 0.375rem;
-  border-radius: var(--radius-md);
-  color: var(--text-secondary);
-  transition: all 0.15s ease;
-}
-
-.export-btn:hover:not(:disabled) {
-  color: var(--text-primary);
-  background: var(--bg-secondary);
-}
-
-.export-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-/* Manual Entry Modal */
-.manual-entry-overlay {
+/* Shared modal overlay */
+.manual-entry-overlay,
+.time-edit-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--overlay-bg);
   backdrop-filter: blur(4px);
   display: flex;
-  align-items: center;
   justify-content: center;
   z-index: 1000;
-  padding: 1rem;
   animation: fadeIn 0.15s ease;
 }
 
-.manual-entry-modal {
+.manual-entry-overlay {
+  align-items: center;
+  padding: 1rem;
+}
+
+.time-edit-overlay {
+  align-items: flex-end;
+  padding: 0;
+}
+
+/* Shared modal container */
+.manual-entry-modal,
+.time-edit-modal {
   background: var(--card-bg);
   border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
   width: 100%;
-  max-width: 28rem;
+  box-sizing: border-box;
   box-shadow: var(--shadow-xl);
+}
+
+.manual-entry-modal {
+  border-radius: var(--radius-xl);
+  max-width: 28rem;
   animation: scaleIn 0.2s ease;
 }
 
-.manual-entry-header {
+/* Shared modal header */
+.manual-entry-header,
+.time-edit-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1.25rem 1.5rem;
   border-bottom: 1px solid var(--border);
 }
 
-.manual-entry-header h3 {
+.manual-entry-header { padding: 1.25rem 1.5rem; }
+.time-edit-header { padding: 1rem 1.25rem; }
+
+.manual-entry-header h3,
+.time-edit-header h3 {
   font-size: 1rem;
   font-weight: 600;
   color: var(--text-primary);
@@ -119,7 +93,7 @@
   background: var(--input-bg);
   color: var(--text-primary);
   outline: none;
-  transition: all 0.15s ease;
+  transition: all var(--transition-fast);
 }
 
 .manual-entry-form .description-input-wrapper input:focus {
@@ -228,7 +202,7 @@
   background: var(--input-bg);
   color: var(--text-primary);
   outline: none;
-  transition: all 0.15s ease;
+  transition: all var(--transition-fast);
 }
 
 .manual-entry-form select:focus,
@@ -280,7 +254,7 @@
   background: var(--card-bg);
   color: var(--text-secondary);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all var(--transition-fast);
 }
 
 .preset-btn:hover {
@@ -291,28 +265,22 @@
 .preset-btn.active {
   background: var(--primary);
   border-color: var(--primary);
-  color: white;
-}
-
-.custom-dates {
-  margin-bottom: 0.5rem;
-}
-
-.filter-summary {
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-  padding-top: 0.5rem;
-  border-top: 1px solid var(--border);
-  margin-top: 0.5rem;
+  color: var(--text-on-primary);
 }
 
 .date-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 0.5rem;
 }
 
-.date-total {
+.delete-day-btn {
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.6875rem;
   font-weight: 500;
@@ -324,7 +292,7 @@
   padding: 0.375rem;
   border-radius: var(--radius-md);
   color: var(--text-secondary);
-  transition: all 0.15s ease;
+  transition: all var(--transition-fast);
 }
 
 .filter-toggle:hover {
@@ -413,7 +381,7 @@
   background: var(--card-bg);
   color: var(--text-primary);
   outline: none;
-  transition: all 0.15s ease;
+  transition: all var(--transition-fast);
 }
 
 .filter-input:focus,
@@ -480,35 +448,6 @@
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
-}
-
-.date-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 0.6875rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  margin-bottom: 0.5rem;
-}
-
-.delete-day-btn {
-  opacity: 0;
-  padding: 0.25rem;
-  color: var(--text-muted);
-  border-radius: var(--radius-sm);
-  transition: all 0.15s ease;
-}
-
-.date-group:hover .delete-day-btn {
-  opacity: 1;
-}
-
-.delete-day-btn:hover {
-  color: var(--error);
-  background: var(--error-bg);
 }
 
 .entries {
@@ -703,16 +642,6 @@
   flex-shrink: 0;
 }
 
-.entry-time {
-  font-size: 0.8125rem;
-  color: var(--text-muted);
-}
-
-.entry-time.active-time {
-  color: var(--success);
-  font-weight: 500;
-}
-
 .time-separator {
   font-family: 'JetBrains Mono', monospace;
   color: var(--text-muted);
@@ -752,7 +681,7 @@
   margin: -0.25rem -0.5rem;
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all var(--transition-fast);
 }
 
 .entry-time-btn:hover:not(:disabled) {
@@ -801,13 +730,6 @@
 .inline-edit-time::-webkit-datetime-edit-ampm-field {
   font-family: inherit;
   font-size: inherit;
-}
-
-/* Reclaim right-side space from native spinner/calendar chrome */
-.inline-edit-time::-webkit-inner-spin-button,
-.inline-edit-time::-webkit-calendar-picker-indicator {
-  margin: 0;
-  padding: 0;
 }
 
 /* Hide native spinner/calendar chrome to reclaim right-side space */
@@ -861,17 +783,17 @@
   border: none;
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all var(--transition-fast);
   flex-shrink: 0;
 }
 
 .inline-edit-save-btn {
   background: var(--success);
-  color: white;
+  color: var(--text-on-primary);
 }
 
 .inline-edit-save-btn:hover {
-  background: var(--success-hover, #16a34a);
+  background: var(--success-hover);
 }
 
 .inline-edit-cancel-btn {
@@ -895,94 +817,36 @@
   flex-shrink: 0;
 }
 
-.delete-btn {
-  opacity: 0.15;
-  font-size: 1.125rem;
-  color: var(--text-muted);
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 0.25rem;
-  transition: all 0.15s ease;
-}
-
-.delete-btn:hover {
-  color: var(--error);
-}
-
-.resume-btn {
-  opacity: 0.15;
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 0.25rem;
-  transition: all 0.15s ease;
-}
-
-.resume-btn:hover {
-  color: var(--success);
-}
-
+.delete-btn,
+.resume-btn,
 .restart-btn {
   opacity: 0.15;
-  font-size: 1rem;
   color: var(--text-muted);
   background: none;
   border: none;
   cursor: pointer;
   padding: 0.25rem;
-  transition: all 0.15s ease;
+  transition: all var(--transition-fast);
 }
 
-.restart-btn:hover {
-  color: var(--primary);
-}
+.delete-btn { font-size: 1.125rem; }
+.resume-btn { font-size: 0.75rem; }
+.restart-btn { font-size: 1rem; }
+
+.delete-btn:hover { color: var(--error); }
+.resume-btn:hover { color: var(--success); }
+.restart-btn:hover { color: var(--primary); }
 
 /* Mobile time-edit modal */
-.time-edit-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(4px);
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  z-index: 1000;
-  padding: 0;
-  animation: fadeIn 0.15s ease;
-}
-
 .time-edit-modal {
-  background: var(--card-bg);
-  border: 1px solid var(--border);
   border-radius: var(--radius-xl) var(--radius-xl) 0 0;
-  width: 100%;
   max-width: 32rem;
-  box-sizing: border-box;
-  box-shadow: var(--shadow-xl);
-  animation: slideUp 0.2s ease;
+  animation: slideUpModal 0.2s ease;
 }
 
-@keyframes slideUp {
+@keyframes slideUpModal {
   from { transform: translateY(100%); }
   to { transform: translateY(0); }
-}
-
-.time-edit-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1rem 1.25rem;
-  border-bottom: 1px solid var(--border);
-}
-
-.time-edit-header h3 {
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0;
 }
 
 .time-edit-body {
@@ -1119,39 +983,9 @@
     display: inline;
   }
   
-  .entry-actions {
-    display: none;
-  }
-
+  .entry-actions,
   .entry-item > .delete-btn {
     display: none;
-  }
-
-  .delete-btn {
-    opacity: 1;
-    min-width: 36px;
-    min-height: 44px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .resume-btn {
-    opacity: 1;
-    min-width: 36px;
-    min-height: 44px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .restart-btn {
-    opacity: 1;
-    min-width: 36px;
-    min-height: 44px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
   }
 
   .delete-day-btn {
@@ -1185,14 +1019,6 @@
     font-size: 0.8125rem;
   }
   
-  .entry-description {
-    flex: 1;
-    min-width: 0;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  
   /* Touch-friendly time buttons */
   .entry-time-btn {
     min-width: 44px;
@@ -1224,11 +1050,7 @@
     padding: 0.5rem;
   }
 
-  .inline-edit-time-only {
-    flex: 1;
-    width: auto;
-  }
-
+  .inline-edit-time-only,
   .inline-edit-date {
     flex: 1;
     width: auto;
@@ -1263,10 +1085,18 @@
     grid-template-columns: 1fr;
     gap: 1rem;
   }
+
+  .cleanup-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.625rem;
+  }
+  
+  .cleanup-item-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
 }
-
-
-/* Cleanup Suggestions Banner */
 .cleanup-banner {
   background: var(--bg-secondary);
   border: 1px solid var(--border);
@@ -1366,23 +1196,10 @@
 
 .cleanup-item-actions .btn-danger {
   background: var(--error);
-  color: white;
+  color: var(--text-on-primary);
   border-color: var(--error);
 }
 
 .cleanup-item-actions .btn-danger:hover {
-  background: var(--error-hover, #dc2626);
-}
-
-@media (max-width: 640px) {
-  .cleanup-item {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.625rem;
-  }
-  
-  .cleanup-item-actions {
-    width: 100%;
-    justify-content: flex-end;
-  }
+  background: var(--error-hover);
 }
