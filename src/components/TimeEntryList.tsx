@@ -928,7 +928,8 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
   const handleResume = async (entry: TimeEntry) => {
     try {
       await api.updateEntry(entry.id, { end_time: null } as Partial<TimeEntry>);
-      handleEntryChangeInternal();
+      onEntryChange({ active: { ...entry, end_time: null, duration_minutes: null } as unknown as TimeEntry });
+      loadEntries();
     } catch (error) {
       console.error('Failed to resume entry:', error);
     }
@@ -936,8 +937,9 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
 
   const handleRestart = async (entry: TimeEntry) => {
     try {
-      await api.startEntry(entry.category_id, entry.task_name || undefined);
-      handleEntryChangeInternal();
+      const newEntry = await api.startEntry(entry.category_id, entry.task_name || undefined);
+      onEntryChange({ active: newEntry });
+      loadEntries();
     } catch (error) {
       console.error('Failed to restart entry:', error);
     }
@@ -1628,9 +1630,9 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                           ⛔
                         </span>
                       )}
-                      {entry.end_time && !activeEntry && (
+                      {entry.end_time && (
                         <div className="entry-actions">
-                          {entry.id === mostRecentCompletedId ? (
+                          {entry.id === mostRecentCompletedId && !activeEntry ? (
                             <button
                               className="btn-icon resume-btn"
                               onClick={(e) => { e.stopPropagation(); handleResume(entry); }}
@@ -1656,7 +1658,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                           </button>
                         </div>
                       )}
-                      {(!entry.end_time || activeEntry) && (
+                      {!entry.end_time && (
                         <button 
                           className="btn-icon delete-btn" 
                           onClick={(e) => { e.stopPropagation(); handleDelete(entry.id); }}
