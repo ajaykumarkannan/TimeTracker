@@ -48,7 +48,7 @@ export function detectOverlaps(entries: TimeEntry[]): Map<number, TimeEntry> {
  */
 export function formatTime(dateStr: string): string {
   const date = new Date(dateStr);
-  return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
 /**
@@ -58,7 +58,7 @@ export function formatTimeCompact(dateStr: string): string {
   const date = new Date(dateStr);
   const hours = date.getHours();
   const minutes = date.getMinutes().toString().padStart(2, '0');
-  const hour12 = hours % 12 || 12;
+  const hour12 = (hours % 12 || 12).toString().padStart(2, '0');
   const ampm = hours < 12 ? 'a' : 'p';
   return `${hour12}:${minutes}${ampm}`;
 }

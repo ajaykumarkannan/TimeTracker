@@ -129,7 +129,7 @@ describe('timeUtils', () => {
   describe('formatTime', () => {
     it('formats time using locale settings', () => {
       const dateStr = '2026-02-10T09:05:00.000Z';
-      const expected = new Date(dateStr).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+      const expected = new Date(dateStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       expect(formatTime(dateStr)).toBe(expected);
     });
   });
