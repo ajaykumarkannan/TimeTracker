@@ -776,8 +776,9 @@
 }
 
 .inline-edit-time {
+  font-family: inherit;
   font-size: 0.75rem;
-  padding: 0.25rem 0.375rem;
+  padding: 0.25rem 0.25rem 0.25rem 0.375rem;
   border-radius: var(--radius-sm);
   border: 1.5px solid var(--primary);
   background: var(--card-bg);
@@ -785,14 +786,21 @@
   outline: none;
 }
 
+/* Hide native spinner/calendar chrome to reclaim right-side space */
+.inline-edit-time::-webkit-inner-spin-button,
+.inline-edit-time::-webkit-calendar-picker-indicator {
+  margin: 0;
+  padding: 0;
+}
+
 /* Time input comes first and is slightly wider */
 .inline-edit-time-only {
-  width: 7rem;
+  width: 5.75rem;
 }
 
 /* Date input is secondary */
 .inline-edit-date {
-  width: 8.5rem;
+  width: 7.25rem;
 }
 
 /* Inline time edit validation error */

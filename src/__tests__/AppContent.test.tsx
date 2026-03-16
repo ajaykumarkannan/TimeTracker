@@ -12,7 +12,8 @@ vi.mock('../api', () => ({
     getCategories: vi.fn(),
     getRecentEntries: vi.fn(),
     getActiveEntry: vi.fn()
-  }
+  },
+  onApiError: vi.fn(() => vi.fn())
 }));
 
 vi.mock('../contexts/AuthContext', () => ({
