@@ -1598,7 +1598,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                                 className="inline-edit-time inline-edit-time-only"
                                 value={editEndTimeOnly}
                                 onChange={(e) => handleEditEndTimeOnlyChange(e.target.value)}
-                                onBlur={() => handleTimeBlur(entry.id, 'endTime')}
+                                onBlur={(e) => handleTimeBlur(entry.id, 'endTime', e)}
                                 onKeyDown={(e) => handleKeyDown(e, entry.id)}
                                 autoFocus
                               />
@@ -1607,7 +1607,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                                 className="inline-edit-time inline-edit-date"
                                 value={editEndDate}
                                 onChange={(e) => handleEditEndDateChange(e.target.value)}
-                                onBlur={() => handleTimeBlur(entry.id, 'endTime')}
+                                onBlur={(e) => handleTimeBlur(entry.id, 'endTime', e)}
                                 onKeyDown={(e) => handleKeyDown(e, entry.id)}
                               />
                               <button type="submit" className="inline-edit-save-btn" title="Save">✓</button>
