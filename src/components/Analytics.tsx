@@ -26,7 +26,7 @@ function getStoredPeriod(): Period {
   } catch {
     // localStorage not available
   }
-  return 'week';
+  return 'last7';
 }
 
 export function Analytics() {
