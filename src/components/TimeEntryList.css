@@ -960,6 +960,7 @@
   border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   width: 100%;
   max-width: 32rem;
+  box-sizing: border-box;
   box-shadow: var(--shadow-xl);
   animation: slideUp 0.2s ease;
 }
@@ -1011,6 +1012,7 @@
   color: var(--text-primary);
   outline: none;
   transition: border-color 0.15s ease;
+  box-sizing: border-box;
 }
 
 .time-edit-input:focus {
