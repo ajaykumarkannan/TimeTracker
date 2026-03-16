@@ -18,6 +18,19 @@ let refreshPromise: Promise<boolean> | null = null; // Prevent concurrent refres
 type AuthStateChangeCallback = (reason: 'session_expired' | 'refresh_failed') => void;
 const authStateChangeListeners: Set<AuthStateChangeCallback> = new Set();
 
+// API error listeners - used to surface transient errors (rate limiting) to the UI
+type ApiErrorCallback = (error: { type: 'rate_limit'; message: string; retryAfterSec: number }) => void;
+const apiErrorListeners: Set<ApiErrorCallback> = new Set();
+
+/**
+ * Subscribe to API errors (e.g., rate limiting) so the UI can show a notification.
+ * Returns an unsubscribe function.
+ */
+export function onApiError(callback: ApiErrorCallback): () => void {
+  apiErrorListeners.add(callback);
+  return () => apiErrorListeners.delete(callback);
+}
+
 /**
  * Subscribe to authentication state changes (e.g., when a logged-in user is unexpectedly logged out)
  * Returns an unsubscribe function
@@ -203,7 +216,16 @@ async function apiFetch(url: string, options: RequestInit = {}, { skipProactiveR
 
   // Handle rate limiting - don't treat as auth failure
   if (res.status === 429) {
-    return res; // Let the caller handle rate limit errors
+    const retryAfter = parseInt(res.headers.get('X-RateLimit-Reset') || '0', 10);
+    const waitSec = retryAfter ? Math.max(1, retryAfter - Math.floor(Date.now() / 1000)) : 60;
+    const message = `Too many requests — please wait ${waitSec}s and try again.`;
+    // Notify UI listeners so a banner/toast can be shown
+    apiErrorListeners.forEach(cb => {
+      try { cb({ type: 'rate_limit', message, retryAfterSec: waitSec }); } catch { /* ignore */ }
+    });
+    const err = new Error(message);
+    err.name = 'RateLimitError';
+    throw err;
   }
 
   // If unauthorized and we have a refresh token, try to refresh

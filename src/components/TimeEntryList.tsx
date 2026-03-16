@@ -472,9 +472,18 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
   };
 
   const handleSelect = (id: number) => {
-    if (editingId !== id) {
+    // Don't clear editing state when clicking within the same entry being edited.
+    // On PC, clicks on padding/whitespace inside entry-item bubble up here
+    // and would close the editor unexpectedly.
+    if (editingId !== null && editingId === id) {
+      setSelected(id);
+      return;
+    }
+    if (editingId !== null) {
       setEditingId(null);
       setEditField(null);
+      editingIdRef.current = null;
+      editFieldRef.current = null;
     }
     setSelected(id);
   };
@@ -743,7 +752,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
     setEditTimeError(null);
 
     try {
-      await api.updateEntry(entryId, {
+      const saved = await api.updateEntry(entryId, {
         category_id: editCategory,
         task_name: editDescription || null,
         start_time: newStart,
@@ -751,30 +760,29 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
       });
       // Update local state to avoid a full reload
       const category = categories.find(c => c.id === editCategory) || null;
-      setEntries(prev => prev.map(e => {
-        if (e.id !== entryId) return e;
-        const updated: TimeEntry = {
-          ...e,
-          category_id: editCategory,
-          category_name: category ? category.name : e.category_name,
-          category_color: category ? category.color : e.category_color,
-          task_name: editDescription || null,
-          start_time: newStart,
-          end_time: newEnd
-        };
-        // Recalculate duration_minutes if end_time present
-        if (updated.end_time) {
-          const durMs = new Date(updated.end_time).getTime() - new Date(updated.start_time).getTime();
-          updated.duration_minutes = Math.max(0, Math.round(durMs / 60000));
-        }
-        return updated;
-      }));
+      const optimistic: TimeEntry = {
+        ...entry,
+        ...saved,
+        category_name: category ? category.name : entry.category_name,
+        category_color: category ? category.color : entry.category_color,
+      };
+      // Recalculate duration_minutes if end_time present
+      if (optimistic.end_time) {
+        const durMs = new Date(optimistic.end_time).getTime() - new Date(optimistic.start_time).getTime();
+        optimistic.duration_minutes = Math.max(0, Math.round(durMs / 60000));
+      }
+      setEntries(prev => prev.map(e => e.id === entryId ? optimistic : e));
       setEditingId(null);
       setEditField(null);
       editingIdRef.current = null;
       editFieldRef.current = null;
-      // Notify parent to refresh (important for active entry updates)
-      onEntryChange();
+      // Notify parent with optimistic data so it doesn't do a full refetch
+      // (a bare onEntryChange() fires 2-5 extra API requests per save).
+      if (activeEntry && activeEntry.id === entryId) {
+        onEntryChange({ active: optimistic });
+      } else {
+        onEntryChange({ stopped: optimistic });
+      }
     } catch (error) {
       console.error('Failed to update entry:', error);
     }
@@ -794,8 +802,18 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
 
   // Deferred blur handler: gives click/touch events on sibling edit buttons
   // time to fire startEdit before we save and clear the editing state.
-  // Mobile touch-to-click can be delayed, so we use a timeout rather than rAF.
-  const handleTimeBlur = (entryId: number, field: EditField) => {
+  // Used by ALL inline edit fields (category, description, time) so that
+  // clicking between fields or onto the Save/Cancel buttons doesn't
+  // prematurely close the editor on desktop (PC).
+  const handleDeferredBlur = (entryId: number, field: EditField, e?: React.FocusEvent) => {
+    // If focus is moving to another element inside the same inline-edit form
+    // (e.g. clicking the date input after the time input), don't save.
+    // relatedTarget is the element *receiving* focus — available immediately,
+    // unlike document.activeElement which may not have updated yet.
+    const target = e?.relatedTarget as HTMLElement | null;
+    if (target?.closest('.inline-edit-time-form')) {
+      return;
+    }
     const snapshotField = field;
     const snapshotId = entryId;
     setTimeout(() => {
@@ -810,6 +828,9 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
       handleSave(entryId);
     }, 150);
   };
+
+  // Legacy alias — time inputs used to have a separate handler
+  const handleTimeBlur = handleDeferredBlur;
 
   // Save handler for the mobile time-edit modal — saves both start and end.
   const handleTimeModalSave = async () => {
@@ -831,32 +852,30 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
     setEditTimeError(null);
 
     try {
-      await api.updateEntry(editingId, {
+      const saved = await api.updateEntry(editingId, {
         category_id: editCategory,
         task_name: editDescription || null,
         start_time: newStart,
         end_time: newEnd
       });
       const category = categories.find(c => c.id === editCategory) || null;
-      setEntries(prev => prev.map(e => {
-        if (e.id !== editingId) return e;
-        const updated: TimeEntry = {
-          ...e,
-          category_id: editCategory,
-          category_name: category ? category.name : e.category_name,
-          category_color: category ? category.color : e.category_color,
-          task_name: editDescription || null,
-          start_time: newStart,
-          end_time: newEnd
-        };
-        if (updated.end_time) {
-          const durMs = new Date(updated.end_time).getTime() - new Date(updated.start_time).getTime();
-          updated.duration_minutes = Math.max(0, Math.round(durMs / 60000));
-        }
-        return updated;
-      }));
+      const optimistic: TimeEntry = {
+        ...entry,
+        ...saved,
+        category_name: category ? category.name : entry.category_name,
+        category_color: category ? category.color : entry.category_color,
+      };
+      if (optimistic.end_time) {
+        const durMs = new Date(optimistic.end_time).getTime() - new Date(optimistic.start_time).getTime();
+        optimistic.duration_minutes = Math.max(0, Math.round(durMs / 60000));
+      }
+      setEntries(prev => prev.map(e => e.id === editingId ? optimistic : e));
       handleTimeModalClose();
-      onEntryChange();
+      if (activeEntry && activeEntry.id === editingId) {
+        onEntryChange({ active: optimistic });
+      } else {
+        onEntryChange({ stopped: optimistic });
+      }
     } catch (error) {
       console.error('Failed to update entry:', error);
     }
@@ -1489,7 +1508,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                                 className="inline-edit-select"
                                 value={editCategory}
                                 onChange={(e) => handleCategorySelectChange(e, entry.id)}
-                                onBlur={() => !showNewCategory && handleSave(entry.id)}
+                                onBlur={(e) => !showNewCategory && handleDeferredBlur(entry.id, 'category', e)}
                                 onKeyDown={(e) => handleKeyDown(e, entry.id)}
                                 autoFocus
                                 onClick={(e) => e.stopPropagation()}
@@ -1514,7 +1533,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                               className="inline-edit-input"
                               value={editDescription}
                               onChange={(e) => setEditDescription(e.target.value)}
-                              onBlur={() => handleSave(entry.id)}
+                              onBlur={(e) => handleDeferredBlur(entry.id, 'description', e)}
                               onKeyDown={(e) => handleKeyDown(e, entry.id)}
                               placeholder="Add a task name..."
                               autoFocus
@@ -1541,7 +1560,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                                 className="inline-edit-time inline-edit-time-only"
                                 value={editStartTimeOnly}
                                 onChange={(e) => handleEditStartTimeOnlyChange(e.target.value)}
-                                onBlur={() => handleTimeBlur(entry.id, 'startTime')}
+                                onBlur={(e) => handleTimeBlur(entry.id, 'startTime', e)}
                                 onKeyDown={(e) => handleKeyDown(e, entry.id)}
                                 autoFocus
                               />
@@ -1550,7 +1569,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                                 className="inline-edit-time inline-edit-date"
                                 value={editStartDate}
                                 onChange={(e) => handleEditStartDateChange(e.target.value)}
-                                onBlur={() => handleTimeBlur(entry.id, 'startTime')}
+                                onBlur={(e) => handleTimeBlur(entry.id, 'startTime', e)}
                                 onKeyDown={(e) => handleKeyDown(e, entry.id)}
                               />
                               <button type="submit" className="inline-edit-save-btn" title="Save">✓</button>
@@ -1579,7 +1598,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                                 className="inline-edit-time inline-edit-time-only"
                                 value={editEndTimeOnly}
                                 onChange={(e) => handleEditEndTimeOnlyChange(e.target.value)}
-                                onBlur={() => handleTimeBlur(entry.id, 'endTime')}
+                                onBlur={(e) => handleTimeBlur(entry.id, 'endTime', e)}
                                 onKeyDown={(e) => handleKeyDown(e, entry.id)}
                                 autoFocus
                               />
@@ -1588,7 +1607,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                                 className="inline-edit-time inline-edit-date"
                                 value={editEndDate}
                                 onChange={(e) => handleEditEndDateChange(e.target.value)}
-                                onBlur={() => handleTimeBlur(entry.id, 'endTime')}
+                                onBlur={(e) => handleTimeBlur(entry.id, 'endTime', e)}
                                 onKeyDown={(e) => handleKeyDown(e, entry.id)}
                               />
                               <button type="submit" className="inline-edit-save-btn" title="Save">✓</button>

@@ -776,23 +776,53 @@
 }
 
 .inline-edit-time {
+  font-family: inherit;
   font-size: 0.75rem;
-  padding: 0.25rem 0.375rem;
+  padding: 0.25rem 0.25rem 0.25rem 0.375rem;
   border-radius: var(--radius-sm);
   border: 1.5px solid var(--primary);
   background: var(--card-bg);
   color: var(--text-primary);
   outline: none;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Force consistent font inside browser shadow DOM for date/time segments */
+.inline-edit-time::-webkit-datetime-edit,
+.inline-edit-time::-webkit-datetime-edit-fields-wrapper,
+.inline-edit-time::-webkit-datetime-edit-text,
+.inline-edit-time::-webkit-datetime-edit-month-field,
+.inline-edit-time::-webkit-datetime-edit-day-field,
+.inline-edit-time::-webkit-datetime-edit-year-field,
+.inline-edit-time::-webkit-datetime-edit-hour-field,
+.inline-edit-time::-webkit-datetime-edit-minute-field,
+.inline-edit-time::-webkit-datetime-edit-ampm-field {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+/* Reclaim right-side space from native spinner/calendar chrome */
+.inline-edit-time::-webkit-inner-spin-button,
+.inline-edit-time::-webkit-calendar-picker-indicator {
+  margin: 0;
+  padding: 0;
+}
+
+/* Hide native spinner/calendar chrome to reclaim right-side space */
+.inline-edit-time::-webkit-inner-spin-button,
+.inline-edit-time::-webkit-calendar-picker-indicator {
+  margin: 0;
+  padding: 0;
 }
 
 /* Time input comes first and is slightly wider */
 .inline-edit-time-only {
-  width: 7rem;
+  width: 5.75rem;
 }
 
 /* Date input is secondary */
 .inline-edit-date {
-  width: 8.5rem;
+  width: 7.25rem;
 }
 
 /* Inline time edit validation error */
