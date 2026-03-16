@@ -559,7 +559,7 @@ export function createSqliteProvider(): DatabaseProvider {
     async deleteTimeEntriesByDate(userId: number, startOfDay: string, endOfDay: string) {
       const dbRef = ensureDb();
       dbRef.run(
-        `DELETE FROM time_entries WHERE user_id = ? AND start_time >= ? AND start_time <= ? AND end_time IS NOT NULL`,
+        `DELETE FROM time_entries WHERE user_id = ? AND start_time >= ? AND start_time <= ?`,
         [userId, startOfDay, endOfDay]
       );
       const countResult = dbRef.exec(`SELECT changes() as count`);

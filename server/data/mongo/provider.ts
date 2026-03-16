@@ -454,8 +454,7 @@ export function createMongoProvider(): DatabaseProvider {
     async deleteTimeEntriesByDate(userId: number, startOfDay: string, endOfDay: string) {
       const result = await collection('time_entries').deleteMany({
         user_id: userId,
-        start_time: { $gte: startOfDay, $lte: endOfDay },
-        end_time: { $ne: null }
+        start_time: { $gte: startOfDay, $lte: endOfDay }
       });
       return result.deletedCount || 0;
     },

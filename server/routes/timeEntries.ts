@@ -486,7 +486,7 @@ router.delete('/by-date/:date', async (req: AuthRequest, res: Response) => {
     const count = await provider.deleteTimeEntriesByDate(req.userId as number, startOfDay, endOfDay);
 
     if (count === 0) {
-      return res.status(404).json({ error: 'No completed entries found for this date' });
+      return res.status(404).json({ error: 'No entries found for this date' });
     }
 
     broadcastSyncEvent(req.userId as number, 'time-entries');

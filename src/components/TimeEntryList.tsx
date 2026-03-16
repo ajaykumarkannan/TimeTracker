@@ -1013,19 +1013,24 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
     const date = new Date(dateKey);
     const dateStr = date.toISOString().split('T')[0];
     const dayEntries = grouped[dateKey] || [];
-    const completedCount = dayEntries.filter(e => e.end_time).length;
+    const totalCount = dayEntries.length;
+    const hasActive = dayEntries.some(e => !e.end_time);
     
-    if (completedCount === 0) {
-      alert('No completed entries to delete for this day.');
+    if (totalCount === 0) {
+      alert('No entries to delete for this day.');
       return;
     }
     
-    if (!confirm(`Delete all ${completedCount} completed ${completedCount === 1 ? 'entry' : 'entries'} for ${formatDate(dayEntries[0].start_time)}?`)) {
+    const activeNote = hasActive ? ' (including running timer)' : '';
+    if (!confirm(`Delete all ${totalCount} ${totalCount === 1 ? 'entry' : 'entries'} for ${formatDate(dayEntries[0].start_time)}${activeNote}?`)) {
       return;
     }
     
     try {
       await api.deleteEntriesByDate(dateStr);
+      if (hasActive) {
+        onEntryChange({ active: null });
+      }
       handleEntryChangeInternal();
     } catch (error) {
       console.error('Failed to delete entries:', error);
@@ -1631,7 +1636,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                                   <span className="time-full">{formatTime(entry.end_time)}</span>
                                   <span className="time-compact">{formatTimeCompact(entry.end_time)}</span>
                                 </>
-                              ) : 'now'}
+                              ) : 'now\u00A0\u00A0\u00A0\u00A0\u00A0'}
                             </button>
                           )}
                           <span className={`entry-duration ${!entry.end_time ? 'active' : ''}`}>
@@ -1678,13 +1683,16 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                         </div>
                       )}
                       {!entry.end_time && (
-                        <button 
-                          className="btn-icon delete-btn" 
-                          onClick={(e) => { e.stopPropagation(); handleDelete(entry.id); }}
-                          title="Delete"
-                        >
-                          ×
-                        </button>
+                        <div className="entry-actions">
+                          <span className="btn-icon" style={{ visibility: 'hidden' }}>↻</span>
+                          <button 
+                            className="btn-icon delete-btn" 
+                            onClick={(e) => { e.stopPropagation(); handleDelete(entry.id); }}
+                            title="Delete"
+                          >
+                            ×
+                          </button>
+                        </div>
                       )}
                       </div>
                     </div>
