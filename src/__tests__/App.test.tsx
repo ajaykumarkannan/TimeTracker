@@ -18,7 +18,8 @@ vi.mock('../api', () => ({
     getCategories: vi.fn().mockResolvedValue([]),
     getRecentEntries: vi.fn().mockResolvedValue([]),
     getActiveEntry: vi.fn().mockResolvedValue(null)
-  }
+  },
+  onApiError: vi.fn(() => vi.fn())
 }));
 
 vi.mock('../contexts/TimezoneContext', () => ({

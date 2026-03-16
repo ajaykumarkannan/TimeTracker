@@ -12,7 +12,7 @@ import { Settings } from './components/Settings';
 import { Help } from './components/Help';
 import { ThemeToggle } from './components/ThemeToggle';
 import { SettingsIcon, LogoutIcon, HelpIcon, ClockIcon, TagIcon, ChartIcon } from './components/Icons';
-import { api } from './api';
+import { api, onApiError } from './api';
 import { useSync } from './hooks/useSync';
 import { useAppBadge } from './hooks/useAppBadge';
 import { Category, TimeEntry } from './types';
@@ -83,6 +83,7 @@ export function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLogge
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [showMobileNav, setShowMobileNav] = useState(false);
+  const [rateLimitMsg, setRateLimitMsg] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const mobileNavRef = useRef<HTMLDivElement>(null);
   const appVersion = __APP_VERSION__;
@@ -167,6 +168,19 @@ export function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLogge
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Show a banner when the API returns a rate-limit (429) error
+  useEffect(() => {
+    const unsub = onApiError((err) => {
+      if (err.type === 'rate_limit') {
+        setRateLimitMsg(err.message);
+        // Auto-dismiss after the retry window passes (plus a small buffer)
+        const timer = setTimeout(() => setRateLimitMsg(null), (err.retryAfterSec + 2) * 1000);
+        return () => clearTimeout(timer);
+      }
+    });
+    return unsub;
   }, []);
 
   const handleTabChange = (tab: Tab) => {
@@ -261,6 +275,16 @@ export function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLogge
       const now = Date.now();
       // Debounce — visibilitychange and focus can fire in quick succession
       if (now - lastRefreshRef.current < debounceMs) return;
+
+      // After a very long absence (e.g. overnight, weekend) do a full page
+      // reload so all auth state, service-worker caches, and component trees
+      // start fresh instead of trying to incrementally patch stale data.
+      const FULL_RELOAD_THRESHOLD_MS = 4 * 60 * 60 * 1000; // 4 hours
+      if (hiddenAt !== null && (now - hiddenAt > FULL_RELOAD_THRESHOLD_MS)) {
+        hiddenAt = null;
+        window.location.reload();
+        return;
+      }
       
       lastRefreshRef.current = now;
       refreshTrackerData();
@@ -481,6 +505,18 @@ export function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLogge
               setUpdateAvailable(false);
             }}>
               Later
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Rate limit warning banner */}
+      {rateLimitMsg && (
+        <div className="timezone-prompt" role="alert">
+          <span>{rateLimitMsg}</span>
+          <div className="timezone-prompt-actions">
+            <button className="btn-small btn-ghost" onClick={() => setRateLimitMsg(null)}>
+              Dismiss
             </button>
           </div>
         </div>
