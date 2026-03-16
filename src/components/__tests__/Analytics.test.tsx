@@ -64,19 +64,20 @@ const mockAnalyticsData: AnalyticsData = {
     { name: 'Email', color: '#f59e0b', minutes: 200, count: 2 }
   ],
   daily: [
-    { date: '2026-01-15', minutes: 120, byCategory: { 'Meetings': 60, 'Deep Work': 60 } },
-    { date: '2026-01-16', minutes: 180, byCategory: { 'Meetings': 100, 'Email': 80 } },
-    { date: '2026-01-20', minutes: 240, byCategory: { 'Deep Work': 200, 'Email': 40 } },
-    { date: '2026-01-21', minutes: 150, byCategory: { 'Meetings': 150 } },
-    { date: '2026-01-27', minutes: 200, byCategory: { 'Deep Work': 140, 'Meetings': 60 } },
-    { date: '2026-01-28', minutes: 310, byCategory: { 'Meetings': 230, 'Email': 80 } }
+    { date: '2026-01-12', minutes: 100, byCategory: { 'Meetings': 50, 'Email': 50 } },
+    { date: '2026-01-13', minutes: 120, byCategory: { 'Meetings': 60, 'Deep Work': 60 } },
+    { date: '2026-01-14', minutes: 180, byCategory: { 'Meetings': 100, 'Email': 80 } },
+    { date: '2026-01-15', minutes: 120, byCategory: { 'Deep Work': 80, 'Email': 40 } },
+    { date: '2026-01-16', minutes: 150, byCategory: { 'Meetings': 150 } },
+    { date: '2026-01-19', minutes: 200, byCategory: { 'Deep Work': 140, 'Meetings': 60 } },
+    { date: '2026-01-20', minutes: 330, byCategory: { 'Meetings': 230, 'Email': 80, 'Deep Work': 20 } }
   ],
-  topTasks: []
-};
-
-const mockAnalyticsDataWithNegativeChange: AnalyticsData = {
-  ...mockAnalyticsData,
-  summary: { ...mockAnalyticsData.summary, change: -25 }
+  topTasks: [],
+  previousByCategory: [
+    { name: 'Meetings', color: '#6366f1', minutes: 300, count: 4 },
+    { name: 'Deep Work', color: '#10b981', minutes: 500, count: 4 },
+    { name: 'Email', color: '#f59e0b', minutes: 200, count: 2 }
+  ]
 };
 
 describe('Analytics', () => {
@@ -659,7 +660,7 @@ describe('Analytics', () => {
   });
 
   // Insights tests
-  it('displays insights section', async () => {
+  it('displays insights section with concentration insight', async () => {
     await act(async () => {
       render(<Analytics />);
     });
@@ -668,11 +669,11 @@ describe('Analytics', () => {
       expect(screen.getByText('Insights')).toBeInTheDocument();
     });
     
-    // Should show top category insight
-    expect(screen.getByText(/takes up most of your time/)).toBeInTheDocument();
+    // Mock data has 80% of time in 2 of 3 categories -> concentrated
+    expect(screen.getByText(/highly concentrated/)).toBeInTheDocument();
   });
 
-  it('shows positive change insight', async () => {
+  it('shows category shift insight when previous period data exists', async () => {
     await act(async () => {
       render(<Analytics />);
     });
@@ -681,13 +682,11 @@ describe('Analytics', () => {
       expect(screen.getByText('Insights')).toBeInTheDocument();
     });
     
-    // With 25% change (> 20), should show the positive insight
-    expect(screen.getByText(/25% more/)).toBeInTheDocument();
+    // Meetings grew from 30% to 50% of time vs previous period
+    expect(screen.getByText(/grew from 30% to/)).toBeInTheDocument();
   });
 
-  it('shows negative change insight', async () => {
-    (api.getAnalytics as ReturnType<typeof vi.fn>).mockResolvedValue(mockAnalyticsDataWithNegativeChange);
-    
+  it('shows peak day-of-week insight', async () => {
     await act(async () => {
       render(<Analytics />);
     });
@@ -696,7 +695,29 @@ describe('Analytics', () => {
       expect(screen.getByText('Insights')).toBeInTheDocument();
     });
     
-    expect(screen.getByText(/25% less/)).toBeInTheDocument();
+    // Tuesdays have the highest average (225 min) vs overall avg (171 min)
+    expect(screen.getByText(/most productive day/)).toBeInTheDocument();
+  });
+
+  it('hides insights section when no data', async () => {
+    const emptyData: AnalyticsData = {
+      ...mockAnalyticsData,
+      summary: { ...mockAnalyticsData.summary, totalMinutes: 0, totalEntries: 0 },
+      byCategory: [],
+      daily: [],
+      previousByCategory: []
+    };
+    (api.getAnalytics as ReturnType<typeof vi.fn>).mockResolvedValue(emptyData);
+    
+    await act(async () => {
+      render(<Analytics />);
+    });
+    
+    await waitFor(() => {
+      expect(screen.getByText(/no data/i)).toBeInTheDocument();
+    });
+    
+    expect(screen.queryByText('Insights')).not.toBeInTheDocument();
   });
 
   // Error state test

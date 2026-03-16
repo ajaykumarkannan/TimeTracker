@@ -762,7 +762,36 @@ export function createMongoProvider(): DatabaseProvider {
 
       const previousTotal = previousAgg[0]?.total ? (previousAgg[0].total as number) : 0;
 
-      return { byCategory, daily, topTasks, previousTotal };
+      const prevByCategoryAgg = await collection('time_entries').aggregate([
+        {
+          $match: {
+            user_id: params.userId,
+            start_time: { $gte: prevStartIso, $lt: prevEndIso }
+          }
+        },
+        {
+          $group: {
+            _id: '$category_id',
+            minutes: { $sum: { $ifNull: ['$duration_minutes', 0] } },
+            count: { $sum: 1 }
+          }
+        }
+      ]).toArray();
+
+      const previousByCategory: CategorySummary[] = categories.map((cat) => {
+        const row = prevByCategoryAgg.find((item) => {
+          const i = item as unknown as { _id: number; minutes: number; count: number };
+          return i._id === cat.id;
+        }) as unknown as { _id: number; minutes: number; count: number } | undefined;
+        return {
+          name: cat.name,
+          color: cat.color || '#6b7280',
+          minutes: row?.minutes || 0,
+          count: row?.count || 0
+        };
+      }).sort((a, b) => b.minutes - a.minutes);
+
+      return { byCategory, daily, topTasks, previousTotal, previousByCategory };
     },
     async listExportRows(userId: number) {
       // Use $lookup to join categories in a single query instead of N+1 pattern

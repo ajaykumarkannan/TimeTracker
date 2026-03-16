@@ -808,14 +808,41 @@ export function createSqliteProvider(): DatabaseProvider {
           }))
         : [];
 
+      // Calculate previous period dates
+      const prevStart = new Date(params.start);
+      const prevEnd = new Date(params.end);
+      const periodLength = prevEnd.getTime() - prevStart.getTime();
+      const prevStartIso = new Date(prevStart.getTime() - periodLength).toISOString();
+      const prevEndIso = params.start;
+
       const prevResult = dbRef.exec(`
         SELECT COALESCE(SUM(duration_minutes), 0) as total
         FROM time_entries
         WHERE user_id = ? AND start_time >= ? AND start_time < ?
-      `, [params.userId, params.start, params.end]);
+      `, [params.userId, prevStartIso, prevEndIso]);
       const previousTotal = prevResult.length > 0 ? (prevResult[0].values[0][0] as number) : 0;
 
-      return { byCategory, daily, topTasks, previousTotal };
+      const prevCategoryResult = dbRef.exec(`
+        SELECT c.name, c.color, COALESCE(SUM(te.duration_minutes), 0) as minutes, COUNT(te.id) as count
+        FROM categories c
+        LEFT JOIN time_entries te ON c.id = te.category_id
+          AND te.start_time >= ? AND te.start_time < ?
+          AND te.user_id = ?
+        WHERE c.user_id = ?
+        GROUP BY c.id, c.name, c.color
+        ORDER BY minutes DESC
+      `, [prevStartIso, prevEndIso, params.userId, params.userId]);
+
+      const previousByCategory: CategorySummary[] = prevCategoryResult.length > 0
+        ? prevCategoryResult[0].values.map(row => ({
+            name: row[0] as string,
+            color: (row[1] as string) || '#6b7280',
+            minutes: row[2] as number,
+            count: row[3] as number
+          }))
+        : [];
+
+      return { byCategory, daily, topTasks, previousTotal, previousByCategory };
     },
     async listExportRows(userId: number) {
       const entriesResult = ensureDb().exec(`

@@ -94,6 +94,7 @@ export interface AnalyticsData {
   byCategory: CategoryTotal[];
   daily: DailyTotal[];
   topTasks: TopTask[];
+  previousByCategory?: CategoryTotal[];
 }
 
 export type Period = 'day' | 'week' | 'month' | 'quarter' | 'year' | 'all' | 'last7' | 'last30' | 'last90';
