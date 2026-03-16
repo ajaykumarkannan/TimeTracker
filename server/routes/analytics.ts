@@ -177,7 +177,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
     const provider = getProvider();
     const userId = req.userId as number;
 
-    const { byCategory, daily, topTasks, previousTotal } = await provider.getAnalyticsSummary({
+    const { byCategory, daily, topTasks, previousTotal, previousByCategory } = await provider.getAnalyticsSummary({
       userId,
       start,
       end,
@@ -205,7 +205,8 @@ router.get('/', async (req: AuthRequest, res: Response) => {
       },
       byCategory,
       daily,
-      topTasks
+      topTasks,
+      previousByCategory
     });
   } catch (error) {
     logger.error('Error fetching analytics', { error, userId: req.userId });

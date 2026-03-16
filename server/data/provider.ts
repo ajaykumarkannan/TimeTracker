@@ -147,7 +147,7 @@ export interface DatabaseProvider {
   listTaskSuggestions(userId: number, categoryId: number | null, query: string, limit: number): Promise<TaskSuggestion[]>;
   listTaskNames(params: TaskNamesQueryParams): Promise<{ taskNames: TaskNameStats[]; totalCount: number }>;
   getCategoryDrilldown(params: CategoryDrilldownParams): Promise<{ category: CategorySummary; taskNames: TaskNameStats[]; totalCount: number }>;
-  getAnalyticsSummary(params: AnalyticsQueryParams): Promise<{ byCategory: CategorySummary[]; daily: DailySummary[]; topTasks: TaskNameStats[]; previousTotal: number }>;
+  getAnalyticsSummary(params: AnalyticsQueryParams): Promise<{ byCategory: CategorySummary[]; daily: DailySummary[]; topTasks: TaskNameStats[]; previousTotal: number; previousByCategory: CategorySummary[] }>;
 
   // Export/Import
   listExportRows(userId: number): Promise<TimeEntryExportRow[]>;

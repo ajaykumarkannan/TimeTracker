@@ -935,6 +935,143 @@ export function Analytics() {
   const maxMinutes = getMaxMinutes();
   const hasData = data.summary.totalMinutes > 0;
 
+  // Compute non-obvious insights from analytics data
+  const insights: { icon: string; text: React.ReactNode }[] = [];
+  if (hasData) {
+    const { byCategory, daily, summary, previousByCategory } = data;
+    const activeCats = byCategory.filter(c => c.minutes > 0);
+
+    // 1. Category concentration — are you focused or fragmented?
+    if (activeCats.length >= 2) {
+      const sorted = [...activeCats].sort((a, b) => b.minutes - a.minutes);
+      let cumulative = 0;
+      let catsFor80 = 0;
+      for (const cat of sorted) {
+        cumulative += cat.minutes;
+        catsFor80++;
+        if (cumulative >= summary.totalMinutes * 0.8) break;
+      }
+      if (catsFor80 <= Math.ceil(activeCats.length / 2)) {
+        insights.push({
+          icon: '\u{1F50D}',
+          text: <>80% of your time went to just <strong>{catsFor80} of {activeCats.length}</strong> categories &mdash; your time is highly concentrated</>
+        });
+      } else {
+        insights.push({
+          icon: '\u{1F500}',
+          text: <>Your time is spread across <strong>{activeCats.length} categories</strong> fairly evenly &mdash; no single area dominates</>
+        });
+      }
+    }
+
+    // 2. Day-over-day consistency (coefficient of variation)
+    if (daily.length >= 3) {
+      const mins = daily.map(d => d.minutes);
+      const mean = mins.reduce((a, b) => a + b, 0) / mins.length;
+      if (mean > 0) {
+        const variance = mins.reduce((sum, m) => sum + (m - mean) ** 2, 0) / mins.length;
+        const stdDev = Math.sqrt(variance);
+        const cv = stdDev / mean;
+        const avgHrs = formatDuration(Math.round(mean));
+        if (cv < 0.3) {
+          insights.push({
+            icon: '\u{1F4CA}',
+            text: <>Your daily tracking is consistent &mdash; averaging <strong>{avgHrs}/day</strong> with little variation</>
+          });
+        } else if (cv > 0.7) {
+          const maxDay = daily.reduce((a, b) => a.minutes > b.minutes ? a : b);
+          const minDay = daily.reduce((a, b) => a.minutes < b.minutes ? a : b);
+          insights.push({
+            icon: '\u{1F3A2}',
+            text: <>Your daily time varies widely &mdash; from <strong>{formatDuration(minDay.minutes)}</strong> to <strong>{formatDuration(maxDay.minutes)}</strong> in a single period</>
+          });
+        }
+      }
+    }
+
+    // 4. Category shift vs previous period
+    if (previousByCategory && previousByCategory.length > 0) {
+      const prevTotal = previousByCategory.reduce((s, c) => s + c.minutes, 0);
+      if (prevTotal > 0 && summary.totalMinutes > 0) {
+        const shifts: { name: string; prevPct: number; curPct: number; delta: number }[] = [];
+        for (const cur of activeCats) {
+          const prev = previousByCategory.find(p => p.name === cur.name);
+          const prevMins = prev?.minutes || 0;
+          const curPct = (cur.minutes / summary.totalMinutes) * 100;
+          const prevPct = (prevMins / prevTotal) * 100;
+          const delta = curPct - prevPct;
+          if (Math.abs(delta) >= 10) {
+            shifts.push({ name: cur.name, prevPct, curPct, delta });
+          }
+        }
+        // Show the biggest shift
+        shifts.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+        if (shifts.length > 0) {
+          const top = shifts[0];
+          if (top.delta > 0) {
+            insights.push({
+              icon: '\u{1F504}',
+              text: <><strong>{top.name}</strong> grew from {Math.round(top.prevPct)}% to <strong>{Math.round(top.curPct)}%</strong> of your time vs. the previous period</>
+            });
+          } else {
+            insights.push({
+              icon: '\u{1F504}',
+              text: <><strong>{top.name}</strong> dropped from {Math.round(top.prevPct)}% to <strong>{Math.round(top.curPct)}%</strong> of your time vs. the previous period</>
+            });
+          }
+        }
+      }
+    }
+
+    // 5. Peak day-of-week pattern
+    if (daily.length >= 7) {
+      const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const byDow: Record<number, { total: number; count: number }> = {};
+      for (const d of daily) {
+        const dow = new Date(d.date + 'T12:00:00').getDay();
+        if (!byDow[dow]) byDow[dow] = { total: 0, count: 0 };
+        byDow[dow].total += d.minutes;
+        byDow[dow].count++;
+      }
+      let peakDow = -1;
+      let peakAvg = 0;
+      for (const [dow, { total, count }] of Object.entries(byDow)) {
+        const avg = total / count;
+        if (avg > peakAvg) {
+          peakAvg = avg;
+          peakDow = Number(dow);
+        }
+      }
+      if (peakDow >= 0 && peakAvg > 0) {
+        const overallAvg = summary.totalMinutes / daily.length;
+        const ratio = peakAvg / overallAvg;
+        if (ratio >= 1.2) {
+          insights.push({
+            icon: '\u{1F4C5}',
+            text: <><strong>{dayNames[peakDow]}s</strong> are your most productive day &mdash; averaging <strong>{formatDuration(Math.round(peakAvg))}</strong>, {Math.round((ratio - 1) * 100)}% above your daily average</>
+          });
+        }
+      }
+    }
+
+    // 6. Task fragmentation
+    if (daily.length >= 2 && summary.totalEntries > 0) {
+      const avgEntriesPerDay = summary.totalEntries / daily.length;
+      const avgMinPerEntry = summary.totalMinutes / summary.totalEntries;
+      if (avgEntriesPerDay >= 8 && avgMinPerEntry < 30) {
+        insights.push({
+          icon: '\u{1FA9E}',
+          text: <>You averaged <strong>{avgEntriesPerDay.toFixed(1)} entries/day</strong> at ~{formatDuration(Math.round(avgMinPerEntry))} each &mdash; consider longer focused blocks</>
+        });
+      } else if (avgEntriesPerDay <= 2 && avgMinPerEntry >= 120) {
+        insights.push({
+          icon: '\u{1F9F1}',
+          text: <>You tracked in large blocks &mdash; <strong>{avgEntriesPerDay.toFixed(1)} entries/day</strong> averaging {formatDuration(Math.round(avgMinPerEntry))} each</>
+        });
+      }
+    }
+  }
+
   return (
     <div className={`analytics ${loading ? 'analytics-updating' : ''}`}>
       {/* Period selector */}
@@ -1561,43 +1698,18 @@ export function Analytics() {
       })()}
 
       {/* Insights */}
-      {hasData && (
+      {hasData && insights.length > 0 && (
         <div className="card insights-card">
           <div className="card-header">
             <h2 className="card-title">Insights</h2>
           </div>
           <div className="insights">
-            {data.byCategory.length > 0 && data.byCategory[0].minutes > 0 && (
-              <div className="insight">
-                <span className="insight-icon">🎯</span>
-                <span>
-                  <strong>{data.byCategory[0].name}</strong> takes up most of your time 
-                  ({Math.round((data.byCategory[0].minutes / data.summary.totalMinutes) * 100)}%)
-                </span>
+            {insights.map((insight, i) => (
+              <div className="insight" key={i}>
+                <span className="insight-icon">{insight.icon}</span>
+                <span>{insight.text}</span>
               </div>
-            )}
-            {data.summary.change > 20 && (
-              <div className="insight">
-                <span className="insight-icon">📈</span>
-                <span>You tracked <strong>{data.summary.change}% more</strong> time than the previous period</span>
-              </div>
-            )}
-            {data.summary.change < -20 && (
-              <div className="insight">
-                <span className="insight-icon">📉</span>
-                <span>You tracked <strong>{Math.abs(data.summary.change)}% less</strong> time than the previous period</span>
-              </div>
-            )}
-            {data.daily.length > 0 && (
-              <div className="insight">
-                <span className="insight-icon">📅</span>
-                <span>
-                  Most tracked day: <strong>
-                    {formatFullDate(data.daily.reduce((max, d) => d.minutes > max.minutes ? d : max, data.daily[0]).date)}
-                  </strong>
-                </span>
-              </div>
-            )}
+            ))}
           </div>
         </div>
       )}
