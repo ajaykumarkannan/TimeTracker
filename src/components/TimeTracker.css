@@ -283,6 +283,14 @@
   font-size: 1rem;
 }
 
+.schedule-error {
+  width: 100%;
+  text-align: center;
+  color: var(--color-danger, #ef4444);
+  font-size: 0.8rem;
+  margin-bottom: 0.25rem;
+}
+
 .task-prompt-actions .btn {
   min-width: 120px;
 }

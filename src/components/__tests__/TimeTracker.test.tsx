@@ -14,6 +14,9 @@ vi.mock('../../api', () => ({
       { task_name: 'Bug fix', categoryId: 1, count: 5, totalMinutes: 120, lastUsed: '2024-01-01' },
       { task_name: 'Code review', categoryId: 1, count: 3, totalMinutes: 60, lastUsed: '2024-01-01' },
     ]),
+    scheduleStop: vi.fn().mockResolvedValue({ id: 1, scheduled_end_time: null, end_time: null }),
+    clearScheduledStop: vi.fn().mockResolvedValue({ id: 1, scheduled_end_time: null }),
+    getActiveEntry: vi.fn().mockResolvedValue(null),
   }
 }));
 
@@ -2679,6 +2682,213 @@ describe('Modal suggestion mouse interactions', () => {
       expect(dateTimeInput.value).toBe(userValue);
 
       vi.useRealTimers();
+    });
+  });
+
+  describe('Schedule Stop - past time support', () => {
+    const mockCategories = [
+      { id: 1, name: 'Development', color: '#007bff', created_at: '2024-01-01' },
+      { id: 2, name: 'Meetings', color: '#28a745', created_at: '2024-01-01' }
+    ];
+
+    const mockEntries = [
+      {
+        id: 1,
+        category_id: 1,
+        category_name: 'Development',
+        category_color: '#007bff',
+        task_name: 'Previous task',
+        start_time: '2024-01-01T10:00:00Z',
+        end_time: '2024-01-01T11:00:00Z',
+        scheduled_end_time: null,
+        duration_minutes: 60,
+        created_at: '2024-01-01'
+      }
+    ];
+
+    const mockOnEntryChange = vi.fn();
+    const mockOnCategoryChange = vi.fn();
+
+    beforeEach(() => {
+      vi.clearAllMocks();
+    });
+
+    it('shows "Set Stop Time" as the modal title', async () => {
+      const activeEntry: TimeEntry = {
+        id: 1,
+        category_id: 1,
+        category_name: 'Development',
+        category_color: '#007bff',
+        task_name: 'Working',
+        start_time: new Date(Date.now() - 3600000).toISOString(),
+        end_time: null,
+        scheduled_end_time: null,
+        duration_minutes: null,
+        created_at: '2024-01-01'
+      };
+
+      await renderWithTheme(
+        <TimeTracker
+          categories={mockCategories}
+          activeEntry={activeEntry}
+          entries={mockEntries}
+          onEntryChange={mockOnEntryChange}
+          onCategoryChange={mockOnCategoryChange}
+        />
+      );
+
+      // Click the schedule stop button (clock icon)
+      const scheduleBtn = screen.getByTitle('Schedule end time');
+      await act(async () => {
+        fireEvent.click(scheduleBtn);
+      });
+
+      const allSetStopTime = screen.getAllByText('Set Stop Time');
+      expect(allSetStopTime.length).toBeGreaterThanOrEqual(2); // title + button
+      // Verify the modal title specifically
+      const title = document.querySelector('.task-prompt-title');
+      expect(title?.textContent).toBe('Set Stop Time');
+    });
+
+    it('shows error when stop time is before entry start time', async () => {
+      // Entry started 1 hour ago
+      const startTime = new Date(Date.now() - 3600000);
+      const activeEntry: TimeEntry = {
+        id: 1,
+        category_id: 1,
+        category_name: 'Development',
+        category_color: '#007bff',
+        task_name: 'Working',
+        start_time: startTime.toISOString(),
+        end_time: null,
+        scheduled_end_time: null,
+        duration_minutes: null,
+        created_at: '2024-01-01'
+      };
+
+      await renderWithTheme(
+        <TimeTracker
+          categories={mockCategories}
+          activeEntry={activeEntry}
+          entries={mockEntries}
+          onEntryChange={mockOnEntryChange}
+          onCategoryChange={mockOnCategoryChange}
+        />
+      );
+
+      // Open schedule stop modal
+      const scheduleBtn = screen.getByTitle('Schedule end time');
+      await act(async () => {
+        fireEvent.click(scheduleBtn);
+      });
+
+      // Switch to "At specific time" tab
+      await act(async () => {
+        fireEvent.click(screen.getByText('At specific time'));
+      });
+
+      // Set a time well before the entry start
+      const twoHoursBeforeStart = new Date(startTime.getTime() - 7200000);
+      const dateStr = twoHoursBeforeStart.toISOString().split('T')[0];
+      const timeStr = twoHoursBeforeStart.getHours().toString().padStart(2, '0') + ':' +
+        twoHoursBeforeStart.getMinutes().toString().padStart(2, '0');
+
+      const dateInput = document.querySelector('.schedule-time-input input[type="date"]') as HTMLInputElement;
+      const timeInput = document.querySelector('.schedule-time-input input[type="time"]') as HTMLInputElement;
+
+      await act(async () => {
+        fireEvent.change(dateInput, { target: { value: dateStr } });
+        fireEvent.change(timeInput, { target: { value: timeStr } });
+      });
+
+      // Click "Set Stop Time" button
+      const submitBtn = screen.getByRole('button', { name: /Set Stop Time/i });
+      await act(async () => {
+        fireEvent.click(submitBtn);
+      });
+
+      // Should show validation error
+      expect(screen.getByText('Stop time must be after the entry start time')).toBeInTheDocument();
+      // Should NOT call the API
+      expect(api.scheduleStop).not.toHaveBeenCalled();
+    });
+
+    it('allows setting a past stop time that is after entry start', async () => {
+      // Entry started 2 hours ago
+      const startTime = new Date(Date.now() - 7200000);
+      const activeEntry: TimeEntry = {
+        id: 1,
+        category_id: 1,
+        category_name: 'Development',
+        category_color: '#007bff',
+        task_name: 'Working',
+        start_time: startTime.toISOString(),
+        end_time: null,
+        scheduled_end_time: null,
+        duration_minutes: null,
+        created_at: '2024-01-01'
+      };
+
+      // Mock: server returns stopped entry (end_time set) for past time
+      const pastStopTime = new Date(Date.now() - 3600000); // 1 hour ago (after start)
+      (api.scheduleStop as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        ...activeEntry,
+        end_time: pastStopTime.toISOString(),
+        duration_minutes: 60,
+        scheduled_end_time: null
+      });
+
+      await renderWithTheme(
+        <TimeTracker
+          categories={mockCategories}
+          activeEntry={activeEntry}
+          entries={mockEntries}
+          onEntryChange={mockOnEntryChange}
+          onCategoryChange={mockOnCategoryChange}
+        />
+      );
+
+      // Open schedule stop modal
+      const scheduleBtn = screen.getByTitle('Schedule end time');
+      await act(async () => {
+        fireEvent.click(scheduleBtn);
+      });
+
+      // Switch to "At specific time" tab
+      await act(async () => {
+        fireEvent.click(screen.getByText('At specific time'));
+      });
+
+      // Set time to 1 hour ago (between start and now)
+      const dateStr = pastStopTime.toISOString().split('T')[0];
+      const timeStr = pastStopTime.getHours().toString().padStart(2, '0') + ':' +
+        pastStopTime.getMinutes().toString().padStart(2, '0');
+
+      const dateInput = document.querySelector('.schedule-time-input input[type="date"]') as HTMLInputElement;
+      const timeInput = document.querySelector('.schedule-time-input input[type="time"]') as HTMLInputElement;
+
+      await act(async () => {
+        fireEvent.change(dateInput, { target: { value: dateStr } });
+        fireEvent.change(timeInput, { target: { value: timeStr } });
+      });
+
+      // Click "Set Stop Time" button
+      const submitBtn = screen.getByRole('button', { name: /Set Stop Time/i });
+      await act(async () => {
+        fireEvent.click(submitBtn);
+      });
+
+      // Should call scheduleStop API
+      await waitFor(() => {
+        expect(api.scheduleStop).toHaveBeenCalledWith(1, expect.any(String));
+      });
+
+      // Since server returned with end_time, onEntryChange should be called with stopped entry
+      await waitFor(() => {
+        expect(mockOnEntryChange).toHaveBeenCalledWith(
+          expect.objectContaining({ active: null, stopped: expect.objectContaining({ end_time: expect.any(String) }) })
+        );
+      });
     });
   });
 });

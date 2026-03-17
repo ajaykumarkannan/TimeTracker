@@ -314,4 +314,85 @@ describe('TimeEntryList', () => {
       expect(screen.getByText('Updated task')).toBeInTheDocument();
     });
   });
+
+  it('saves inline time edit when Enter is pressed', async () => {
+    const entries = [baseEntry({ id: 50 })];
+    mockApi.getTimeEntries.mockResolvedValueOnce(entries);
+    mockApi.updateEntry.mockResolvedValue(entries[0]);
+
+    render(
+      <TimeEntryList
+        activeEntry={null}
+        categories={categories}
+        onEntryChange={vi.fn()}
+        onCategoryChange={vi.fn()}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Focus')).toBeInTheDocument();
+    });
+
+    // Click on the start time button to enter edit mode
+    const timeButtons = document.querySelectorAll('.entry-time-btn.editable') as NodeListOf<HTMLElement>;
+    expect(timeButtons.length).toBeGreaterThan(0);
+    await act(async () => {
+      fireEvent.click(timeButtons[0]);
+    });
+
+    // Time input should now be visible
+    const timeInput = document.querySelector('input[type="time"]') as HTMLInputElement;
+    expect(timeInput).toBeTruthy();
+
+    // Press Enter on the time input
+    await act(async () => {
+      fireEvent.keyDown(timeInput, { key: 'Enter', code: 'Enter' });
+    });
+
+    // Should trigger save
+    await waitFor(() => {
+      expect(mockApi.updateEntry).toHaveBeenCalled();
+    });
+  });
+
+  it('cancels inline time edit when Escape is pressed', async () => {
+    const entries = [baseEntry({ id: 51 })];
+    mockApi.getTimeEntries.mockResolvedValueOnce(entries);
+
+    render(
+      <TimeEntryList
+        activeEntry={null}
+        categories={categories}
+        onEntryChange={vi.fn()}
+        onCategoryChange={vi.fn()}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Focus')).toBeInTheDocument();
+    });
+
+    // Click on the start time button to enter edit mode
+    const timeButtons = document.querySelectorAll('.entry-time-btn.editable') as NodeListOf<HTMLElement>;
+    await act(async () => {
+      fireEvent.click(timeButtons[0]);
+    });
+
+    // Time input should be visible
+    const timeInput = document.querySelector('input[type="time"]') as HTMLInputElement;
+    expect(timeInput).toBeTruthy();
+
+    // Press Escape on the time input
+    await act(async () => {
+      fireEvent.keyDown(timeInput, { key: 'Escape', code: 'Escape' });
+    });
+
+    // Should exit edit mode without saving
+    expect(mockApi.updateEntry).not.toHaveBeenCalled();
+
+    // Time input should no longer be visible
+    await waitFor(() => {
+      expect(document.querySelector('input[type="time"]')).toBeNull();
+    });
+  });
 });

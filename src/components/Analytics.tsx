@@ -1329,34 +1329,39 @@ export function Analytics() {
           </div>
         ) : (
           <div className="category-breakdown">
-            {data.byCategory.filter(c => c.minutes > 0).map(cat => {
-              const percentage = Math.round((cat.minutes / data.summary.totalMinutes) * 100);
-              return (
-                <div 
-                  key={cat.name} 
-                  className="category-row clickable"
-                  onClick={() => { setSelectedCategory(cat.name); setCategoryDrilldownPage(1); }}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { setSelectedCategory(cat.name); setCategoryDrilldownPage(1); } }}
-                >
-                  <div className="category-info">
-                    <div className="category-dot" style={{ backgroundColor: cat.color }} />
-                    <span className="category-name">{cat.name}</span>
+            {(() => {
+              const visibleCategories = data.byCategory.filter(c => c.minutes > 0);
+              const maxMinutes = Math.max(...visibleCategories.map(c => c.minutes));
+              return visibleCategories.map(cat => {
+                const percentage = Math.round((cat.minutes / data.summary.totalMinutes) * 100);
+                const barWidth = maxMinutes > 0 ? (cat.minutes / maxMinutes) * 100 : 0;
+                return (
+                  <div 
+                    key={cat.name} 
+                    className="category-row clickable"
+                    onClick={() => { setSelectedCategory(cat.name); setCategoryDrilldownPage(1); }}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { setSelectedCategory(cat.name); setCategoryDrilldownPage(1); } }}
+                  >
+                    <div className="category-info">
+                      <div className="category-dot" style={{ backgroundColor: cat.color }} />
+                      <span className="category-name">{cat.name}</span>
+                    </div>
+                    <div className="category-bar-wrapper">
+                      <div className="category-bar" style={{ width: `${barWidth}%`, backgroundColor: cat.color }} />
+                    </div>
+                    <div className="category-stats">
+                      <span className="category-time">{formatDuration(cat.minutes)}</span>
+                      <span className="category-percent">{percentage}%</span>
+                    </div>
+                    <svg className="chevron-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+                      <polyline points="9,18 15,12 9,6" />
+                    </svg>
                   </div>
-                  <div className="category-bar-wrapper">
-                    <div className="category-bar" style={{ width: `${percentage}%`, backgroundColor: cat.color }} />
-                  </div>
-                  <div className="category-stats">
-                    <span className="category-time">{formatDuration(cat.minutes)}</span>
-                    <span className="category-percent">{percentage}%</span>
-                  </div>
-                  <svg className="chevron-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
-                    <polyline points="9,18 15,12 9,6" />
-                  </svg>
-                </div>
-              );
-            })}
+                );
+              });
+            })()}
           </div>
         )}
       </div>

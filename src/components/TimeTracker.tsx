@@ -120,6 +120,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   const [stopAtTime, setStopAtTime] = useState('');
   const [stopAtDate, setStopAtDate] = useState('');
   const [scheduledRemaining, setScheduledRemaining] = useState<string | null>(null);
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
 
   // Fetch all suggestions once and cache them
   useEffect(() => {
@@ -527,6 +528,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
     // Reset form state
     setDurationHours('');
     setDurationMinutes('');
+    setScheduleError(null);
     // Default to current time
     const now = new Date();
     const hours = now.getHours().toString().padStart(2, '0');
@@ -599,11 +601,24 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
       scheduledEndTime.setHours(hours, minutes, 0, 0);
     }
     
+    // Validate: must be after entry start time
+    const entryStartTime = new Date(activeEntry.start_time).getTime();
+    if (scheduledEndTime.getTime() <= entryStartTime) {
+      setScheduleError('Stop time must be after the entry start time');
+      return;
+    }
+    
     try {
-      await api.scheduleStop(activeEntry.id, scheduledEndTime.toISOString());
+      const result = await api.scheduleStop(activeEntry.id, scheduledEndTime.toISOString());
       setShowScheduleStopModal(false);
-      const updated = await api.getActiveEntry();
-      onEntryChange({ active: updated });
+      setScheduleError(null);
+      // If the server stopped the entry immediately (past time), result will have end_time
+      if (result.end_time) {
+        onEntryChange({ active: null, stopped: result });
+      } else {
+        const updated = await api.getActiveEntry();
+        onEntryChange({ active: updated });
+      }
     } catch (error) {
       console.error('Failed to schedule stop:', error);
     }
@@ -755,7 +770,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
             <div className="task-prompt-overlay" onClick={() => setShowScheduleStopModal(false)}>
               <div className="task-prompt-modal schedule-stop-modal" onClick={e => e.stopPropagation()}>
                 <div className="task-prompt-header">
-                  <span className="task-prompt-title">Schedule Auto-Stop</span>
+                  <span className="task-prompt-title">Set Stop Time</span>
                 </div>
                 
                 <div className="schedule-mode-tabs">
@@ -850,7 +865,10 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                 </div>
                 
                 <div className="task-prompt-actions">
-                  <button className="btn btn-ghost" onClick={() => setShowScheduleStopModal(false)}>
+                  {scheduleError && (
+                    <div className="schedule-error">{scheduleError}</div>
+                  )}
+                  <button className="btn btn-ghost" onClick={() => { setShowScheduleStopModal(false); setScheduleError(null); }}>
                     Cancel
                   </button>
                   <button 
@@ -862,7 +880,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                     }
                   >
                     <span className="schedule-icon">⏱</span>
-                    Schedule Stop
+                    Set Stop Time
                   </button>
                 </div>
               </div>

@@ -2093,4 +2093,42 @@ describe('Analytics Today button', () => {
     // Today button should be disabled again
     expect(todayButton).toBeDisabled();
   });
+
+  it('normalizes category bar widths to the max category, not total', async () => {
+    await act(async () => {
+      render(<Analytics />);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Total Time')).toBeInTheDocument();
+    });
+
+    // The mock data has: Meetings=600, Deep Work=400, Email=200 (total=1200)
+    // Old behavior: bars would be 50%, 33%, 17% of total
+    // New behavior: bars should be 100%, 66.7%, 33.3% of max (600)
+    const bars = document.querySelectorAll('.category-bar') as NodeListOf<HTMLElement>;
+    expect(bars.length).toBe(3);
+
+    // Largest category (Meetings, 600min) should have 100% width
+    const meetingsBar = bars[0];
+    expect(meetingsBar.style.width).toBe('100%');
+
+    // Second category (Deep Work, 400min) should be ~66.67%
+    const deepWorkBar = bars[1];
+    const deepWorkWidth = parseFloat(deepWorkBar.style.width);
+    expect(deepWorkWidth).toBeCloseTo(66.67, 0);
+
+    // Third category (Email, 200min) should be ~33.33%
+    const emailBar = bars[2];
+    const emailWidth = parseFloat(emailBar.style.width);
+    expect(emailWidth).toBeCloseTo(33.33, 0);
+
+    // Percentages shown in text should still be of total time
+    // Use querySelectorAll to target just the category-percent spans
+    const percentSpans = document.querySelectorAll('.category-percent');
+    const percentTexts = Array.from(percentSpans).map(el => el.textContent);
+    expect(percentTexts).toContain('50%'); // 600/1200
+    expect(percentTexts).toContain('33%'); // 400/1200
+    expect(percentTexts).toContain('17%'); // 200/1200
+  });
 });
