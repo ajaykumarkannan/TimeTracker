@@ -920,8 +920,13 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
     if (e.key === 'Enter') {
       e.preventDefault();
       e.stopPropagation();
+      // Set cancelled flag to suppress the deferred blur-save that follows
+      cancelledRef.current = true;
       // Use setTimeout to ensure the input value is captured before saving
-      setTimeout(() => handleSave(entryId), 0);
+      setTimeout(() => {
+        cancelledRef.current = false;
+        handleSave(entryId);
+      }, 0);
     } else if (e.key === 'Escape') {
       e.preventDefault();
       handleCancel();
@@ -1558,6 +1563,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                             <form 
                               className="inline-edit-time-form"
                               onSubmit={(e) => handleTimeInputSubmit(e, entry.id)}
+                              onKeyDown={(e) => handleKeyDown(e, entry.id)}
                               onClick={(e) => e.stopPropagation()}
                             >
                               <input
@@ -1566,7 +1572,6 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                                 value={editStartTimeOnly}
                                 onChange={(e) => handleEditStartTimeOnlyChange(e.target.value)}
                                 onBlur={(e) => handleTimeBlur(entry.id, 'startTime', e)}
-                                onKeyDown={(e) => handleKeyDown(e, entry.id)}
                                 autoFocus
                               />
                               <input
@@ -1575,7 +1580,6 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                                 value={editStartDate}
                                 onChange={(e) => handleEditStartDateChange(e.target.value)}
                                 onBlur={(e) => handleTimeBlur(entry.id, 'startTime', e)}
-                                onKeyDown={(e) => handleKeyDown(e, entry.id)}
                               />
                               <button type="submit" className="inline-edit-save-btn" title="Save">✓</button>
                               <button type="button" className="inline-edit-cancel-btn" onClick={handleCancel} title="Cancel">✕</button>
@@ -1596,6 +1600,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                             <form 
                               className="inline-edit-time-form"
                               onSubmit={(e) => handleTimeInputSubmit(e, entry.id)}
+                              onKeyDown={(e) => handleKeyDown(e, entry.id)}
                               onClick={(e) => e.stopPropagation()}
                             >
                               <input
@@ -1604,7 +1609,6 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                                 value={editEndTimeOnly}
                                 onChange={(e) => handleEditEndTimeOnlyChange(e.target.value)}
                                 onBlur={(e) => handleTimeBlur(entry.id, 'endTime', e)}
-                                onKeyDown={(e) => handleKeyDown(e, entry.id)}
                                 autoFocus
                               />
                               <input
@@ -1613,7 +1617,6 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                                 value={editEndDate}
                                 onChange={(e) => handleEditEndDateChange(e.target.value)}
                                 onBlur={(e) => handleTimeBlur(entry.id, 'endTime', e)}
-                                onKeyDown={(e) => handleKeyDown(e, entry.id)}
                               />
                               <button type="submit" className="inline-edit-save-btn" title="Save">✓</button>
                               <button type="button" className="inline-edit-cancel-btn" onClick={handleCancel} title="Cancel">✕</button>

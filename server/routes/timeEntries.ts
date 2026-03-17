@@ -175,8 +175,23 @@ router.post('/:id/schedule-stop', async (req: AuthRequest, res: Response) => {
     }
 
     const scheduledTime = new Date(scheduled_end_time);
+    const entryStartTime = new Date(existing.start_time);
+    if (scheduledTime <= entryStartTime) {
+      return res.status(400).json({ error: 'scheduled_end_time must be after the entry start time' });
+    }
+
+    // If the scheduled time is in the past, stop the entry immediately at that time
     if (scheduledTime <= new Date()) {
-      return res.status(400).json({ error: 'scheduled_end_time must be in the future' });
+      const duration = calculateDurationMinutes(existing.start_time, scheduled_end_time);
+      await provider.updateTimeEntry(req.userId as number, Number(id), {
+        end_time: scheduled_end_time,
+        duration_minutes: duration,
+        scheduled_end_time: null
+      });
+      broadcastSyncEvent(req.userId as number, 'time-entries');
+      const entry = await provider.findTimeEntryWithCategoryById(req.userId as number, Number(id));
+      logger.info('Time entry stopped at past scheduled time', { entryId: id, endTime: scheduled_end_time, duration, userId: req.userId as number });
+      return res.json(entry);
     }
 
     await provider.updateTimeEntry(req.userId as number, Number(id), { scheduled_end_time });
