@@ -416,11 +416,8 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
           if (prev) return prev; // User already set a value — don't overwrite
           const startDate = new Date(activeEntry.start_time);
           const defaultEnd = new Date(startDate);
-          defaultEnd.setHours(17, 0, 0, 0);
-          // If that's before start time, use start time + 8h instead
-          if (defaultEnd <= startDate) {
-            defaultEnd.setTime(startDate.getTime() + 8 * 3600000);
-          }
+          // Default end time to 1 hour past the start of the entry
+          defaultEnd.setTime(startDate.getTime() + 1 * 3600000);
           // Cap to now
           if (defaultEnd.getTime() > now) {
             defaultEnd.setTime(now);
