@@ -1078,14 +1078,6 @@
     opacity: 0;
   }
 
-  .new-task-inline .new-task-category-wrapper .category-color-indicator {
-    left: 0.625rem;
-    transform: translateY(-50%);
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-  }
-
   .new-task-inline .switch-category-select {
     min-width: 0;
     width: 100%;
