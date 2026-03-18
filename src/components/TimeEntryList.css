@@ -1077,13 +1077,22 @@
   
   /* Manual entry modal improvements */
   .manual-entry-modal {
+    max-width: calc(100vw - 2rem);
     max-height: 90vh;
     overflow-y: auto;
   }
-  
+
+  .manual-entry-header { padding: 1rem 1.25rem; }
+  .manual-entry-form { padding: 1.25rem; }
+
   .form-row-datetime {
     grid-template-columns: 1fr;
     gap: 1rem;
+  }
+
+  .form-row-datetime .form-group input[type="date"],
+  .form-row-datetime .form-group input[type="time"] {
+    min-width: 0;
   }
 
   .cleanup-item {
