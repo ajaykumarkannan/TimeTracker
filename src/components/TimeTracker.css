@@ -572,8 +572,8 @@
 
 .form-row {
   display: flex;
-  gap: 0.75rem;
-  align-items: end;
+  gap: 0.5rem;
+  align-items: stretch;
 }
 
 .form-group {
@@ -583,12 +583,22 @@
   min-width: 0;
 }
 
+/* Hide labels — the compact inline form is self-explanatory */
+.tracker-form .form-group label {
+  display: none;
+}
+
+.form-group-category {
+  flex-shrink: 0;
+  width: auto;
+}
+
 .form-group-description {
   flex: 1;
 }
 
 .form-group-action {
-  margin-left: auto;
+  flex-shrink: 0;
 }
 
 .form-group label {
@@ -623,24 +633,53 @@
   padding-right: 2.5rem;
 }
 
+/* Category select: compact color square */
 .category-select-wrapper {
   position: relative;
   display: flex;
   align-items: center;
+  width: 2.75rem;
+  flex-shrink: 0;
 }
 
 .category-color-indicator {
-  display: none;
+  display: block;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 0.875rem;
+  height: 0.875rem;
+  border-radius: var(--radius-sm);
+  z-index: 1;
+  pointer-events: none;
 }
 
-.category-select-wrapper select {
-  width: 100%;
+.form-group .category-select-wrapper select {
+  width: 2.75rem;
+  height: 44px;
+  padding: 0;
+  color: transparent;
+  background-image: none;
+  background-position: center;
+  padding-right: 0;
+  border-radius: var(--radius-md);
+  cursor: pointer;
 }
 
 .start-btn {
+  width: 44px;
   height: 44px;
-  padding: 0 1.5rem;
+  padding: 0;
   white-space: nowrap;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+}
+
+.start-btn-text {
+  display: none;
 }
 
 .play-icon {
@@ -926,77 +965,6 @@
   .switch-quick-options {
     flex: 1;
     width: 100%;
-  }
-
-  /* Mobile: compact single-row tracker form [C] [Task] [>] */
-  .form-row {
-    flex-direction: row;
-    gap: 0.5rem;
-    align-items: stretch;
-  }
-
-  .form-group label {
-    display: none;
-  }
-
-  .form-group-category {
-    width: auto;
-    flex-shrink: 0;
-  }
-
-  .category-color-indicator {
-    display: block;
-    position: absolute;
-    left: 0.5rem;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 0.75rem;
-    height: 0.75rem;
-    border-radius: var(--radius-sm);
-    z-index: 1;
-    pointer-events: none;
-  }
-
-  .category-select-wrapper select {
-    width: 2.75rem;
-    height: 44px;
-    padding: 0;
-    color: transparent;
-    background-position: center;
-    background-image: none;
-    border-radius: var(--radius-md);
-    cursor: pointer;
-  }
-
-  .form-group-description {
-    flex: 1;
-    width: auto;
-    margin-left: 0;
-  }
-
-  .form-group-action {
-    width: auto;
-    margin-left: 0;
-    flex-shrink: 0;
-  }
-
-  .start-btn {
-    width: 44px;
-    height: 44px;
-    min-height: 44px;
-    padding: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: var(--radius-md);
-  }
-
-  .start-btn-text {
-    display: none;
-  }
-
-  .start-btn .play-icon {
-    margin: 0;
   }
 
   .new-task-inline {

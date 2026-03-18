@@ -588,7 +588,7 @@ describe('TimeTracker', () => {
     });
     
     // Type in description
-    const descInput = screen.getByPlaceholderText(/what are you working on/i);
+    const descInput = screen.getByPlaceholderText(/^task$/i);
     await act(async () => {
       fireEvent.focus(descInput);
       fireEvent.change(descInput, { target: { value: 'Bug' } });
@@ -618,7 +618,7 @@ describe('TimeTracker', () => {
     });
     
     // Type in description to show suggestions
-    const descInput = screen.getByPlaceholderText(/what are you working on/i);
+    const descInput = screen.getByPlaceholderText(/^task$/i);
     await act(async () => {
       fireEvent.focus(descInput);
       fireEvent.change(descInput, { target: { value: 'Bug' } });
@@ -661,7 +661,7 @@ describe('TimeTracker', () => {
     });
     
     // Type in description to show suggestions
-    const descInput = screen.getByPlaceholderText(/what are you working on/i);
+    const descInput = screen.getByPlaceholderText(/^task$/i);
     await act(async () => {
       fireEvent.focus(descInput);
       fireEvent.change(descInput, { target: { value: 'Bug' } });
@@ -1231,7 +1231,7 @@ describe('TimeTracker', () => {
     });
     
     // Type in description to show suggestions
-    const descInput = screen.getByPlaceholderText(/what are you working on/i);
+    const descInput = screen.getByPlaceholderText(/^task$/i);
     await act(async () => {
       fireEvent.focus(descInput);
       fireEvent.change(descInput, { target: { value: 'Bug' } });
@@ -1270,7 +1270,7 @@ describe('TimeTracker', () => {
       fireEvent.change(select, { target: { value: '1' } });
     });
     
-    const descInput = screen.getByPlaceholderText(/what are you working on/i);
+    const descInput = screen.getByPlaceholderText(/^task$/i);
     await act(async () => {
       fireEvent.focus(descInput);
       fireEvent.change(descInput, { target: { value: 'Bug' } });
@@ -1310,7 +1310,7 @@ describe('TimeTracker', () => {
       fireEvent.change(select, { target: { value: '1' } });
     });
     
-    const descInput = screen.getByPlaceholderText(/what are you working on/i);
+    const descInput = screen.getByPlaceholderText(/^task$/i);
     await act(async () => {
       fireEvent.change(descInput, { target: { value: 'New task' } });
     });
@@ -1695,7 +1695,7 @@ describe('TimeTracker', () => {
       fireEvent.change(select, { target: { value: '1' } });
     });
     
-    const descInput = screen.getByPlaceholderText(/what are you working on/i);
+    const descInput = screen.getByPlaceholderText(/^task$/i);
     await act(async () => {
       fireEvent.focus(descInput);
       fireEvent.change(descInput, { target: { value: 'Bug' } });
@@ -1736,7 +1736,7 @@ describe('TimeTracker', () => {
       fireEvent.change(select, { target: { value: '1' } });
     });
     
-    const descInput = screen.getByPlaceholderText(/what are you working on/i);
+    const descInput = screen.getByPlaceholderText(/^task$/i);
     await act(async () => {
       fireEvent.focus(descInput);
       fireEvent.change(descInput, { target: { value: 'Bug' } });
@@ -1868,7 +1868,7 @@ describe('TimeTracker', () => {
       fireEvent.change(select, { target: { value: '1' } });
     });
     
-    const descInput = screen.getByPlaceholderText(/what are you working on/i);
+    const descInput = screen.getByPlaceholderText(/^task$/i);
     await act(async () => {
       fireEvent.focus(descInput);
       // Type 'fdev' which should fuzzy match 'Feature development'
@@ -2064,7 +2064,7 @@ describe('fuzzyMatch function coverage', () => {
       fireEvent.change(select, { target: { value: '1' } });
     });
     
-    const descInput = screen.getByPlaceholderText(/what are you working on/i);
+    const descInput = screen.getByPlaceholderText(/^task$/i);
     await act(async () => {
       fireEvent.focus(descInput);
       // Type something that won't match any suggestions
@@ -2100,7 +2100,7 @@ describe('fuzzyMatch function coverage', () => {
       fireEvent.change(select, { target: { value: '1' } });
     });
     
-    const descInput = screen.getByPlaceholderText(/what are you working on/i);
+    const descInput = screen.getByPlaceholderText(/^task$/i);
     await act(async () => {
       fireEvent.focus(descInput);
       // Type characters that appear in wrong order - should not match
@@ -2150,7 +2150,7 @@ describe('Modal keyboard navigation edge cases', () => {
       fireEvent.change(select, { target: { value: '1' } });
     });
     
-    const descInput = screen.getByPlaceholderText(/what are you working on/i);
+    const descInput = screen.getByPlaceholderText(/^task$/i);
     await act(async () => {
       fireEvent.focus(descInput);
       fireEvent.change(descInput, { target: { value: 'Task' } });
@@ -2197,7 +2197,7 @@ describe('Modal keyboard navigation edge cases', () => {
       fireEvent.change(select, { target: { value: '1' } });
     });
     
-    const descInput = screen.getByPlaceholderText(/what are you working on/i);
+    const descInput = screen.getByPlaceholderText(/^task$/i);
     await act(async () => {
       fireEvent.focus(descInput);
       fireEvent.change(descInput, { target: { value: 'Task' } });
@@ -2268,7 +2268,7 @@ describe('fuzzyMatch function coverage', () => {
       fireEvent.change(select, { target: { value: '1' } });
     });
     
-    const descInput = screen.getByPlaceholderText(/what are you working on/i);
+    const descInput = screen.getByPlaceholderText(/^task$/i);
     await act(async () => {
       fireEvent.focus(descInput);
       // Type something that won't match any suggestions
@@ -2304,7 +2304,7 @@ describe('fuzzyMatch function coverage', () => {
       fireEvent.change(select, { target: { value: '1' } });
     });
     
-    const descInput = screen.getByPlaceholderText(/what are you working on/i);
+    const descInput = screen.getByPlaceholderText(/^task$/i);
     await act(async () => {
       fireEvent.focus(descInput);
       // Type characters that appear in wrong order - should not match
@@ -2354,7 +2354,7 @@ describe('Modal keyboard navigation edge cases', () => {
       fireEvent.change(select, { target: { value: '1' } });
     });
     
-    const descInput = screen.getByPlaceholderText(/what are you working on/i);
+    const descInput = screen.getByPlaceholderText(/^task$/i);
     await act(async () => {
       fireEvent.focus(descInput);
       fireEvent.change(descInput, { target: { value: 'Task' } });
@@ -2401,7 +2401,7 @@ describe('Modal keyboard navigation edge cases', () => {
       fireEvent.change(select, { target: { value: '1' } });
     });
     
-    const descInput = screen.getByPlaceholderText(/what are you working on/i);
+    const descInput = screen.getByPlaceholderText(/^task$/i);
     await act(async () => {
       fireEvent.focus(descInput);
       fireEvent.change(descInput, { target: { value: 'Task' } });

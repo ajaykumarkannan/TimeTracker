@@ -1429,7 +1429,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                       }
                     }}
                     onKeyDown={handleDescriptionKeyDown}
-                    placeholder="What are you working on?"
+                    placeholder="Task"
                     autoComplete="off"
                     data-lpignore="true"
                     data-1p-ignore
