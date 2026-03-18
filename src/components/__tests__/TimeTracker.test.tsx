@@ -73,7 +73,7 @@ describe('TimeTracker', () => {
         onCategoryChange={mockOnCategoryChange}
       />
     );
-    expect(screen.getByText('Category')).toBeInTheDocument();
+    expect(screen.getByText('Category...')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /start/i })).toBeInTheDocument();
   });
 
@@ -446,7 +446,7 @@ describe('TimeTracker', () => {
     );
     
     // Click on a category quick start button
-    const quickStartBtns = document.querySelectorAll('.quick-start-btn');
+    const quickStartBtns = document.querySelectorAll('.switch-task-btn');
     if (quickStartBtns.length > 0) {
       await act(async () => {
         fireEvent.click(quickStartBtns[0]);
@@ -475,7 +475,7 @@ describe('TimeTracker', () => {
     );
     
     // Click on a category quick start button
-    const quickStartBtns = document.querySelectorAll('.quick-start-btn');
+    const quickStartBtns = document.querySelectorAll('.switch-task-btn');
     if (quickStartBtns.length > 0) {
       await act(async () => {
         fireEvent.click(quickStartBtns[0]);
@@ -536,7 +536,7 @@ describe('TimeTracker', () => {
     expect(screen.getByText('Switch to:')).toBeInTheDocument();
   });
 
-  it('shows new task form when clicking + button', async () => {
+  it('shows new task form always visible', async () => {
     const activeEntry = {
       id: 1,
       category_id: 1,
@@ -560,14 +560,9 @@ describe('TimeTracker', () => {
       />
     );
     
-    const newTaskBtn = document.querySelector('.switch-add-btn');
-    expect(newTaskBtn).toBeInTheDocument();
-    await act(async () => {
-      fireEvent.click(newTaskBtn!);
-    });
-    
-    // Should show category select and description input
+    // New task form should always be visible
     expect(screen.getByText('Category...')).toBeInTheDocument();
+    expect(document.querySelector('.switch-description-input')).toBeInTheDocument();
   });
 
   it('handles description input with suggestions', async () => {
@@ -588,7 +583,7 @@ describe('TimeTracker', () => {
     });
     
     // Type in description
-    const descInput = screen.getByPlaceholderText(/^task$/i);
+    const descInput = screen.getByPlaceholderText(/task/i);
     await act(async () => {
       fireEvent.focus(descInput);
       fireEvent.change(descInput, { target: { value: 'Bug' } });
@@ -618,7 +613,7 @@ describe('TimeTracker', () => {
     });
     
     // Type in description to show suggestions
-    const descInput = screen.getByPlaceholderText(/^task$/i);
+    const descInput = screen.getByPlaceholderText(/task/i);
     await act(async () => {
       fireEvent.focus(descInput);
       fireEvent.change(descInput, { target: { value: 'Bug' } });
@@ -661,7 +656,7 @@ describe('TimeTracker', () => {
     });
     
     // Type in description to show suggestions
-    const descInput = screen.getByPlaceholderText(/^task$/i);
+    const descInput = screen.getByPlaceholderText(/task/i);
     await act(async () => {
       fireEvent.focus(descInput);
       fireEvent.change(descInput, { target: { value: 'Bug' } });
@@ -783,7 +778,7 @@ describe('TimeTracker', () => {
     );
     
     // Should render without errors
-    expect(screen.getByText('Category')).toBeInTheDocument();
+    expect(screen.getByText('Category...')).toBeInTheDocument();
   });
 
   it('shows switch task section when timer is active', async () => {
@@ -812,12 +807,11 @@ describe('TimeTracker', () => {
     
     // Should show switch task section with "Switch to:" label
     expect(screen.getByText('Switch to:')).toBeInTheDocument();
-    // Should show + button for adding new task
-    const addBtn = document.querySelector('.switch-add-btn');
-    expect(addBtn).toBeInTheDocument();
+    // New task form should always be visible
+    expect(document.querySelector('.switch-category-select')).toBeInTheDocument();
   });
 
-  it('opens new task form when clicking + in switch section', async () => {
+  it('shows new task form always visible in switch section', async () => {
     const activeEntry = {
       id: 1,
       category_id: 1,
@@ -841,17 +835,9 @@ describe('TimeTracker', () => {
       />
     );
     
-    // Click on the + button
-    const addBtn = document.querySelector('.switch-add-btn');
-    expect(addBtn).toBeInTheDocument();
-    await act(async () => {
-      fireEvent.click(addBtn!);
-    });
-    
-    // Should show new task form
-    await waitFor(() => {
-      expect(screen.getByText('Category...')).toBeInTheDocument();
-    });
+    // New task form should already be visible
+    expect(screen.getByText('Category...')).toBeInTheDocument();
+    expect(document.querySelector('.switch-description-input')).toBeInTheDocument();
   });
 
   it('switches to recent task when clicking switch task button', async () => {
@@ -974,19 +960,7 @@ describe('TimeTracker', () => {
       />
     );
     
-    // Click + button
-    const addBtn = document.querySelector('.switch-add-btn');
-    expect(addBtn).toBeInTheDocument();
-    await act(async () => {
-      fireEvent.click(addBtn!);
-    });
-    
-    // Should show new task form
-    await waitFor(() => {
-      expect(screen.getByText('Category...')).toBeInTheDocument();
-    });
-    
-    // Select category from dropdown
+    // New task form is always visible — select category
     const categorySelect = document.querySelector('.switch-category-select') as HTMLSelectElement;
     if (categorySelect) {
       await act(async () => {
@@ -1231,7 +1205,7 @@ describe('TimeTracker', () => {
     });
     
     // Type in description to show suggestions
-    const descInput = screen.getByPlaceholderText(/^task$/i);
+    const descInput = screen.getByPlaceholderText(/task/i);
     await act(async () => {
       fireEvent.focus(descInput);
       fireEvent.change(descInput, { target: { value: 'Bug' } });
@@ -1270,7 +1244,7 @@ describe('TimeTracker', () => {
       fireEvent.change(select, { target: { value: '1' } });
     });
     
-    const descInput = screen.getByPlaceholderText(/^task$/i);
+    const descInput = screen.getByPlaceholderText(/task/i);
     await act(async () => {
       fireEvent.focus(descInput);
       fireEvent.change(descInput, { target: { value: 'Bug' } });
@@ -1310,7 +1284,7 @@ describe('TimeTracker', () => {
       fireEvent.change(select, { target: { value: '1' } });
     });
     
-    const descInput = screen.getByPlaceholderText(/^task$/i);
+    const descInput = screen.getByPlaceholderText(/task/i);
     await act(async () => {
       fireEvent.change(descInput, { target: { value: 'New task' } });
     });
@@ -1340,7 +1314,7 @@ describe('TimeTracker', () => {
       />
     );
     
-    const quickStartBtns = document.querySelectorAll('.quick-start-btn');
+    const quickStartBtns = document.querySelectorAll('.switch-task-btn');
     if (quickStartBtns.length > 0) {
       await act(async () => {
         fireEvent.click(quickStartBtns[0]);
@@ -1377,7 +1351,7 @@ describe('TimeTracker', () => {
       />
     );
     
-    const quickStartBtns = document.querySelectorAll('.quick-start-btn');
+    const quickStartBtns = document.querySelectorAll('.switch-task-btn');
     if (quickStartBtns.length > 0) {
       await act(async () => {
         fireEvent.click(quickStartBtns[0]);
@@ -1480,13 +1454,7 @@ describe('TimeTracker', () => {
       />
     );
     
-    // Click + button
-    const addBtn = document.querySelector('.switch-add-btn');
-    await act(async () => {
-      fireEvent.click(addBtn!);
-    });
-    
-    // Select category
+    // New task form is always visible — select category
     const categorySelect = document.querySelector('.switch-category-select') as HTMLSelectElement;
     if (categorySelect) {
       await act(async () => {
@@ -1536,13 +1504,7 @@ describe('TimeTracker', () => {
       />
     );
     
-    // Click + button
-    const addBtn = document.querySelector('.switch-add-btn');
-    await act(async () => {
-      fireEvent.click(addBtn!);
-    });
-    
-    // Select category
+    // New task form is always visible — select category
     const categorySelect = document.querySelector('.switch-category-select') as HTMLSelectElement;
     if (categorySelect) {
       await act(async () => {
@@ -1605,11 +1567,6 @@ describe('TimeTracker', () => {
       />
     );
     
-    const addBtn = document.querySelector('.switch-add-btn');
-    await act(async () => {
-      fireEvent.click(addBtn!);
-    });
-    
     const categorySelect = document.querySelector('.switch-category-select') as HTMLSelectElement;
     if (categorySelect) {
       await act(async () => {
@@ -1653,7 +1610,7 @@ describe('TimeTracker', () => {
       />
     );
     
-    const quickStartBtns = document.querySelectorAll('.quick-start-btn');
+    const quickStartBtns = document.querySelectorAll('.switch-task-btn');
     if (quickStartBtns.length > 0) {
       await act(async () => {
         fireEvent.click(quickStartBtns[0]);
@@ -1695,7 +1652,7 @@ describe('TimeTracker', () => {
       fireEvent.change(select, { target: { value: '1' } });
     });
     
-    const descInput = screen.getByPlaceholderText(/^task$/i);
+    const descInput = screen.getByPlaceholderText(/task/i);
     await act(async () => {
       fireEvent.focus(descInput);
       fireEvent.change(descInput, { target: { value: 'Bug' } });
@@ -1736,7 +1693,7 @@ describe('TimeTracker', () => {
       fireEvent.change(select, { target: { value: '1' } });
     });
     
-    const descInput = screen.getByPlaceholderText(/^task$/i);
+    const descInput = screen.getByPlaceholderText(/task/i);
     await act(async () => {
       fireEvent.focus(descInput);
       fireEvent.change(descInput, { target: { value: 'Bug' } });
@@ -1868,7 +1825,7 @@ describe('TimeTracker', () => {
       fireEvent.change(select, { target: { value: '1' } });
     });
     
-    const descInput = screen.getByPlaceholderText(/^task$/i);
+    const descInput = screen.getByPlaceholderText(/task/i);
     await act(async () => {
       fireEvent.focus(descInput);
       // Type 'fdev' which should fuzzy match 'Feature development'
@@ -1894,7 +1851,7 @@ describe('TimeTracker', () => {
       />
     );
     
-    const quickStartBtns = document.querySelectorAll('.quick-start-btn');
+    const quickStartBtns = document.querySelectorAll('.switch-task-btn');
     if (quickStartBtns.length > 0) {
       await act(async () => {
         fireEvent.click(quickStartBtns[0]);
@@ -1933,7 +1890,7 @@ describe('TimeTracker', () => {
       />
     );
     
-    const quickStartBtns = document.querySelectorAll('.quick-start-btn');
+    const quickStartBtns = document.querySelectorAll('.switch-task-btn');
     if (quickStartBtns.length > 0) {
       await act(async () => {
         fireEvent.click(quickStartBtns[0]);
@@ -2064,7 +2021,7 @@ describe('fuzzyMatch function coverage', () => {
       fireEvent.change(select, { target: { value: '1' } });
     });
     
-    const descInput = screen.getByPlaceholderText(/^task$/i);
+    const descInput = screen.getByPlaceholderText(/task/i);
     await act(async () => {
       fireEvent.focus(descInput);
       // Type something that won't match any suggestions
@@ -2100,7 +2057,7 @@ describe('fuzzyMatch function coverage', () => {
       fireEvent.change(select, { target: { value: '1' } });
     });
     
-    const descInput = screen.getByPlaceholderText(/^task$/i);
+    const descInput = screen.getByPlaceholderText(/task/i);
     await act(async () => {
       fireEvent.focus(descInput);
       // Type characters that appear in wrong order - should not match
@@ -2150,7 +2107,7 @@ describe('Modal keyboard navigation edge cases', () => {
       fireEvent.change(select, { target: { value: '1' } });
     });
     
-    const descInput = screen.getByPlaceholderText(/^task$/i);
+    const descInput = screen.getByPlaceholderText(/task/i);
     await act(async () => {
       fireEvent.focus(descInput);
       fireEvent.change(descInput, { target: { value: 'Task' } });
@@ -2197,7 +2154,7 @@ describe('Modal keyboard navigation edge cases', () => {
       fireEvent.change(select, { target: { value: '1' } });
     });
     
-    const descInput = screen.getByPlaceholderText(/^task$/i);
+    const descInput = screen.getByPlaceholderText(/task/i);
     await act(async () => {
       fireEvent.focus(descInput);
       fireEvent.change(descInput, { target: { value: 'Task' } });
@@ -2268,7 +2225,7 @@ describe('fuzzyMatch function coverage', () => {
       fireEvent.change(select, { target: { value: '1' } });
     });
     
-    const descInput = screen.getByPlaceholderText(/^task$/i);
+    const descInput = screen.getByPlaceholderText(/task/i);
     await act(async () => {
       fireEvent.focus(descInput);
       // Type something that won't match any suggestions
@@ -2304,7 +2261,7 @@ describe('fuzzyMatch function coverage', () => {
       fireEvent.change(select, { target: { value: '1' } });
     });
     
-    const descInput = screen.getByPlaceholderText(/^task$/i);
+    const descInput = screen.getByPlaceholderText(/task/i);
     await act(async () => {
       fireEvent.focus(descInput);
       // Type characters that appear in wrong order - should not match
@@ -2354,7 +2311,7 @@ describe('Modal keyboard navigation edge cases', () => {
       fireEvent.change(select, { target: { value: '1' } });
     });
     
-    const descInput = screen.getByPlaceholderText(/^task$/i);
+    const descInput = screen.getByPlaceholderText(/task/i);
     await act(async () => {
       fireEvent.focus(descInput);
       fireEvent.change(descInput, { target: { value: 'Task' } });
@@ -2401,7 +2358,7 @@ describe('Modal keyboard navigation edge cases', () => {
       fireEvent.change(select, { target: { value: '1' } });
     });
     
-    const descInput = screen.getByPlaceholderText(/^task$/i);
+    const descInput = screen.getByPlaceholderText(/task/i);
     await act(async () => {
       fireEvent.focus(descInput);
       fireEvent.change(descInput, { target: { value: 'Task' } });
@@ -2498,7 +2455,7 @@ describe('Modal suggestion mouse interactions', () => {
     );
     
     // Click on a category quick start button to open modal
-    const quickStartBtns = document.querySelectorAll('.quick-start-btn');
+    const quickStartBtns = document.querySelectorAll('.switch-task-btn');
     if (quickStartBtns.length > 0) {
       await act(async () => {
         fireEvent.click(quickStartBtns[0]);
@@ -2548,7 +2505,7 @@ describe('Modal suggestion mouse interactions', () => {
     );
     
     // Click on a category quick start button to open modal
-    const quickStartBtns = document.querySelectorAll('.quick-start-btn');
+    const quickStartBtns = document.querySelectorAll('.switch-task-btn');
     if (quickStartBtns.length > 0) {
       await act(async () => {
         fireEvent.click(quickStartBtns[0]);
