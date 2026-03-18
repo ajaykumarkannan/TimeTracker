@@ -522,17 +522,14 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
     setShowManualEntry(true);
   };
 
-  // Open manual entry with pre-filled break values
+  // Open manual entry with pre-filled break time range
   const openBreakEntry = (breakStart: string, breakEnd: string) => {
-    // Find the Break category
-    const breakCategory = categories.find(c => c.name.toLowerCase() === 'break');
-    
     setManualStartDate(formatDateOnly(breakStart));
     setManualStartTime(formatTimeOnly(breakStart));
     setManualEndDate(formatDateOnly(breakEnd));
     setManualEndTime(formatTimeOnly(breakEnd));
-    setManualCategory(breakCategory?.id || '');
-    setManualDescription('Break');
+    setManualCategory('');
+    setManualDescription('');
     setManualError('');
     setShowManualSuggestions(false);
     setSelectedSuggestionIndex(-1);
