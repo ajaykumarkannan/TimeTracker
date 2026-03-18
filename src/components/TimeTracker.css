@@ -1051,12 +1051,14 @@
   }
 
   .new-task-inline .new-task-category-wrapper .category-color-indicator {
-    position: static;
-    transform: none;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
     width: 0.75rem;
     height: 0.75rem;
     border-radius: var(--radius-sm);
-    margin: auto;
+    margin: 0;
   }
 
   .new-task-inline .switch-category-select {
