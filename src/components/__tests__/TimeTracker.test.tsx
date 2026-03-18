@@ -533,10 +533,8 @@ describe('TimeTracker', () => {
       />
     );
     
-    expect(screen.getByText('Switch to:')).toBeInTheDocument();
-  });
-
-  it('shows new task form always visible', async () => {
+    expect(document.querySelector('.switch-quick-options')).toBeInTheDocument();
+  });  it('shows new task form always visible', async () => {
     const activeEntry = {
       id: 1,
       category_id: 1,
@@ -805,8 +803,8 @@ describe('TimeTracker', () => {
       />
     );
     
-    // Should show switch task section with "Switch to:" label
-    expect(screen.getByText('Switch to:')).toBeInTheDocument();
+    // Should show switch task section with recent task buttons
+    expect(document.querySelector('.switch-quick-options')).toBeInTheDocument();
     // New task form should always be visible
     expect(document.querySelector('.switch-category-select')).toBeInTheDocument();
   });

@@ -235,20 +235,29 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
 
   const measureVisibleChildren = useCallback((container: HTMLDivElement | null) => {
     if (!container) return;
-    // Temporarily show all children for measurement
     const children = Array.from(container.children) as HTMLElement[];
     if (children.length === 0) return;
+    
+    // Show all children for measurement
     children.forEach(c => { c.style.display = ''; });
-
-    const containerRight = container.getBoundingClientRect().right;
+    
+    // Force a layout reflow so measurements are accurate
+    void container.offsetWidth;
+    
+    const containerWidth = container.clientWidth;
+    let usedWidth = 0;
+    const gap = parseFloat(getComputedStyle(container).gap) || 0;
     let count = 0;
+    
     for (const child of children) {
-      const childRight = child.getBoundingClientRect().right;
-      if (childRight > containerRight + 1) break;
+      const childWidth = child.offsetWidth;
+      const neededWidth = count > 0 ? gap + childWidth : childWidth;
+      if (usedWidth + neededWidth > containerWidth + 1) break;
+      usedWidth += neededWidth;
       count++;
     }
 
-    // Re-hide overflow children
+    // Hide overflow children
     const visible = Math.max(count, 1);
     children.forEach((c, i) => {
       c.style.display = i >= visible ? 'none' : '';
