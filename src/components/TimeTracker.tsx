@@ -36,10 +36,10 @@ function getNextAvailableColor(usedColors: (string | null)[]): string {
 function formatRemainingTime(scheduledEndTime: string): string {
   const remaining = new Date(scheduledEndTime).getTime() - Date.now();
   if (remaining <= 0) return 'now';
-  
+
   const hours = Math.floor(remaining / 3600000);
   const minutes = Math.floor((remaining % 3600000) / 60000);
-  
+
   if (hours > 0) {
     return `${hours}h ${minutes}m`;
   }
@@ -78,7 +78,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   const [showNewCategory, setShowNewCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryColor, setNewCategoryColor] = useState(nextColor);
-  
+
   // Cached suggestions - fetched once, filtered locally
   const [cachedSuggestions, setCachedSuggestions] = useState<{ task_name: string; categoryId: number; count: number; totalMinutes: number; lastUsed: string }[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -122,7 +122,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   // Prefer selected category but show all tasks
   const suggestions = useMemo(() => {
     let filtered = [...cachedSuggestions];
-    
+
     // Fuzzy filter by task name if there's a description
     if (description) {
       filtered = filtered
@@ -149,7 +149,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
         return new Date(b.lastUsed).getTime() - new Date(a.lastUsed).getTime();
       });
     }
-    
+
     return filtered.slice(0, 8);
   }, [cachedSuggestions, selectedCategory, description]);
 
@@ -167,7 +167,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (
-        suggestionsRef.current && 
+        suggestionsRef.current &&
         !suggestionsRef.current.contains(e.target as Node) &&
         descriptionInputRef.current &&
         !descriptionInputRef.current.contains(e.target as Node)
@@ -199,7 +199,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
         const key = `${entry.category_id}:${entry.task_name}`;
         const entryDayOfWeek = new Date(entry.start_time).getDay();
         const isCurrentDayOfWeek = entryDayOfWeek === currentDayOfWeek;
-        
+
         const existing = taskMap.get(key);
         if (existing) {
           existing.count++;
@@ -217,7 +217,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
           });
         }
       });
-    
+
     // Sort by: day-of-week relevance (weighted heavily), then total count
     // This prioritizes recurring meetings/tasks for the current day
     return Array.from(taskMap.values())
@@ -306,7 +306,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
         setShowForgottenPrompt(false);
         setForgottenEndTime('');
       }
-      
+
       // Update scheduled remaining time display
       if (activeEntry.scheduled_end_time) {
         const remaining = new Date(activeEntry.scheduled_end_time).getTime() - now;
@@ -383,30 +383,30 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   const getQuickTimeOptions = () => {
     const now = new Date();
     const options: { label: string; time: string }[] = [];
-    
+
     // Round up to next 30-minute mark
     const currentMinutes = now.getMinutes();
     const roundedMinutes = currentMinutes < 30 ? 30 : 0;
     const roundedHours = currentMinutes < 30 ? now.getHours() : now.getHours() + 1;
-    
+
     const baseTime = new Date();
     baseTime.setHours(roundedHours, roundedMinutes, 0, 0);
-    
+
     // Generate 3 options: next 30min mark, +30min, +1h from first
     for (let i = 0; i < 3; i++) {
       const optionTime = new Date(baseTime.getTime() + i * 30 * 60000);
       const h = optionTime.getHours();
       const m = optionTime.getMinutes();
       const timeStr = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-      
+
       // Format label as 12-hour time
       const hour12 = h % 12 || 12;
       const ampm = h < 12 ? 'am' : 'pm';
       const label = m === 0 ? `${hour12}${ampm}` : `${hour12}:${m.toString().padStart(2, '0')}${ampm}`;
-      
+
       options.push({ label, time: timeStr });
     }
-    
+
     return options;
   };
 
@@ -424,14 +424,14 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
 
   const handleScheduleStop = async () => {
     if (!activeEntry) return;
-    
+
     let scheduledEndTime: Date;
-    
+
     if (scheduleMode === 'duration') {
       const hours = parseInt(durationHours) || 0;
       const minutes = parseInt(durationMinutes) || 0;
       if (hours === 0 && minutes === 0) return;
-      
+
       scheduledEndTime = new Date(Date.now() + (hours * 60 + minutes) * 60000);
     } else {
       if (!stopAtTime) return;
@@ -441,14 +441,14 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
       scheduledEndTime = new Date(`${targetDate}T00:00:00`);
       scheduledEndTime.setHours(hours, minutes, 0, 0);
     }
-    
+
     // Validate: must be after entry start time
     const entryStartTime = new Date(activeEntry.start_time).getTime();
     if (scheduledEndTime.getTime() <= entryStartTime) {
       setScheduleError('Stop time must be after the entry start time');
       return;
     }
-    
+
     try {
       const result = await api.scheduleStop(activeEntry.id, scheduledEndTime.toISOString());
       setShowScheduleStopModal(false);
@@ -529,9 +529,9 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
             {activeEntry ? (() => {
               const colors = getCategoryColors(activeEntry.category_color);
               return (
-                <span 
-                  className="category-badge" 
-                  style={{ 
+                <span
+                  className="category-badge"
+                  style={{
                     backgroundColor: colors.bgColor,
                     color: colors.textColor
                   }}
@@ -556,8 +556,8 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
               {activeEntry?.scheduled_end_time ? null : (stopping ? 'Stopping…' : 'Stop')}
             </button>
             {activeEntry?.scheduled_end_time ? (
-              <button 
-                className="btn btn-danger btn-end-at scheduled" 
+              <button
+                className="btn btn-danger btn-end-at scheduled"
                 onClick={handleClearScheduledStop}
                 title="Click to cancel scheduled end"
               >
@@ -568,8 +568,8 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                 <span className="scheduled-time">{scheduledRemaining}</span>
               </button>
             ) : (
-              <button 
-                className="btn btn-danger btn-end-at" 
+              <button
+                className="btn btn-danger btn-end-at"
                 onClick={handleOpenScheduleStop}
                 title="Schedule end time"
                 disabled={!activeEntry}
@@ -591,22 +591,22 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                 <div className="task-prompt-header">
                   <span className="task-prompt-title">Set Stop Time</span>
                 </div>
-                
+
                 <div className="schedule-mode-tabs">
-                  <button 
+                  <button
                     className={`schedule-mode-tab ${scheduleMode === 'duration' ? 'active' : ''}`}
                     onClick={() => setScheduleMode('duration')}
                   >
                     After duration
                   </button>
-                  <button 
+                  <button
                     className={`schedule-mode-tab ${scheduleMode === 'time' ? 'active' : ''}`}
                     onClick={() => setScheduleMode('time')}
                   >
                     At specific time
                   </button>
                 </div>
-                
+
                 {scheduleMode === 'duration' ? (
                   <div className="schedule-duration-inputs">
                     <div className="duration-input-group">
@@ -652,7 +652,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                     />
                   </div>
                 )}
-                
+
                 <div className="schedule-quick-options">
                   <span className="quick-options-label">Quick:</span>
                   {scheduleMode === 'duration' ? (
@@ -682,7 +682,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                     ))
                   )}
                 </div>
-                
+
                 <div className="task-prompt-actions">
                   {scheduleError && (
                     <div className="schedule-error">{scheduleError}</div>
@@ -690,10 +690,10 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                   <button className="btn btn-ghost" onClick={() => { setShowScheduleStopModal(false); setScheduleError(null); }}>
                     Cancel
                   </button>
-                  <button 
-                    className="btn btn-primary" 
+                  <button
+                    className="btn btn-primary"
                     onClick={handleScheduleStop}
-                    disabled={scheduleMode === 'duration' 
+                    disabled={scheduleMode === 'duration'
                       ? (!durationHours && !durationMinutes) || (parseInt(durationHours || '0') === 0 && parseInt(durationMinutes || '0') === 0)
                       : !stopAtTime
                     }
@@ -741,7 +741,6 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
       {/* Row 2: Switch to — recent task buttons */}
       <div className="switch-task-section">
         <div className="switch-task-row">
-          <span className="switch-label">Switch to:</span>
           <div className="switch-quick-options" ref={recentTasksRef}>
             {recentTasks.map((task, idx) => {
               const colors = getCategoryColors(task.categoryColor);
@@ -766,18 +765,18 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
             const selectedCat = categories.find(c => c.id === selectedCategory);
             const colors = selectedCat ? getCategoryColors(selectedCat.color) : null;
             return (
-              <div 
+              <div
                 className="new-task-category-wrapper"
-                style={colors ? { 
-                  '--cat-bg': colors.bgColor, 
+                style={colors ? {
+                  '--cat-bg': colors.bgColor,
                   '--cat-dot': colors.dotColor,
                   '--cat-text': colors.textColor
                 } as React.CSSProperties : undefined}
               >
                 <span className="category-color-indicator" style={{ backgroundColor: colors?.dotColor || 'var(--text-muted)' }} />
-                <select 
+                <select
                   className="switch-category-select"
-                  value={selectedCategory || ''} 
+                  value={selectedCategory || ''}
                   onChange={(e) => {
                     const val = e.target.value;
                     if (val === 'new') {
@@ -800,7 +799,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
             );
           })()}
           <div className="description-input-wrapper switch-description-wrapper">
-            <input 
+            <input
               ref={descriptionInputRef}
               type="text"
               className="switch-description-input"
@@ -837,7 +836,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                 switch (e.key) {
                   case 'ArrowDown':
                     e.preventDefault();
-                    setSelectedSuggestionIndex(prev => 
+                    setSelectedSuggestionIndex(prev =>
                       prev < suggestions.length - 1 ? prev + 1 : prev
                     );
                     break;
@@ -880,7 +879,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
               </div>
             )}
           </div>
-          <button 
+          <button
             className="btn btn-success start-btn"
             onClick={() => selectedCategory && handleSwitchTask(selectedCategory, description || undefined)}
             disabled={!selectedCategory}
