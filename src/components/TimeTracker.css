@@ -377,9 +377,11 @@
 .switch-quick-options {
   display: flex;
   gap: 0.5rem;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   flex: 1;
+  overflow: hidden;
+  min-width: 0;
 }
 
 .switch-add-btn {
@@ -524,9 +526,11 @@
   display: flex;
   flex-direction: row;
   gap: 0.5rem;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
+  max-width: 100%;
 }
 
 .quick-start-btn {
@@ -541,6 +545,7 @@
   white-space: nowrap;
   cursor: pointer;
   overflow: hidden;
+  flex-shrink: 0;
 }
 
 /* Task quick start */
