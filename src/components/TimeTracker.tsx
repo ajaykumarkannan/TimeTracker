@@ -1379,9 +1379,18 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
 
           <div className="tracker-form">
             <div className="form-row">
-              <div className="form-group">
+              <div className="form-group form-group-category">
                 <label>Category</label>
-                <select 
+                <div className="category-select-wrapper">
+                  <span 
+                    className="category-color-indicator" 
+                    style={{ 
+                      backgroundColor: selectedCategory 
+                        ? getCategoryColors(categories.find(c => c.id === selectedCategory)?.color || null).dotColor 
+                        : 'var(--text-muted)' 
+                    }} 
+                  />
+                  <select 
                   value={selectedCategory || ''} 
                   onChange={(e) => {
                     const val = e.target.value;
@@ -1400,6 +1409,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                   ))}
                   <option value="new">+ New category</option>
                 </select>
+                </div>
               </div>
 
               <div className="form-group form-group-description">
@@ -1459,7 +1469,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                   disabled={!selectedCategory}
                 >
                   <span className="play-icon">▶</span>
-                  Start
+                  <span className="start-btn-text">Start</span>
                 </button>
               </div>
             </div>

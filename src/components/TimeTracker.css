@@ -374,6 +374,11 @@
   border-top: 1px solid var(--border);
 }
 
+.start-tracker .switch-task-section {
+  border-top: none;
+  padding-top: 0;
+}
+
 .switch-quick-options {
   display: flex;
   gap: 0.5rem;
@@ -616,6 +621,20 @@
   background-repeat: no-repeat;
   background-position: right 0.75rem center;
   padding-right: 2.5rem;
+}
+
+.category-select-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.category-color-indicator {
+  display: none;
+}
+
+.category-select-wrapper select {
+  width: 100%;
 }
 
 .start-btn {
@@ -909,20 +928,75 @@
     width: 100%;
   }
 
+  /* Mobile: compact single-row tracker form [C] [Task] [>] */
   .form-row {
-    flex-direction: column;
+    flex-direction: row;
+    gap: 0.5rem;
+    align-items: stretch;
   }
 
-  .form-group,
-  .form-group-description,
-  .form-group-action {
-    width: 100%;
+  .form-group label {
+    display: none;
+  }
+
+  .form-group-category {
+    width: auto;
+    flex-shrink: 0;
+  }
+
+  .category-color-indicator {
+    display: block;
+    position: absolute;
+    left: 0.5rem;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: var(--radius-sm);
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  .category-select-wrapper select {
+    width: 2.75rem;
+    height: 44px;
+    padding: 0;
+    color: transparent;
+    background-position: center;
+    background-image: none;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+  }
+
+  .form-group-description {
+    flex: 1;
+    width: auto;
     margin-left: 0;
   }
 
+  .form-group-action {
+    width: auto;
+    margin-left: 0;
+    flex-shrink: 0;
+  }
+
   .start-btn {
-    width: 100%;
-    min-height: 48px;
+    width: 44px;
+    height: 44px;
+    min-height: 44px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-md);
+  }
+
+  .start-btn-text {
+    display: none;
+  }
+
+  .start-btn .play-icon {
+    margin: 0;
   }
 
   .new-task-inline {
