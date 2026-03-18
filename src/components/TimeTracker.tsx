@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Category, TimeEntry } from '../types';
 import { api } from '../api';
 import { useTheme } from '../contexts/ThemeContext';
@@ -391,6 +391,43 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
       .slice(0, 8);
   }, [entries]);
 
+  // Measure how many recent task buttons fit in one row
+  const recentTasksRef = useRef<HTMLDivElement>(null);
+
+  const measureVisibleChildren = useCallback((container: HTMLDivElement | null) => {
+    if (!container) return;
+    // Temporarily show all children for measurement
+    const children = Array.from(container.children) as HTMLElement[];
+    if (children.length === 0) return;
+    children.forEach(c => { c.style.display = ''; });
+
+    const containerRight = container.getBoundingClientRect().right;
+    let count = 0;
+    for (const child of children) {
+      const childRight = child.getBoundingClientRect().right;
+      if (childRight > containerRight + 1) break;
+      count++;
+    }
+
+    // Re-hide overflow children
+    const visible = Math.max(count, 1);
+    children.forEach((c, i) => {
+      c.style.display = i >= visible ? 'none' : '';
+    });
+  }, []);
+
+  useEffect(() => {
+    const el = recentTasksRef.current;
+    if (!el) return;
+
+    const measure = () => measureVisibleChildren(el);
+    measure();
+
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [recentTasks, activeEntry, measureVisibleChildren]);
+
   useEffect(() => {
     if (!activeEntry) {
       setElapsed(0);
@@ -458,15 +495,6 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
     try {
       const entry = await api.startEntry(selectedCategory, description || undefined);
       setDescription('');
-      onEntryChange({ active: entry });
-    } catch (error) {
-      console.error('Failed to start entry:', error);
-    }
-  };
-
-  const handleQuickStartTask = async (task: RecentTask) => {
-    try {
-      const entry = await api.startEntry(task.categoryId, task.task_name);
       onEntryChange({ active: entry });
     } catch (error) {
       console.error('Failed to start entry:', error);
@@ -1217,7 +1245,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
               </div>
             ) : (
               <>
-                <div className="switch-quick-options">
+                <div className="switch-quick-options" ref={recentTasksRef}>
                   {recentTasks.map((task, idx) => {
                     const colors = getCategoryColors(task.categoryColor);
                     return (
@@ -1225,7 +1253,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                         key={idx}
                         className="switch-task-btn"
                         onClick={() => handleSwitchTask(task.categoryId, task.task_name)}
-                        title={`${task.categoryName}: ${task.task_name}`}
+                        title={task.categoryName}
                       >
                         <span className="category-dot" style={{ backgroundColor: colors.dotColor }} />
                         <span className="switch-task-description">{task.task_name}</span>
@@ -1326,28 +1354,25 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
             </div>
           )}
 
-          {/* Quick start section with recent tasks */}
+          {/* Recent tasks section */}
           {recentTasks.length > 0 && (
-            <div className="quick-start-section">
-              <div className="quick-start-group">
-                <span className="quick-start-label">Recent tasks</span>
-                <div className="quick-start-buttons">
-                    {recentTasks.map((task, idx) => {
-                    const colors = getCategoryColors(task.categoryColor);
-                    return (
-                      <button
-                        key={idx}
-                        className="quick-start-btn quick-start-task"
-                        onClick={() => handleQuickStartTask(task)}
-                        title={`${task.categoryName}: ${task.task_name}`}
-                      >
-                        <span className="category-dot" style={{ backgroundColor: colors.dotColor }} />
-                        <span className="task-description-text">{task.task_name}</span>
-                        <span className="task-category-hint">{task.categoryName}</span>
-                      </button>
-                    );
-                  })}
-                </div>
+            <div className="switch-task-section">
+              <span className="switch-label">Recent tasks</span>
+              <div className="switch-quick-options" ref={recentTasksRef}>
+                {recentTasks.map((task, idx) => {
+                  const colors = getCategoryColors(task.categoryColor);
+                  return (
+                    <button
+                      key={idx}
+                      className="switch-task-btn"
+                      onClick={() => handleSwitchTask(task.categoryId, task.task_name)}
+                      title={task.categoryName}
+                    >
+                      <span className="category-dot" style={{ backgroundColor: colors.dotColor }} />
+                      <span className="switch-task-description">{task.task_name}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
