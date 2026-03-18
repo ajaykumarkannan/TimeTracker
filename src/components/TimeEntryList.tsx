@@ -146,6 +146,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
   const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
   const manualDescriptionRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
+  const justSelectedSuggestionRef = useRef(false);
 
   // Fetch suggestions for manual entry
   useEffect(() => {
@@ -160,14 +161,9 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
     fetchSuggestions();
   }, [entries.length]); // Refetch when entries change
 
-  // Filter suggestions based on task name input
+  // Filter suggestions based on task name input (shows all categories)
   const manualSuggestions = useMemo(() => {
     let filtered = cachedSuggestions;
-    
-    // Filter by category if selected
-    if (manualCategory) {
-      filtered = filtered.filter(s => s.categoryId === manualCategory);
-    }
     
     // Fuzzy filter by task name
     if (manualDescription) {
@@ -181,15 +177,12 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
     }
     
     return filtered.slice(0, 8);
-  }, [cachedSuggestions, manualCategory, manualDescription]);
+  }, [cachedSuggestions, manualDescription]);
 
-  // Show suggestions when there are matches
+  // Reset suggestion selection when suggestions list changes
   useEffect(() => {
-    if (showManualEntry && manualSuggestions.length > 0) {
-      setShowManualSuggestions(true);
-    }
     setSelectedSuggestionIndex(-1);
-  }, [showManualEntry, manualSuggestions]);
+  }, [manualSuggestions]);
 
   // Close suggestions when clicking outside
   useEffect(() => {
@@ -668,6 +661,8 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
     }
     setShowManualSuggestions(false);
     setSelectedSuggestionIndex(-1);
+    // Suppress the onFocus handler from reopening suggestions after selection
+    justSelectedSuggestionRef.current = true;
     manualDescriptionRef.current?.focus();
   };
 
@@ -1190,6 +1185,10 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                     value={manualDescription} 
                     onChange={(e) => setManualDescription(e.target.value)} 
                     onFocus={() => {
+                      if (justSelectedSuggestionRef.current) {
+                        justSelectedSuggestionRef.current = false;
+                        return;
+                      }
                       if (manualSuggestions.length > 0) setShowManualSuggestions(true);
                     }}
                     onKeyDown={handleManualDescriptionKeyDown}
