@@ -502,8 +502,8 @@
 .entry-item {
   display: flex;
   align-items: center;
-  gap: 0.875rem;
-  padding: 0.5rem;
+  gap: 0.5rem;
+  padding: 0.2rem;
   border-radius: var(--radius-lg);
   transition: background 0.15s ease;
   cursor: pointer;
