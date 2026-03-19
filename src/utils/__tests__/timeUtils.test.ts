@@ -141,10 +141,25 @@ describe('timeUtils', () => {
       expect(formatDuration(5)).toBe('5m');
     });
 
-    it('formats hours and minutes', () => {
+    it('formats hours and minutes under 10h', () => {
       expect(formatDuration(60)).toBe('1h');
       expect(formatDuration(75)).toBe('1h 15m');
       expect(formatDuration(120)).toBe('2h');
+      expect(formatDuration(9 * 60 + 45)).toBe('9h 45m');
+    });
+
+    it('uses decimal hours for 10-23h', () => {
+      expect(formatDuration(10 * 60)).toBe('10h');
+      expect(formatDuration(10 * 60 + 30)).toBe('10.5h');
+      expect(formatDuration(12 * 60 + 15)).toBe('12.3h');
+      expect(formatDuration(23 * 60 + 54)).toBe('23.9h');
+    });
+
+    it('uses days and hours for 24h+', () => {
+      expect(formatDuration(24 * 60)).toBe('1d');
+      expect(formatDuration(27 * 60)).toBe('1d 3h');
+      expect(formatDuration(48 * 60)).toBe('2d');
+      expect(formatDuration(50 * 60 + 30)).toBe('2d 2h');
     });
   });
 
