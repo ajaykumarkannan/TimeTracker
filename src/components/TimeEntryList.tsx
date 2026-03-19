@@ -1638,9 +1638,13 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                               ) : 'now\u00A0\u00A0\u00A0\u00A0\u00A0'}
                             </button>
                           )}
-                          <span className={`entry-duration ${!entry.end_time ? 'active' : ''}`}>
+                          <button 
+                            className={`entry-duration-btn ${!entry.end_time ? 'active' : ''}`}
+                            onClick={(e) => { e.stopPropagation(); startEdit(entry, 'startTime'); }}
+                            title="Tap to edit times"
+                          >
                             {formatDuration(entry.duration_minutes)}
-                          </span>
+                          </button>
                         </div>
                       </div>
                       {hasOverlap && (

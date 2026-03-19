@@ -670,6 +670,31 @@
   color: var(--success);
 }
 
+/* Duration button — looks like a span on desktop, tappable on mobile */
+.entry-duration-btn {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  min-width: 3.5rem;
+  text-align: right;
+  background: none;
+  border: none;
+  padding: 0.125rem 0.375rem;
+  margin: -0.125rem -0.375rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.entry-duration-btn:hover {
+  background: var(--bg-tertiary);
+}
+
+.entry-duration-btn.active {
+  color: var(--success);
+}
+
 /* Time button (replacing span for better touch targets) */
 .entry-time-btn {
   font-family: 'JetBrains Mono', monospace;
@@ -939,33 +964,7 @@
   }
 
   .entry-content {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.5rem;
     overflow: hidden;
-  }
-  
-  /* Consistent mobile layout: time buttons expand, duration on right */
-  .entry-meta {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    flex-wrap: nowrap;
-    gap: 0.5rem;
-  }
-  
-  /* Time buttons expand to fill available space */
-  .entry-meta .entry-time-btn {
-    flex: 1 1 0;
-    min-width: 0;
-    text-align: center;
-  }
-  
-  /* Duration stays fixed width on the right */
-  .entry-meta .entry-duration {
-    flex-shrink: 0;
-    text-align: right;
   }
   
   /* When editing time inline, the form takes full width so it doesn't
@@ -994,11 +993,10 @@
     min-height: 44px;
   }
   
-  /* Touch-friendly entry items */
+  /* Compact entry items on mobile */
   .entry-item {
-    padding: 0.2rem 0.5rem 0.2rem 0;
-    min-height: 60px;
-    align-items: stretch;
+    padding: 0.25rem 0.5rem 0.25rem 0;
+    align-items: center;
   }
 
   .entry-indicator {
@@ -1007,34 +1005,58 @@
   }
 
   .entry-content {
-    align-self: stretch;
+    align-self: center;
   }
   
   .entry-main {
-    flex-wrap: wrap;
-    gap: 0.5rem;
+    flex-wrap: nowrap;
+    gap: 0.375rem;
+    min-width: 0;
   }
   
   .entry-category {
     font-size: 0.8125rem;
   }
   
-  /* Touch-friendly time buttons */
+  .entry-description {
+    font-size: 0.75rem;
+  }
+
+  /* Compact time buttons — no boxes, just text */
   .entry-time-btn {
-    min-width: 44px;
-    min-height: 44px;
-    padding: 0.5rem 0.75rem;
+    padding: 0.25rem 0.25rem;
     margin: 0;
-    font-size: 0.875rem;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    background: var(--bg-secondary);
+    font-size: 0.75rem;
   }
   
-  .entry-time-btn:hover:not(:disabled),
-  .entry-time-btn:active:not(:disabled) {
+  .entry-meta {
+    gap: 0.25rem;
+  }
+  
+  /* Tappable duration on mobile */
+  .entry-duration-btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    min-width: 2.75rem;
+    text-align: right;
+    background: none;
+    border: none;
+    padding: 0.25rem 0;
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    transition: all var(--transition-fast);
+  }
+  
+  .entry-duration-btn:hover,
+  .entry-duration-btn:active {
     background: var(--bg-tertiary);
-    border-color: var(--primary);
+    color: var(--primary);
+  }
+
+  .entry-duration-btn.active {
+    color: var(--success);
   }
   
   /* Inline edit time form on mobile */
