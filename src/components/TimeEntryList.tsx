@@ -1583,6 +1583,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                             </span>
                           )}
                         </div>
+                        <span className="entry-connector" />
                         <div className="entry-meta">
                           {isEditing && editField === 'startTime' && !showTimeEditModal ? (
                             <form
