@@ -164,6 +164,32 @@ input::placeholder, textarea::placeholder {
   animation: scaleIn 0.2s ease-out;
 }
 
+/* Shared category badge / pill */
+.category-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  border-radius: var(--radius-full, 9999px);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.category-badge-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.category-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
 /* Focus visible for accessibility */
 :focus-visible {
   outline: 2px solid var(--accent);
