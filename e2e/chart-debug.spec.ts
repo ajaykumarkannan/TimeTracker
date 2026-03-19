@@ -79,7 +79,7 @@ test.describe('Analytics Daily Breakdown Chart', () => {
     
     // Wait for categories to load into the select after reload
     await page.waitForFunction(
-      () => document.querySelectorAll('.tracker-form select option').length > 2,
+      () => document.querySelectorAll('.new-task-inline .switch-category-select option').length > 2,
       { timeout: 15000 }
     );
   });

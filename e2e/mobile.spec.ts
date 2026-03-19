@@ -19,19 +19,19 @@ test.describe('Mobile Modal Behavior', () => {
 
     // Wait for categories to load into the select (more than the 2 static options)
     await page.waitForFunction(
-      () => document.querySelectorAll('.tracker-form select option').length > 2,
+      () => document.querySelectorAll('.switch-category-select option').length > 2,
       { timeout: 15000 }
     );
   });
 
   test('quick start can start a task on mobile', async ({ page }) => {
-    const categorySelect = page.locator('.tracker-form select');
+    const categorySelect = page.locator('.switch-category-select');
     await expect(categorySelect).toBeVisible();
 
     // Select a known default category by label
     await categorySelect.selectOption({ label: 'Meetings' });
 
-    const taskInput = page.locator('.description-input-wrapper input').first();
+    const taskInput = page.locator('.switch-description-input');
     await taskInput.fill('Mobile quick start seed task');
 
     await page.locator('button:has-text("Start")').first().click();
@@ -39,7 +39,7 @@ test.describe('Mobile Modal Behavior', () => {
 
     await page.locator('button:has-text("Stop")').first().click();
 
-    const quickStartBtn = page.locator('.quick-start-btn').first();
+    const quickStartBtn = page.locator('.switch-task-btn').first();
     await expect(quickStartBtn).toBeVisible();
 
     await quickStartBtn.click();
@@ -65,7 +65,7 @@ test.describe('Mobile Modal Behavior', () => {
   });
 
   test('task input is usable on mobile viewport', async ({ page }) => {
-    const taskInput = page.locator('.description-input-wrapper input').first();
+    const taskInput = page.locator('.switch-description-input');
     await expect(taskInput).toBeVisible();
     await taskInput.fill('Test task');
     await expect(taskInput).toHaveValue('Test task');
@@ -105,7 +105,7 @@ test.describe('Mobile UI', () => {
     
     // Wait for categories to load into the select (more than the 2 static options)
     await page.waitForFunction(
-      () => document.querySelectorAll('.tracker-form select option').length > 2,
+      () => document.querySelectorAll('.switch-category-select option').length > 2,
       { timeout: 15000 }
     );
   });
@@ -160,10 +160,10 @@ test.describe('Mobile UI', () => {
 
   test('timer is centered on mobile', async ({ page }) => {
     // Start a timer via form controls — categories already loaded in beforeEach
-    const categorySelect = page.locator('.tracker-form select');
+    const categorySelect = page.locator('.switch-category-select');
 
     await categorySelect.selectOption({ label: 'Meetings' });
-    await page.locator('.description-input-wrapper input').first().fill('Timer alignment test');
+    await page.locator('.switch-description-input').fill('Timer alignment test');
     await page.locator('button:has-text("Start")').first().click();
 
     // Wait for timer to be visible

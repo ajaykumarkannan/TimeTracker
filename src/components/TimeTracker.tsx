@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Category, TimeEntry } from '../types';
 import { api } from '../api';
 import { useTheme } from '../contexts/ThemeContext';
@@ -36,10 +36,10 @@ function getNextAvailableColor(usedColors: (string | null)[]): string {
 function formatRemainingTime(scheduledEndTime: string): string {
   const remaining = new Date(scheduledEndTime).getTime() - Date.now();
   if (remaining <= 0) return 'now';
-  
+
   const hours = Math.floor(remaining / 3600000);
   const minutes = Math.floor((remaining % 3600000) / 60000);
-  
+
   if (hours > 0) {
     return `${hours}h ${minutes}m`;
   }
@@ -78,17 +78,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   const [showNewCategory, setShowNewCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryColor, setNewCategoryColor] = useState(nextColor);
-  const [taskNamePrompt, setTaskNamePrompt] = useState<{ categoryId: number; categoryName: string; categoryColor: string | null } | null>(null);
-  const [promptedTaskName, setPromptedTaskName] = useState('');
-  const [showNewTaskForm, setShowNewTaskForm] = useState(false);
-  const [switchTaskPrompt, setSwitchTaskPrompt] = useState<{ categoryId: number; categoryName: string; categoryColor: string | null } | null>(null);
-  const [switchTaskName, setSwitchTaskName] = useState('');
-  
-  // State for inline category creation in switch task modal
-  const [showSwitchNewCategory, setShowSwitchNewCategory] = useState(false);
-  const [switchNewCategoryName, setSwitchNewCategoryName] = useState('');
-  const [switchNewCategoryColor, setSwitchNewCategoryColor] = useState(nextColor);
-  
+
   // Cached suggestions - fetched once, filtered locally
   const [cachedSuggestions, setCachedSuggestions] = useState<{ task_name: string; categoryId: number; count: number; totalMinutes: number; lastUsed: string }[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -96,13 +86,6 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   const descriptionInputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
   const suppressSuggestionOpenRef = useRef(false);
-  
-  // Modal suggestions state
-  const [showModalSuggestions, setShowModalSuggestions] = useState(false);
-  const [selectedModalSuggestionIndex, setSelectedModalSuggestionIndex] = useState(-1);
-  const modalInputRef = useRef<HTMLInputElement>(null);
-  const modalSuggestionsRef = useRef<HTMLDivElement>(null);
-  const suppressModalSuggestionOpenRef = useRef(false);
 
   // Forgotten timer state (8+ hours)
   const [showForgottenPrompt, setShowForgottenPrompt] = useState(false);
@@ -139,7 +122,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   // Prefer selected category but show all tasks
   const suggestions = useMemo(() => {
     let filtered = [...cachedSuggestions];
-    
+
     // Fuzzy filter by task name if there's a description
     if (description) {
       filtered = filtered
@@ -166,49 +149,9 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
         return new Date(b.lastUsed).getTime() - new Date(a.lastUsed).getTime();
       });
     }
-    
+
     return filtered.slice(0, 8);
   }, [cachedSuggestions, selectedCategory, description]);
-
-  // Filter modal suggestions (for task/switch prompts)
-  // For new task: show all tasks sorted by recency
-  // For switch task: prefer current category, then show others sorted by recency
-  const modalSuggestions = useMemo(() => {
-    const query = taskNamePrompt ? promptedTaskName : (switchTaskPrompt ? switchTaskName : '');
-    const currentCategoryId = switchTaskPrompt?.categoryId;
-    
-    if (!taskNamePrompt && !switchTaskPrompt) return [];
-    
-    let filtered = [...cachedSuggestions];
-    
-    if (query) {
-      filtered = filtered
-        .map(s => ({ ...s, ...fuzzyMatch(query, s.task_name) }))
-        .filter(s => s.match)
-        .sort((a, b) => {
-          // For switch task, prefer current category
-          if (currentCategoryId) {
-            const aInCategory = a.categoryId === currentCategoryId ? 1 : 0;
-            const bInCategory = b.categoryId === currentCategoryId ? 1 : 0;
-            if (aInCategory !== bInCategory) return bInCategory - aInCategory;
-          }
-          // Then by match score, then by recency
-          return b.score - a.score || new Date(b.lastUsed).getTime() - new Date(a.lastUsed).getTime();
-        });
-    } else {
-      // No query - sort by category preference (for switch), then recency
-      filtered = filtered.sort((a, b) => {
-        if (currentCategoryId) {
-          const aInCategory = a.categoryId === currentCategoryId ? 1 : 0;
-          const bInCategory = b.categoryId === currentCategoryId ? 1 : 0;
-          if (aInCategory !== bInCategory) return bInCategory - aInCategory;
-        }
-        return new Date(b.lastUsed).getTime() - new Date(a.lastUsed).getTime();
-      });
-    }
-    
-    return filtered.slice(0, 8);
-  }, [cachedSuggestions, taskNamePrompt, switchTaskPrompt, promptedTaskName, switchTaskName]);
 
   // Show/hide suggestions based on filtered results
   useEffect(() => {
@@ -220,35 +163,16 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
     setSelectedSuggestionIndex(-1);
   }, [suggestions, selectedCategory, description]);
 
-  useEffect(() => {
-    // Show modal suggestions when modal opens and has suggestions
-    // This runs after modalSuggestions recalculates
-    if ((taskNamePrompt || switchTaskPrompt) && modalSuggestions.length > 0 && !suppressModalSuggestionOpenRef.current) {
-      setShowModalSuggestions(true);
-    } else if (!taskNamePrompt && !switchTaskPrompt) {
-      setShowModalSuggestions(false);
-    }
-    setSelectedModalSuggestionIndex(-1);
-  }, [modalSuggestions.length, taskNamePrompt, switchTaskPrompt]);
-
   // Close suggestions when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (
-        suggestionsRef.current && 
+        suggestionsRef.current &&
         !suggestionsRef.current.contains(e.target as Node) &&
         descriptionInputRef.current &&
         !descriptionInputRef.current.contains(e.target as Node)
       ) {
         setShowSuggestions(false);
-      }
-      if (
-        modalSuggestionsRef.current && 
-        !modalSuggestionsRef.current.contains(e.target as Node) &&
-        modalInputRef.current &&
-        !modalInputRef.current.contains(e.target as Node)
-      ) {
-        setShowModalSuggestions(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -261,91 +185,6 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
     setSelectedCategory(suggestion.categoryId);
     setShowSuggestions(false);
     descriptionInputRef.current?.focus();
-  };
-  
-  const handleModalSuggestionSelect = (suggestion: { task_name: string }, isSwitch: boolean) => {
-    suppressModalSuggestionOpenRef.current = true;
-    if (isSwitch) {
-      setSwitchTaskName(suggestion.task_name);
-    } else {
-      setPromptedTaskName(suggestion.task_name);
-    }
-    setShowModalSuggestions(false);
-    modalInputRef.current?.focus();
-  };
-
-  const handleDescriptionKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (!showSuggestions || suggestions.length === 0) {
-      if (e.key === 'Enter' && selectedCategory) {
-        handleStart();
-      }
-      return;
-    }
-
-    switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault();
-        setSelectedSuggestionIndex(prev => 
-          prev < suggestions.length - 1 ? prev + 1 : prev
-        );
-        break;
-      case 'ArrowUp':
-        e.preventDefault();
-        setSelectedSuggestionIndex(prev => prev > 0 ? prev - 1 : -1);
-        break;
-      case 'Enter':
-        e.preventDefault();
-        if (selectedSuggestionIndex >= 0) {
-          handleSuggestionSelect(suggestions[selectedSuggestionIndex]);
-        } else if (selectedCategory) {
-          handleStart();
-        }
-        break;
-      case 'Escape':
-        suppressSuggestionOpenRef.current = true;
-        setShowSuggestions(false);
-        setSelectedSuggestionIndex(-1);
-        break;
-    }
-  };
-  
-  const handleModalKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, isSwitch: boolean, onSubmit: () => void, onCancel: () => void) => {
-    if (!showModalSuggestions || modalSuggestions.length === 0) {
-      if (e.key === 'Enter') onSubmit();
-      if (e.key === 'Escape') onCancel();
-      return;
-    }
-
-    switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault();
-        setSelectedModalSuggestionIndex(prev => 
-          prev < modalSuggestions.length - 1 ? prev + 1 : prev
-        );
-        break;
-      case 'ArrowUp':
-        e.preventDefault();
-        setSelectedModalSuggestionIndex(prev => prev > 0 ? prev - 1 : -1);
-        break;
-      case 'Enter':
-        e.preventDefault();
-        if (selectedModalSuggestionIndex >= 0) {
-          handleModalSuggestionSelect(modalSuggestions[selectedModalSuggestionIndex], isSwitch);
-        } else {
-          onSubmit();
-        }
-        break;
-      case 'Escape':
-        if (showModalSuggestions) {
-          e.preventDefault();
-          suppressModalSuggestionOpenRef.current = true;
-          setShowModalSuggestions(false);
-          setSelectedModalSuggestionIndex(-1);
-        } else {
-          onCancel();
-        }
-        break;
-    }
   };
 
   // Get recent tasks from entries (unique task_name + category combinations)
@@ -360,7 +199,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
         const key = `${entry.category_id}:${entry.task_name}`;
         const entryDayOfWeek = new Date(entry.start_time).getDay();
         const isCurrentDayOfWeek = entryDayOfWeek === currentDayOfWeek;
-        
+
         const existing = taskMap.get(key);
         if (existing) {
           existing.count++;
@@ -378,7 +217,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
           });
         }
       });
-    
+
     // Sort by: day-of-week relevance (weighted heavily), then total count
     // This prioritizes recurring meetings/tasks for the current day
     return Array.from(taskMap.values())
@@ -388,8 +227,54 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
         const bScore = b.dayOfWeekCount * 5 + b.count;
         return bScore - aScore;
       })
-      .slice(0, 4);
+      .slice(0, 8);
   }, [entries]);
+
+  // Measure how many recent task buttons fit in one row
+  const recentTasksRef = useRef<HTMLDivElement>(null);
+
+  const measureVisibleChildren = useCallback((container: HTMLDivElement | null) => {
+    if (!container) return;
+    const children = Array.from(container.children) as HTMLElement[];
+    if (children.length === 0) return;
+    
+    // Show all children for measurement
+    children.forEach(c => { c.style.display = ''; });
+    
+    // Force a layout reflow so measurements are accurate
+    void container.offsetWidth;
+    
+    const containerWidth = container.clientWidth;
+    let usedWidth = 0;
+    const gap = parseFloat(getComputedStyle(container).gap) || 0;
+    let count = 0;
+    
+    for (const child of children) {
+      const childWidth = child.offsetWidth;
+      const neededWidth = count > 0 ? gap + childWidth : childWidth;
+      if (usedWidth + neededWidth > containerWidth + 1) break;
+      usedWidth += neededWidth;
+      count++;
+    }
+
+    // Hide overflow children
+    const visible = Math.max(count, 1);
+    children.forEach((c, i) => {
+      c.style.display = i >= visible ? 'none' : '';
+    });
+  }, []);
+
+  useEffect(() => {
+    const el = recentTasksRef.current;
+    if (!el) return;
+
+    const measure = () => measureVisibleChildren(el);
+    measure();
+
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [recentTasks, activeEntry, measureVisibleChildren]);
 
   useEffect(() => {
     if (!activeEntry) {
@@ -430,7 +315,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
         setShowForgottenPrompt(false);
         setForgottenEndTime('');
       }
-      
+
       // Update scheduled remaining time display
       if (activeEntry.scheduled_end_time) {
         const remaining = new Date(activeEntry.scheduled_end_time).getTime() - now;
@@ -452,38 +337,6 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
     const interval = setInterval(updateElapsed, 1000);
     return () => clearInterval(interval);
   }, [activeEntry, onEntryChange]);
-
-  const handleStart = async () => {
-    if (!selectedCategory) return;
-    try {
-      const entry = await api.startEntry(selectedCategory, description || undefined);
-      setDescription('');
-      onEntryChange({ active: entry });
-    } catch (error) {
-      console.error('Failed to start entry:', error);
-    }
-  };
-
-  const handleQuickStartTask = async (task: RecentTask) => {
-    try {
-      const entry = await api.startEntry(task.categoryId, task.task_name);
-      onEntryChange({ active: entry });
-    } catch (error) {
-      console.error('Failed to start entry:', error);
-    }
-  };
-
-  const handlePromptedStart = async () => {
-    if (!taskNamePrompt) return;
-    try {
-      const entry = await api.startEntry(taskNamePrompt.categoryId, promptedTaskName || undefined);
-      setTaskNamePrompt(null);
-      setPromptedTaskName('');
-      onEntryChange({ active: entry });
-    } catch (error) {
-      console.error('Failed to start entry:', error);
-    }
-  };
 
   const handleStop = async () => {
     if (!activeEntry || stopping) return;
@@ -539,30 +392,30 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   const getQuickTimeOptions = () => {
     const now = new Date();
     const options: { label: string; time: string }[] = [];
-    
+
     // Round up to next 30-minute mark
     const currentMinutes = now.getMinutes();
     const roundedMinutes = currentMinutes < 30 ? 30 : 0;
     const roundedHours = currentMinutes < 30 ? now.getHours() : now.getHours() + 1;
-    
+
     const baseTime = new Date();
     baseTime.setHours(roundedHours, roundedMinutes, 0, 0);
-    
+
     // Generate 3 options: next 30min mark, +30min, +1h from first
     for (let i = 0; i < 3; i++) {
       const optionTime = new Date(baseTime.getTime() + i * 30 * 60000);
       const h = optionTime.getHours();
       const m = optionTime.getMinutes();
       const timeStr = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-      
+
       // Format label as 12-hour time
       const hour12 = h % 12 || 12;
       const ampm = h < 12 ? 'am' : 'pm';
       const label = m === 0 ? `${hour12}${ampm}` : `${hour12}:${m.toString().padStart(2, '0')}${ampm}`;
-      
+
       options.push({ label, time: timeStr });
     }
-    
+
     return options;
   };
 
@@ -580,14 +433,14 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
 
   const handleScheduleStop = async () => {
     if (!activeEntry) return;
-    
+
     let scheduledEndTime: Date;
-    
+
     if (scheduleMode === 'duration') {
       const hours = parseInt(durationHours) || 0;
       const minutes = parseInt(durationMinutes) || 0;
       if (hours === 0 && minutes === 0) return;
-      
+
       scheduledEndTime = new Date(Date.now() + (hours * 60 + minutes) * 60000);
     } else {
       if (!stopAtTime) return;
@@ -597,14 +450,14 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
       scheduledEndTime = new Date(`${targetDate}T00:00:00`);
       scheduledEndTime.setHours(hours, minutes, 0, 0);
     }
-    
+
     // Validate: must be after entry start time
     const entryStartTime = new Date(activeEntry.start_time).getTime();
     if (scheduledEndTime.getTime() <= entryStartTime) {
       setScheduleError('Stop time must be after the entry start time');
       return;
     }
-    
+
     try {
       const result = await api.scheduleStop(activeEntry.id, scheduledEndTime.toISOString());
       setShowScheduleStopModal(false);
@@ -633,20 +486,13 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
 
   const handleSwitchTask = async (categoryId: number, taskDescription?: string) => {
     try {
-      // The /start endpoint automatically stops any active entry, so just start the new one
       const entry = await api.startEntry(categoryId, taskDescription);
-      setShowNewTaskForm(false);
-      setSwitchTaskPrompt(null);
-      setSwitchTaskName('');
+      setDescription('');
+      setSelectedCategory(null);
       onEntryChange({ active: entry });
     } catch (error) {
       console.error('Failed to switch task:', error);
     }
-  };
-
-  const handlePromptedSwitch = async () => {
-    if (!switchTaskPrompt) return;
-    await handleSwitchTask(switchTaskPrompt.categoryId, switchTaskName || undefined);
   };
 
   const handleCreateCategory = async () => {
@@ -657,26 +503,6 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
       setNewCategoryName('');
       setNewCategoryColor(nextColor);
       setShowNewCategory(false);
-      onCategoryChange();
-    } catch (error) {
-      console.error('Failed to create category:', error);
-    }
-  };
-
-  // Handler for creating category in switch task modal context
-  const handleCreateSwitchCategory = async () => {
-    if (!switchNewCategoryName.trim()) return;
-    try {
-      const category = await api.createCategory(switchNewCategoryName, switchNewCategoryColor);
-      // Auto-select the newly created category in the switch task modal
-      setSwitchTaskPrompt({
-        categoryId: category.id,
-        categoryName: category.name,
-        categoryColor: category.color
-      });
-      setSwitchNewCategoryName('');
-      setSwitchNewCategoryColor(nextColor);
-      setShowSwitchNewCategory(false);
       onCategoryChange();
     } catch (error) {
       console.error('Failed to create category:', error);
@@ -704,87 +530,92 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
 
   return (
     <div className="time-tracker card">
-      {activeEntry ? (
-        <div className="active-tracker-container">
-          <div className="active-tracker">
-            <div className="timer-display">
-              <div className="timer-time">{formatTime(elapsed)}</div>
-              <div className="timer-info">
-                {(() => {
-                  const colors = getCategoryColors(activeEntry.category_color);
-                  return (
-                    <span 
-                      className="category-badge" 
-                      style={{ 
-                        backgroundColor: colors.bgColor,
-                        color: colors.textColor
-                      }}
-                    >
-                      <span className="category-dot" style={{ backgroundColor: colors.dotColor }} />
-                      {activeEntry.category_name}
-                    </span>
-                  );
-                })()}
-                {activeEntry.task_name && <span className="timer-description">{activeEntry.task_name}</span>}
-              </div>
-            </div>
-            <div className="timer-actions">
-              <div className={`stop-button-group ${activeEntry.scheduled_end_time ? 'has-schedule' : ''}`}>
-                <button className="btn btn-danger stop-main" onClick={handleStop} disabled={stopping}>
-                  <span className="stop-icon">■</span>
-                  {activeEntry.scheduled_end_time ? null : (stopping ? 'Stopping…' : 'Stop')}
-                </button>
-                {activeEntry.scheduled_end_time ? (
-                  <button 
-                    className="btn btn-danger btn-end-at scheduled" 
-                    onClick={handleClearScheduledStop}
-                    title="Click to cancel scheduled end"
-                  >
-                    <svg className="clock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="12" cy="12" r="10"/>
-                      <polyline points="12 6 12 12 16 14"/>
-                    </svg>
-                    <span className="scheduled-time">{scheduledRemaining}</span>
-                  </button>
-                ) : (
-                  <button 
-                    className="btn btn-danger btn-end-at" 
-                    onClick={handleOpenScheduleStop}
-                    title="Schedule end time"
-                  >
-                    <svg className="clock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="12" cy="12" r="10"/>
-                      <polyline points="12 6 12 12 16 14"/>
-                    </svg>
-                  </button>
-                )}
-              </div>
-            </div>
+      {/* Row 1: Timer — always visible */}
+      <div className="active-tracker">
+        <div className="timer-display">
+          <div className={`timer-time ${!activeEntry ? 'timer-idle' : ''}`}>{formatTime(activeEntry ? elapsed : 0)}</div>
+          <div className="timer-info">
+            {activeEntry ? (() => {
+              const colors = getCategoryColors(activeEntry.category_color);
+              return (
+                <span
+                  className="category-badge"
+                  style={{
+                    backgroundColor: colors.bgColor,
+                    color: colors.textColor
+                  }}
+                >
+                  <span className="category-dot" style={{ backgroundColor: colors.dotColor }} />
+                  {activeEntry.category_name}
+                </span>
+              );
+            })() : (
+              <span className="category-badge category-badge-idle">
+              <span className="category-dot" style={{ backgroundColor: 'var(--text-muted)' }} />
+              No task
+            </span>
+            )}
+            {activeEntry?.task_name && <span className="timer-description">{activeEntry.task_name}</span>}
           </div>
-          
-          {/* Schedule stop modal */}
-          {showScheduleStopModal && (
+        </div>
+        <div className="timer-actions">
+          <div className={`stop-button-group ${activeEntry?.scheduled_end_time ? 'has-schedule' : ''}`}>
+            <button className="btn btn-danger stop-main" onClick={handleStop} disabled={!activeEntry || stopping}>
+              <span className="stop-icon">■</span>
+              {activeEntry?.scheduled_end_time ? null : (stopping ? 'Stopping…' : 'Stop')}
+            </button>
+            {activeEntry?.scheduled_end_time ? (
+              <button
+                className="btn btn-danger btn-end-at scheduled"
+                onClick={handleClearScheduledStop}
+                title="Click to cancel scheduled end"
+              >
+                <svg className="clock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"/>
+                  <polyline points="12 6 12 12 16 14"/>
+                </svg>
+                <span className="scheduled-time">{scheduledRemaining}</span>
+              </button>
+            ) : (
+              <button
+                className="btn btn-danger btn-end-at"
+                onClick={handleOpenScheduleStop}
+                title="Schedule end time"
+                disabled={!activeEntry}
+              >
+                <svg className="clock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"/>
+                  <polyline points="12 6 12 12 16 14"/>
+                </svg>
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Schedule stop modal */}
+      {showScheduleStopModal && (
             <div className="task-prompt-overlay" onClick={() => setShowScheduleStopModal(false)}>
               <div className="task-prompt-modal schedule-stop-modal" onClick={e => e.stopPropagation()}>
                 <div className="task-prompt-header">
                   <span className="task-prompt-title">Set Stop Time</span>
                 </div>
-                
+
                 <div className="schedule-mode-tabs">
-                  <button 
+                  <button
                     className={`schedule-mode-tab ${scheduleMode === 'duration' ? 'active' : ''}`}
                     onClick={() => setScheduleMode('duration')}
                   >
                     After duration
                   </button>
-                  <button 
+                  <button
                     className={`schedule-mode-tab ${scheduleMode === 'time' ? 'active' : ''}`}
                     onClick={() => setScheduleMode('time')}
                   >
                     At specific time
                   </button>
                 </div>
-                
+
                 {scheduleMode === 'duration' ? (
                   <div className="schedule-duration-inputs">
                     <div className="duration-input-group">
@@ -830,7 +661,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                     />
                   </div>
                 )}
-                
+
                 <div className="schedule-quick-options">
                   <span className="quick-options-label">Quick:</span>
                   {scheduleMode === 'duration' ? (
@@ -860,7 +691,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                     ))
                   )}
                 </div>
-                
+
                 <div className="task-prompt-actions">
                   {scheduleError && (
                     <div className="schedule-error">{scheduleError}</div>
@@ -868,10 +699,10 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                   <button className="btn btn-ghost" onClick={() => { setShowScheduleStopModal(false); setScheduleError(null); }}>
                     Cancel
                   </button>
-                  <button 
-                    className="btn btn-primary" 
+                  <button
+                    className="btn btn-primary"
                     onClick={handleScheduleStop}
-                    disabled={scheduleMode === 'duration' 
+                    disabled={scheduleMode === 'duration'
                       ? (!durationHours && !durationMinutes) || (parseInt(durationHours || '0') === 0 && parseInt(durationMinutes || '0') === 0)
                       : !stopAtTime
                     }
@@ -885,217 +716,76 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
           )}
 
           {/* Forgotten timer prompt (8+ hours) */}
-          {showForgottenPrompt && (
-            <div className="forgotten-timer-banner">
-              <div className="forgotten-timer-message">
-                <span className="forgotten-timer-icon">⏰</span>
-                <span>This timer has been running for over 8 hours. Did you forget to stop it?</span>
-              </div>
-              <div className="forgotten-timer-actions">
-                <button className="btn btn-ghost" onClick={handleForgottenKeep}>
-                  Keep all time
-                </button>
-                <div className="forgotten-timer-end-time">
-                  <input
-                    type="datetime-local"
-                    value={forgottenEndTime}
-                    onChange={(e) => setForgottenEndTime(e.target.value)}
-                    className="forgotten-time-input"
-                    max={new Date().toISOString().slice(0, 16)}
-                    min={activeEntry?.start_time ? new Date(activeEntry.start_time).toISOString().slice(0, 16) : undefined}
-                  />
-                  <button
-                    className="btn btn-primary"
-                    onClick={handleForgottenSetEndTime}
-                    disabled={!forgottenEndTime}
-                  >
-                    Set end time
-                  </button>
-                </div>
-              </div>
+      {showForgottenPrompt && activeEntry && (
+        <div className="forgotten-timer-banner">
+          <div className="forgotten-timer-message">
+            <span className="forgotten-timer-icon">⏰</span>
+            <span>This timer has been running for over 8 hours. Did you forget to stop it?</span>
+          </div>
+          <div className="forgotten-timer-actions">
+            <button className="btn btn-ghost" onClick={handleForgottenKeep}>
+              Keep all time
+            </button>
+            <div className="forgotten-timer-end-time">
+              <input
+                type="datetime-local"
+                value={forgottenEndTime}
+                onChange={(e) => setForgottenEndTime(e.target.value)}
+                className="forgotten-time-input"
+                max={new Date().toISOString().slice(0, 16)}
+                min={activeEntry.start_time ? new Date(activeEntry.start_time).toISOString().slice(0, 16) : undefined}
+              />
+              <button
+                className="btn btn-primary"
+                onClick={handleForgottenSetEndTime}
+                disabled={!forgottenEndTime}
+              >
+                Set end time
+              </button>
             </div>
-          )}
-          
-          {/* Switch task section while tracking */}
-          <div className="switch-task-section">
-            <span className="switch-label">Switch to:</span>
-            
-            {/* Switch task prompt modal */}
-            {switchTaskPrompt && (
-              <div className="task-prompt-overlay" onClick={() => {
-                setSwitchTaskPrompt(null);
-                setShowSwitchNewCategory(false);
-                setSwitchNewCategoryName('');
-                setSwitchNewCategoryColor(nextColor);
-              }}>
-                <div className="task-prompt-modal" onClick={e => e.stopPropagation()}>
-                  <div className="task-prompt-header">
-                    <span className="task-prompt-title">Switch to</span>
-                    {(() => {
-                      const colors = getCategoryColors(switchTaskPrompt.categoryColor);
-                      return (
-                        <span 
-                          className="category-badge" 
-                          style={{ 
-                            backgroundColor: colors.bgColor,
-                            color: colors.textColor
-                          }}
-                        >
-                          <span className="category-dot" style={{ backgroundColor: colors.dotColor }} />
-                          {switchTaskPrompt.categoryName}
-                        </span>
-                      );
-                    })()}
-                  </div>
-                  
-                  {/* Category selector with add option */}
-                  <div className="form-group modal-category-selector">
-                    <label>Category</label>
-                    <select
-                      value={switchTaskPrompt.categoryId}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        if (val === 'new') {
-                          setShowSwitchNewCategory(true);
-                        } else {
-                          const cat = categories.find(c => c.id === Number(val));
-                          if (cat) {
-                            setSwitchTaskPrompt({
-                              categoryId: cat.id,
-                              categoryName: cat.name,
-                              categoryColor: cat.color
-                            });
-                          }
-                          setShowSwitchNewCategory(false);
-                        }
-                      }}
-                    >
-                      {categories.map(cat => (
-                        <option key={cat.id} value={cat.id}>{cat.name}</option>
-                      ))}
-                      <option value="new">+ Add category</option>
-                    </select>
-                  </div>
-                  
-                  {/* Inline category creation form */}
-                  {showSwitchNewCategory && (
-                    <div className="new-category-form animate-slide-in">
-                      <input
-                        type="text"
-                        value={switchNewCategoryName}
-                        onChange={(e) => setSwitchNewCategoryName(e.target.value)}
-                        placeholder="Category name"
-                        autoFocus
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') handleCreateSwitchCategory();
-                          if (e.key === 'Escape') {
-                            setShowSwitchNewCategory(false);
-                            setSwitchNewCategoryName('');
-                            setSwitchNewCategoryColor(nextColor);
-                          }
-                        }}
-                      />
-                      <input
-                        type="color"
-                        value={switchNewCategoryColor}
-                        onChange={(e) => setSwitchNewCategoryColor(e.target.value)}
-                        className="color-picker"
-                      />
-                      <button 
-                        className="btn btn-ghost" 
-                        onClick={() => {
-                          setShowSwitchNewCategory(false);
-                          setSwitchNewCategoryName('');
-                          setSwitchNewCategoryColor(nextColor);
-                        }}
-                      >
-                        Cancel
-                      </button>
-                      <button 
-                        className="btn btn-primary" 
-                        onClick={handleCreateSwitchCategory}
-                        disabled={!switchNewCategoryName.trim()}
-                      >
-                        Create
-                      </button>
-                    </div>
-                  )}
-                  
-                  <div className="description-input-wrapper">
-                    <input
-                      ref={modalInputRef}
-                      type="text"
-                      className="task-prompt-input"
-                      value={switchTaskName}
-                      onChange={(e) => {
-                        suppressModalSuggestionOpenRef.current = false;
-                        setSwitchTaskName(e.target.value);
-                      }}
-                      placeholder="What are you working on? (optional)"
-                      autoFocus={!showSwitchNewCategory}
-                      autoComplete="off"
-                      data-lpignore="true"
-                      data-1p-ignore
-                      data-form-type="other"
-                      onFocus={() => {
-                        if (modalSuggestions.length > 0 && !suppressModalSuggestionOpenRef.current) {
-                          setShowModalSuggestions(true);
-                        }
-                      }}
-                      onKeyDown={(e) => handleModalKeyDown(e, true, handlePromptedSwitch, () => {
-                        setSwitchTaskPrompt(null);
-                        setShowSwitchNewCategory(false);
-                        setSwitchNewCategoryName('');
-                        setSwitchNewCategoryColor(nextColor);
-                      })}
-                    />
-                  {showModalSuggestions && modalSuggestions.length > 0 && (
-                    <div className="description-suggestions modal-suggestions" ref={modalSuggestionsRef}>
-                      {modalSuggestions.map((suggestion, idx) => {
-                        const cat = categories.find(c => c.id === suggestion.categoryId);
-                        const colors = getCategoryColors(cat?.color || null);
-                        return (
-                          <button
-                            key={`${suggestion.categoryId}-${suggestion.task_name}`}
-                            className={`suggestion-item ${idx === selectedModalSuggestionIndex ? 'selected' : ''}`}
-                            onClick={() => handleModalSuggestionSelect(suggestion, true)}
-                            onMouseEnter={() => setSelectedModalSuggestionIndex(idx)}
-                          >
-                            <span className="suggestion-text">{suggestion.task_name}</span>
-                            <span className="suggestion-meta">
-                              <span className="category-dot" style={{ backgroundColor: colors.dotColor }} />
-                              <span className="suggestion-category">{cat?.name || 'Unknown'}</span>
-                              <span className="suggestion-count">×{suggestion.count}</span>
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                  </div>
-                  <div className="task-prompt-actions">
-                    <button className="btn btn-ghost" onClick={() => {
-                      setSwitchTaskPrompt(null);
-                      setShowSwitchNewCategory(false);
-                      setSwitchNewCategoryName('');
-                      setSwitchNewCategoryColor(nextColor);
-                    }}>
-                      Cancel
-                    </button>
-                    <button className="btn btn-success" onClick={handlePromptedSwitch}>
-                      <span className="play-icon">▶</span>
-                      Switch
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
+          </div>
+        </div>
+      )}
 
-            {showNewTaskForm ? (
-              <div className="new-task-inline">
-                <select 
+      {/* Row 2: Switch to — recent task buttons */}
+      <div className="switch-task-section">
+        <div className="switch-task-row">
+          <div className="switch-quick-options" ref={recentTasksRef}>
+            {recentTasks.map((task, idx) => {
+              const colors = getCategoryColors(task.categoryColor);
+              return (
+                <button
+                  key={idx}
+                  className="switch-task-btn"
+                  onClick={() => handleSwitchTask(task.categoryId, task.task_name)}
+                  title={task.categoryName}
+                >
+                  <span className="category-dot" style={{ backgroundColor: colors.dotColor }} />
+                  <span className="switch-task-description">{task.task_name}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Row 3: New task form — always visible */}
+        <div className="new-task-inline">
+          {(() => {
+            const selectedCat = categories.find(c => c.id === selectedCategory);
+            const colors = selectedCat ? getCategoryColors(selectedCat.color) : null;
+            return (
+              <div
+                className="new-task-category-wrapper"
+                style={colors ? {
+                  '--cat-bg': colors.bgColor,
+                  '--cat-dot': colors.dotColor,
+                  '--cat-text': colors.textColor
+                } as React.CSSProperties : undefined}
+              >
+                <span className="category-color-indicator" style={{ backgroundColor: colors?.dotColor || 'var(--text-muted)' }} />
+                <select
                   className="switch-category-select"
-                  value={selectedCategory || ''} 
+                  value={selectedCategory || ''}
                   onChange={(e) => {
                     const val = e.target.value;
                     if (val === 'new') {
@@ -1114,334 +804,100 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                   ))}
                   <option value="new">+ New category</option>
                 </select>
-                <div className="description-input-wrapper switch-description-wrapper">
-                  <input 
-                    ref={descriptionInputRef}
-                    type="text"
-                    className="switch-description-input"
-                    value={description}
-                    onChange={(e) => {
-                      suppressSuggestionOpenRef.current = false;
-                      setDescription(e.target.value);
-                    }}
-                    placeholder="Task name (optional)"
-                    autoComplete="off"
-                    data-lpignore="true"
-                    data-1p-ignore
-                    data-form-type="other"
-                    onFocus={() => {
-                      if (suggestions.length > 0 && !suppressSuggestionOpenRef.current) {
-                        setShowSuggestions(true);
-                      }
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Escape') {
-                        // Close inline form on Escape
-                        setShowNewTaskForm(false);
-                        setSelectedCategory(null);
-                        setDescription('');
-                        setShowNewCategory(false);
-                        return;
-                      }
-                      if (!showSuggestions || suggestions.length === 0) {
-                        if (e.key === 'Enter' && selectedCategory) {
-                          handleSwitchTask(selectedCategory, description || undefined);
-                        }
-                        return;
-                      }
-                      switch (e.key) {
-                        case 'ArrowDown':
-                          e.preventDefault();
-                          setSelectedSuggestionIndex(prev => 
-                            prev < suggestions.length - 1 ? prev + 1 : prev
-                          );
-                          break;
-                        case 'ArrowUp':
-                          e.preventDefault();
-                          setSelectedSuggestionIndex(prev => prev > 0 ? prev - 1 : -1);
-                          break;
-                        case 'Enter':
-                          e.preventDefault();
-                          if (selectedSuggestionIndex >= 0) {
-                            handleSuggestionSelect(suggestions[selectedSuggestionIndex]);
-                          } else if (selectedCategory) {
-                            handleSwitchTask(selectedCategory, description || undefined);
-                          }
-                          break;
-                      }
-                    }}
-                  />
-                  {showSuggestions && suggestions.length > 0 && (
-                    <div className="description-suggestions" ref={suggestionsRef}>
-                      {suggestions.map((suggestion, idx) => {
-                        const cat = categories.find(c => c.id === suggestion.categoryId);
-                        const colors = getCategoryColors(cat?.color || null);
-                        return (
-                          <button
-                            key={`${suggestion.categoryId}-${suggestion.task_name}`}
-                            className={`suggestion-item ${idx === selectedSuggestionIndex ? 'selected' : ''}`}
-                            onClick={() => handleSuggestionSelect(suggestion)}
-                            onMouseEnter={() => setSelectedSuggestionIndex(idx)}
-                          >
-                            <span className="suggestion-text">{suggestion.task_name}</span>
-                            <span className="suggestion-meta">
-                              <span className="category-dot" style={{ backgroundColor: colors.dotColor }} />
-                              <span className="suggestion-category">{cat?.name || 'Unknown'}</span>
-                              <span className="suggestion-count">×{suggestion.count}</span>
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-                <button 
-                  className="btn btn-success btn-sm"
-                  onClick={() => selectedCategory && handleSwitchTask(selectedCategory, description || undefined)}
-                  disabled={!selectedCategory}
-                >
-                  Start
-                </button>
-                <button 
-                  className="btn btn-ghost btn-sm"
-                  onClick={() => {
-                    setShowNewTaskForm(false);
-                    setSelectedCategory(null);
-                    setDescription('');
-                    setShowNewCategory(false);
-                  }}
-                  title="Cancel"
-                >
-                  ✕
-                </button>
               </div>
-            ) : (
-              <>
-                <div className="switch-quick-options">
-                  {recentTasks.slice(0, 4).map((task, idx) => {
-                    const colors = getCategoryColors(task.categoryColor);
-                    return (
-                      <button
-                        key={idx}
-                        className="switch-task-btn"
-                        onClick={() => handleSwitchTask(task.categoryId, task.task_name)}
-                        title={`${task.categoryName}: ${task.task_name}`}
-                      >
-                        <span className="category-dot" style={{ backgroundColor: colors.dotColor }} />
-                        <span className="switch-task-description">{task.task_name}</span>
-                      </button>
+            );
+          })()}
+          <div className="description-input-wrapper switch-description-wrapper">
+            <input
+              ref={descriptionInputRef}
+              type="text"
+              className="switch-description-input"
+              value={description}
+              onChange={(e) => {
+                suppressSuggestionOpenRef.current = false;
+                setDescription(e.target.value);
+              }}
+              placeholder="Task (optional)"
+              autoComplete="off"
+              data-lpignore="true"
+              data-1p-ignore
+              data-form-type="other"
+              onFocus={() => {
+                if (suggestions.length > 0 && !suppressSuggestionOpenRef.current) {
+                  setShowSuggestions(true);
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  if (showSuggestions) {
+                    suppressSuggestionOpenRef.current = true;
+                    setShowSuggestions(false);
+                    setSelectedSuggestionIndex(-1);
+                  }
+                  return;
+                }
+                if (!showSuggestions || suggestions.length === 0) {
+                  if (e.key === 'Enter' && selectedCategory) {
+                    handleSwitchTask(selectedCategory, description || undefined);
+                  }
+                  return;
+                }
+                switch (e.key) {
+                  case 'ArrowDown':
+                    e.preventDefault();
+                    setSelectedSuggestionIndex(prev =>
+                      prev < suggestions.length - 1 ? prev + 1 : prev
                     );
-                  })}
-                </div>
-                <button 
-                  className="btn btn-ghost btn-sm switch-add-btn"
-                  onClick={() => setShowNewTaskForm(true)}
-                >
-                  +
-                </button>
-              </>
+                    break;
+                  case 'ArrowUp':
+                    e.preventDefault();
+                    setSelectedSuggestionIndex(prev => prev > 0 ? prev - 1 : -1);
+                    break;
+                  case 'Enter':
+                    e.preventDefault();
+                    if (selectedSuggestionIndex >= 0) {
+                      handleSuggestionSelect(suggestions[selectedSuggestionIndex]);
+                    } else if (selectedCategory) {
+                      handleSwitchTask(selectedCategory, description || undefined);
+                    }
+                    break;
+                }
+              }}
+            />
+            {showSuggestions && suggestions.length > 0 && (
+              <div className="description-suggestions" ref={suggestionsRef}>
+                {suggestions.map((suggestion, idx) => {
+                  const cat = categories.find(c => c.id === suggestion.categoryId);
+                  const colors = getCategoryColors(cat?.color || null);
+                  return (
+                    <button
+                      key={`${suggestion.categoryId}-${suggestion.task_name}`}
+                      className={`suggestion-item ${idx === selectedSuggestionIndex ? 'selected' : ''}`}
+                      onClick={() => handleSuggestionSelect(suggestion)}
+                      onMouseEnter={() => setSelectedSuggestionIndex(idx)}
+                    >
+                      <span className="suggestion-text">{suggestion.task_name}</span>
+                      <span className="suggestion-meta">
+                        <span className="category-dot" style={{ backgroundColor: colors.dotColor }} />
+                        <span className="suggestion-category">{cat?.name || 'Unknown'}</span>
+                        <span className="suggestion-count">×{suggestion.count}</span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             )}
           </div>
+          <button
+            className="btn btn-success start-btn"
+            onClick={() => selectedCategory && handleSwitchTask(selectedCategory, description || undefined)}
+            disabled={!selectedCategory}
+          >
+            <span className="play-icon">▶</span>
+            <span className="start-btn-text">Start</span>
+          </button>
         </div>
-      ) : (
-        <div className="start-tracker">
-          {/* Task name prompt modal */}
-          {taskNamePrompt && (
-            <div className="task-prompt-overlay" onClick={() => setTaskNamePrompt(null)}>
-              <div className="task-prompt-modal" onClick={e => e.stopPropagation()}>
-                <div className="task-prompt-header">
-                  {(() => {
-                    const colors = getCategoryColors(taskNamePrompt.categoryColor);
-                    return (
-                      <span 
-                        className="category-badge" 
-                        style={{ 
-                          backgroundColor: colors.bgColor,
-                          color: colors.textColor
-                        }}
-                      >
-                        <span className="category-dot" style={{ backgroundColor: colors.dotColor }} />
-                        {taskNamePrompt.categoryName}
-                      </span>
-                    );
-                  })()}
-                </div>
-                <div className="description-input-wrapper">
-                  <input
-                    ref={modalInputRef}
-                    type="text"
-                    className="task-prompt-input"
-                    value={promptedTaskName}
-                      onChange={(e) => {
-                        suppressModalSuggestionOpenRef.current = false;
-                        setPromptedTaskName(e.target.value);
-                      }}
-                    placeholder="What are you working on? (optional)"
-                    autoFocus
-                    autoComplete="off"
-                    data-lpignore="true"
-                    data-1p-ignore
-                    data-form-type="other"
-                      onFocus={() => {
-                        if (modalSuggestions.length > 0 && !suppressModalSuggestionOpenRef.current) {
-                          setShowModalSuggestions(true);
-                        }
-                      }}
-                    onKeyDown={(e) => handleModalKeyDown(e, false, handlePromptedStart, () => setTaskNamePrompt(null))}
-                  />
-                  {showModalSuggestions && modalSuggestions.length > 0 && (
-                    <div className="description-suggestions modal-suggestions" ref={modalSuggestionsRef}>
-                      {modalSuggestions.map((suggestion, idx) => {
-                        const cat = categories.find(c => c.id === suggestion.categoryId);
-                        const colors = getCategoryColors(cat?.color || null);
-                        return (
-                          <button
-                            key={`${suggestion.categoryId}-${suggestion.task_name}`}
-                            className={`suggestion-item ${idx === selectedModalSuggestionIndex ? 'selected' : ''}`}
-                            onClick={() => handleModalSuggestionSelect(suggestion, false)}
-                            onMouseEnter={() => setSelectedModalSuggestionIndex(idx)}
-                          >
-                            <span className="suggestion-text">{suggestion.task_name}</span>
-                            <span className="suggestion-meta">
-                              <span className="category-dot" style={{ backgroundColor: colors.dotColor }} />
-                              <span className="suggestion-category">{cat?.name || 'Unknown'}</span>
-                              <span className="suggestion-count">×{suggestion.count}</span>
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-                <div className="task-prompt-actions">
-                  <button className="btn btn-ghost" onClick={() => setTaskNamePrompt(null)}>
-                    Cancel
-                  </button>
-                  <button className="btn btn-success" onClick={handlePromptedStart}>
-                    <span className="play-icon">▶</span>
-                    Start
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Quick start section with recent tasks */}
-          {recentTasks.length > 0 && (
-            <div className="quick-start-section">
-              <div className="quick-start-group">
-                <span className="quick-start-label">Recent tasks</span>
-                <div className="quick-start-buttons">
-                    {recentTasks.map((task, idx) => {
-                    const colors = getCategoryColors(task.categoryColor);
-                    return (
-                      <button
-                        key={idx}
-                        className="quick-start-btn quick-start-task"
-                        onClick={() => handleQuickStartTask(task)}
-                        title={`${task.categoryName}: ${task.task_name}`}
-                      >
-                        <span className="category-dot" style={{ backgroundColor: colors.dotColor }} />
-                        <span className="task-description-text">{task.task_name}</span>
-                        <span className="task-category-hint">{task.categoryName}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="tracker-form">
-            <div className="form-row">
-              <div className="form-group">
-                <label>Category</label>
-                <select 
-                  value={selectedCategory || ''} 
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    if (val === 'new') {
-                      setShowNewCategory(true);
-                      setSelectedCategory(null);
-                    } else {
-                      setSelectedCategory(Number(val));
-                      setShowNewCategory(false);
-                    }
-                  }}
-                >
-                  <option value="">Select category...</option>
-                  {categories.map(cat => (
-                    <option key={cat.id} value={cat.id}>{cat.name}</option>
-                  ))}
-                  <option value="new">+ New category</option>
-                </select>
-              </div>
-
-              <div className="form-group form-group-description">
-                <label>Task <span className="optional">(optional)</span></label>
-                <div className="description-input-wrapper">
-                  <input 
-                    ref={descriptionInputRef}
-                    type="text"
-                    value={description}
-                    onChange={(e) => {
-                      suppressSuggestionOpenRef.current = false;
-                      setDescription(e.target.value);
-                    }}
-                    onFocus={() => {
-                      if (suggestions.length > 0 && !suppressSuggestionOpenRef.current) {
-                        setShowSuggestions(true);
-                      }
-                    }}
-                    onKeyDown={handleDescriptionKeyDown}
-                    placeholder="What are you working on?"
-                    autoComplete="off"
-                    data-lpignore="true"
-                    data-1p-ignore
-                    data-form-type="other"
-                  />
-                  {showSuggestions && suggestions.length > 0 && (
-                    <div className="description-suggestions" ref={suggestionsRef}>
-                      {suggestions.map((suggestion, idx) => {
-                        const cat = categories.find(c => c.id === suggestion.categoryId);
-                        const colors = getCategoryColors(cat?.color || null);
-                        return (
-                          <button
-                            key={`${suggestion.categoryId}-${suggestion.task_name}`}
-                            className={`suggestion-item ${idx === selectedSuggestionIndex ? 'selected' : ''}`}
-                            onClick={() => handleSuggestionSelect(suggestion)}
-                            onMouseEnter={() => setSelectedSuggestionIndex(idx)}
-                          >
-                            <span className="suggestion-text">{suggestion.task_name}</span>
-                            <span className="suggestion-meta">
-                              <span className="category-dot" style={{ backgroundColor: colors.dotColor }} />
-                              <span className="suggestion-category">{cat?.name || 'Unknown'}</span>
-                              <span className="suggestion-count">×{suggestion.count}</span>
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="form-group form-group-action">
-                <label>&nbsp;</label>
-                <button 
-                  className="btn btn-success start-btn" 
-                  onClick={handleStart}
-                  disabled={!selectedCategory}
-                >
-                  <span className="play-icon">▶</span>
-                  Start
-                </button>
-              </div>
-            </div>
-
-          </div>
-        </div>
-      )}
+      </div>
 
       {/* New category modal (shared by start form and switch task inline) */}
       {showNewCategory && (

@@ -17,7 +17,7 @@ test.describe('Time Tracker E2E', () => {
     
     // Wait for categories to load into the select (more than the 2 static options)
     await page.waitForFunction(
-      () => document.querySelectorAll('.tracker-form select option').length > 2,
+      () => document.querySelectorAll('.switch-category-select option').length > 2,
       { timeout: 15000 }
     );
   });
@@ -39,9 +39,9 @@ test.describe('Time Tracker E2E', () => {
     await page.click('.desktop-nav button:has-text("Track")');
 
     // Start tracking time via the tracker form
-    await page.selectOption('.tracker-form select', { label: 'Development' });
-    await page.fill('.tracker-form input[placeholder="What are you working on?"]', 'Building time tracker app');
-    await page.click('.tracker-form .start-btn');
+    await page.selectOption('.switch-category-select', { label: 'Development' });
+    await page.fill('.switch-description-input', 'Building time tracker app');
+    await page.click('.start-btn');
 
     // Verify timer is running
     await expect(page.locator('button:has-text("Stop")')).toBeVisible();
@@ -88,13 +88,13 @@ test.describe('Time Tracker E2E', () => {
 
   test('cannot start timer without category selected', async ({ page }) => {
     // The start button in the form should be disabled when no category is selected
-    await expect(page.locator('.tracker-form .start-btn')).toBeDisabled();
+    await expect(page.locator('.start-btn')).toBeDisabled();
   });
 
   test('displays time in history after tracking', async ({ page }) => {
     // Use one of the default categories (Meetings) to track time via the form
-    await page.selectOption('.tracker-form select', { label: 'Meetings' });
-    await page.click('.tracker-form .start-btn');
+    await page.selectOption('.switch-category-select', { label: 'Meetings' });
+    await page.click('.start-btn');
     
     await page.waitForTimeout(2000);
     
@@ -108,8 +108,8 @@ test.describe('Time Tracker E2E', () => {
 
   test('timer updates in real-time', async ({ page }) => {
     // Start timer using a default category via the form
-    await page.selectOption('.tracker-form select', { label: 'Planning' });
-    await page.click('.tracker-form .start-btn');
+    await page.selectOption('.switch-category-select', { label: 'Planning' });
+    await page.click('.start-btn');
 
     // Wait for timer to be visible (this means the start was successful)
     await expect(page.locator('.timer-time')).toBeVisible({ timeout: 15000 });

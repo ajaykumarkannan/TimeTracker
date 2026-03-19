@@ -2,12 +2,6 @@
   padding: 1.5rem;
 }
 
-.active-tracker-container {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-}
-
 .active-tracker {
   display: flex;
   align-items: center;
@@ -368,31 +362,29 @@
 /* Switch task section */
 .switch-task-section {
   display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding-top: 1rem;
+  margin-top: 0.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.switch-task-row {
+  display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding-top: 1.25rem;
-  border-top: 1px solid var(--border);
+  margin-bottom: 0.325rem;
 }
 
 .switch-quick-options {
   display: flex;
   gap: 0.5rem;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   flex: 1;
-}
-
-.switch-add-btn {
-  margin-left: auto;
-}
-
-
-.switch-label {
-  font-size: 0.6875rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  overflow: hidden;
+  min-width: 0;
+  justify-content: center;
 }
 
 .btn-sm {
@@ -446,9 +438,29 @@
 
 .new-task-inline {
   display: flex;
-  gap: 0.5rem;
-  flex: 1;
+  gap: 0.625rem;
   align-items: center;
+}
+
+.new-task-category-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  border-radius: var(--radius-md);
+  flex-shrink: 0;
+}
+
+.new-task-category-wrapper .category-color-indicator {
+  display: block;
+  position: absolute;
+  left: 0.625rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  z-index: 1;
+  pointer-events: none;
 }
 
 .switch-category-select,
@@ -460,7 +472,12 @@
   background: var(--input-bg);
   color: var(--text-primary);
   box-sizing: border-box;
-  height: 2.125rem;
+  height: 2.5rem;
+}
+
+.new-task-category-wrapper .switch-category-select {
+  padding-left: 1.5rem;
+  min-width: 130px;
 }
 
 .switch-category-select {
@@ -487,88 +504,6 @@
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 3px var(--primary-alpha);
-}
-
-/* Start tracker */
-.start-tracker {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-}
-
-/* Quick start section */
-.quick-start-section {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-  padding-bottom: 1.25rem;
-  border-bottom: 1px solid var(--border);
-}
-
-.quick-start-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.625rem;
-  align-items: center;
-}
-
-.quick-start-label {
-  font-size: 0.6875rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
-.quick-start-buttons {
-  display: flex;
-  flex-direction: row;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-}
-
-.quick-start-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
-  padding: 0.5rem 0.875rem;
-  border-radius: var(--radius-md);
-  font-size: 0.8125rem;
-  font-weight: 500;
-  transition: all var(--transition-fast);
-  white-space: nowrap;
-  cursor: pointer;
-  overflow: hidden;
-}
-
-/* Task quick start */
-.quick-start-task {
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border);
-  color: var(--text-primary);
-  max-width: 220px;
-}
-
-.quick-start-task:hover {
-  background: var(--bg-tertiary);
-  transform: translateY(-1px);
-}
-
-.task-description-text {
-  flex-shrink: 0;
-  white-space: nowrap;
-}
-
-.task-category-hint {
-  font-size: 0.6875rem;
-  color: var(--text-muted);
-  margin-left: 0.25rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
 }
 
 /* Task name prompt modal */
@@ -605,96 +540,26 @@
   gap: 0.5rem;
 }
 
-.task-prompt-input {
-  width: 100%;
-  padding: 0.875rem 1rem;
-  border: 1.5px solid var(--border);
-  border-radius: var(--radius-md);
-  font-size: 1rem;
-  background: var(--input-bg);
-  color: var(--text-primary);
-}
-
-.task-prompt-input:focus {
-  outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px var(--primary-alpha);
-}
-
-.task-prompt-input::placeholder {
-  color: var(--text-muted);
-}
-
 .task-prompt-actions {
   display: flex;
   justify-content: flex-end;
   gap: 0.5rem;
 }
 
-/* Tracker form */
-.tracker-form {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.form-row {
-  display: flex;
-  gap: 0.75rem;
-  align-items: end;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  min-width: 0;
-}
-
-.form-group-description {
-  flex: 1;
-}
-
-.form-group-action {
-  margin-left: auto;
-}
-
-.form-group label {
-  font-size: 0.6875rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
-.form-group label .optional {
-  font-weight: 400;
-  text-transform: none;
-  color: var(--text-muted);
-  opacity: 0.7;
-}
-
-.form-group select,
-.form-group input[type="text"] {
-  width: 100%;
-  height: 44px;
-  /* Safari fix: ensure select has proper appearance */
-  -webkit-appearance: none;
-  appearance: none;
-}
-
-/* Re-add dropdown arrow for select */
-.form-group select {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 0.75rem center;
-  padding-right: 2.5rem;
-}
-
 .start-btn {
-  height: 44px;
-  padding: 0 1.5rem;
+  height: 2.5rem;
+  padding: 0 1.25rem;
   white-space: nowrap;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  border-radius: var(--radius-md);
+  flex-shrink: 0;
+}
+
+.start-btn-text {
+  display: inline;
 }
 
 .play-icon {
@@ -907,11 +772,6 @@
     padding: 1rem;
   }
 
-  /* #3: Reduce section gaps */
-  .active-tracker-container {
-    gap: 0.75rem;
-  }
-
   /* Mobile grid: timer+stop on row 1, category+task on row 2 */
   .active-tracker {
     display: grid;
@@ -967,11 +827,6 @@
     padding: 0 0.5rem;
   }
 
-  /* #2: Hide "SWITCH TO:" label on mobile */
-  .switch-label {
-    display: none;
-  }
-
   /* Switch section full width for proper button alignment */
   .switch-task-section {
     justify-content: flex-start;
@@ -982,59 +837,98 @@
     width: 100%;
   }
 
-  .form-row {
-    flex-direction: column;
-  }
-
-  .form-group,
-  .form-group-description,
-  .form-group-action {
-    width: 100%;
-    margin-left: 0;
-  }
-
-  .start-btn {
-    width: 100%;
-    min-height: 48px;
-  }
-
   .new-task-inline {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     width: 100%;
     gap: 0.5rem;
+    align-items: center;
+  }
+
+  /* Mobile: category select is a small color square */
+  .new-task-inline .new-task-category-wrapper {
+    position: relative;
+    flex-shrink: 0;
+    width: 2.5rem;
+    min-width: 2.5rem;
+    height: 2.5rem;
+    border-radius: var(--radius-md);
+    background: var(--cat-bg, var(--bg-tertiary));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border: 1.5px solid var(--border);
+  }
+
+  .new-task-inline .new-task-category-wrapper .category-color-indicator {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: var(--radius-sm);
+    margin: 0;
   }
 
   .new-task-inline .switch-category-select {
+    position: absolute;
+    inset: 0;
     width: 100%;
-    min-height: 44px;
+    height: 100%;
+    min-width: 0;
+    padding: 0;
+    color: transparent;
+    background: transparent;
+    border: none;
+    -webkit-appearance: none;
+    appearance: none;
+    background-image: none;
+    cursor: pointer;
+    opacity: 0;
+  }
+
+  .new-task-inline .switch-category-select {
+    min-width: 0;
+    width: 100%;
+    min-height: 2.5rem;
+    height: 2.5rem;
     flex: none;
+    padding: 0 0.5rem 0 1.5rem;
+    color: var(--cat-text, var(--text-muted));
+    background: transparent;
+    border: none;
+    font-size: 0.75rem;
+    font-weight: 500;
+    -webkit-appearance: none;
+    appearance: none;
+    background-image: none;
+    text-overflow: ellipsis;
   }
 
   .new-task-inline .switch-description-wrapper {
-    width: 100%;
-    flex: none;
+    flex: 1;
+    min-width: 0;
   }
 
   .new-task-inline .switch-description-input {
     width: 100%;
-    min-height: 44px;
+    min-height: 2.5rem;
+    height: 2.5rem;
   }
 
-  /* Action buttons row - Start and Cancel on same line */
-  .new-task-inline .btn {
-    flex: 1;
-    min-height: 44px;
+  .new-task-inline .start-btn {
+    width: 2.5rem;
+    min-width: 2.5rem;
+    height: 2.5rem;
+    min-height: 2.5rem;
+    padding: 0;
+    flex-shrink: 0;
   }
 
-  /* Quick start buttons - better touch targets */
-  .quick-start-btn {
-    min-height: 44px;
-    padding: 0.625rem 1rem;
-  }
-
-  .quick-start-buttons {
-    gap: 0.625rem;
+  .new-task-inline .start-btn .start-btn-text {
+    display: none;
   }
 
   .switch-task-btn,
@@ -1043,11 +937,8 @@
   }
 
   /* Prevent iOS zoom on input focus */
-  .form-group input[type="text"],
-  .form-group select,
   .switch-category-select,
-  .switch-description-input,
-  .task-prompt-input {
+  .switch-description-input {
     font-size: 16px;
   }
 
@@ -1065,20 +956,6 @@
     min-height: 48px;
   }
 
-  /* #8: Compact quick-start section on mobile */
-  .quick-start-section {
-    gap: 0.625rem;
-    padding-bottom: 0.75rem;
-  }
-
-  .quick-start-group {
-    gap: 0.375rem;
-  }
-
-  .quick-start-buttons {
-    gap: 0.375rem;
-  }
-
   .switch-task-section {
     padding-top: 0.75rem;
     gap: 0.375rem;
@@ -1089,41 +966,8 @@
   }
 }
 
-/* Compact quick-start and recent tasks on smaller phones */
+/* Compact recent tasks on smaller phones */
 @media (max-width: 420px) {
-  .quick-start-section {
-    gap: 0.5rem;
-    padding-bottom: 0.625rem;
-  }
-
-  .quick-start-group {
-    gap: 0.25rem;
-  }
-
-  .quick-start-label {
-    font-size: 0.6875rem;
-  }
-
-  .quick-start-buttons {
-    gap: 0.375rem;
-  }
-
-  .quick-start-btn {
-    padding: 0.375rem 0.5rem;
-    font-size: 0.85rem;
-    min-height: 36px;
-    max-width: none;
-  }
-
-  .task-description-text {
-    max-width: 80px;
-    font-size: 0.9rem;
-  }
-
-  .task-category-hint {
-    display: none;
-  }
-
   .category-badge {
     padding: 0.25rem 0.5rem;
     font-size: 0.75rem;
