@@ -1554,7 +1554,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                             return (
                               <span
                                 className="entry-category category-badge editable"
-                                style={{ backgroundColor: colors.bgColor, color: '#fff' }}
+                                style={{ backgroundColor: colors.bgColor, color: colors.textColor }}
                                 onClick={(e) => { e.stopPropagation(); startEdit(entry, 'category'); }}
                               >
                                 <span className="category-dot" style={{ backgroundColor: colors.dotColor }} />
@@ -1583,7 +1583,6 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                             </span>
                           )}
                         </div>
-                        <span className="entry-connector" />
                         <div className="entry-meta">
                           {isEditing && editField === 'startTime' && !showTimeEditModal ? (
                             <form

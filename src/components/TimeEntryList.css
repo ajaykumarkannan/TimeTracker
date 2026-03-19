@@ -539,18 +539,9 @@
   flex: 1;
   min-width: 0;
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 0;
-}
-
-/* Subtle connector line filling the gap between description and times */
-.entry-connector {
-  flex: 1;
-  height: 1px;
-  background: var(--border);
-  opacity: 0.4;
-  margin: 0 0.75rem;
-  min-width: 1rem;
+  gap: 1rem;
 }
 
 .entry-main {
@@ -999,13 +990,10 @@
   }
 
   .entry-content {
+    gap: 0.5rem;
     align-self: center;
     min-width: 0;
     flex-wrap: nowrap;
-  }
-
-  .entry-connector {
-    margin: 0 0.375rem;
   }
 
   /* When editing time inline, the form takes full width so it doesn't
