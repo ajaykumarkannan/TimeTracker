@@ -83,7 +83,8 @@ export function createSqliteProvider(): DatabaseProvider {
     user_id: row[1] as number,
     token: row[2] as string,
     expires_at: row[3] as string,
-    created_at: row[4] as string
+    remember_me: !!(row[4] as number),
+    created_at: row[5] as string
   });
 
   const mapPasswordResetToken = (row: unknown[]): PasswordResetToken => ({
@@ -213,22 +214,22 @@ export function createSqliteProvider(): DatabaseProvider {
         password_hash: 'anonymous-no-password'
       });
     },
-    async createRefreshToken(input: { user_id: number; token: string; expires_at: string }) {
+    async createRefreshToken(input: { user_id: number; token: string; expires_at: string; remember_me: boolean }) {
       const dbRef = ensureDb();
       dbRef.run(
-        `INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES (?, ?, ?)`,
-        [input.user_id, input.token, input.expires_at]
+        `INSERT INTO refresh_tokens (user_id, token, expires_at, remember_me) VALUES (?, ?, ?, ?)`,
+        [input.user_id, input.token, input.expires_at, input.remember_me ? 1 : 0]
       );
       scheduleSave();
       const result = dbRef.exec(
-        `SELECT id, user_id, token, expires_at, created_at FROM refresh_tokens WHERE token = ?`,
+        `SELECT id, user_id, token, expires_at, remember_me, created_at FROM refresh_tokens WHERE token = ?`,
         [input.token]
       );
       return mapRefreshToken(result[0].values[0]);
     },
     async findRefreshToken(token: string) {
       const result = ensureDb().exec(
-        `SELECT id, user_id, token, expires_at, created_at FROM refresh_tokens WHERE token = ?`,
+        `SELECT id, user_id, token, expires_at, remember_me, created_at FROM refresh_tokens WHERE token = ?`,
         [token]
       );
       if (result.length === 0 || result[0].values.length === 0) return null;

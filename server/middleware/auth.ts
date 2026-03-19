@@ -21,8 +21,28 @@ export function generateAccessToken(userId: number, email: string): string {
 }
 
 export function generateRefreshToken(userId: number, email: string, rememberMe?: boolean): string {
-  const expiresIn = rememberMe ? '30d' : '7d';
+  const expiresIn = (rememberMe ? config.refreshTokenRememberMeExpiresIn : config.refreshTokenExpiresIn) as SignOptions['expiresIn'];
   return jwt.sign({ userId, email, type: 'refresh' }, config.jwtSecret, { expiresIn });
+}
+
+/** Parse a duration string like '7d', '30d', '4h' into milliseconds */
+export function parseDurationMs(duration: string): number {
+  const match = duration.match(/^(\d+)([dhms])$/);
+  if (!match) throw new Error(`Invalid duration format: ${duration}`);
+  const value = parseInt(match[1], 10);
+  switch (match[2]) {
+    case 'd': return value * 24 * 60 * 60 * 1000;
+    case 'h': return value * 60 * 60 * 1000;
+    case 'm': return value * 60 * 1000;
+    case 's': return value * 1000;
+    default: throw new Error(`Invalid duration unit: ${match[2]}`);
+  }
+}
+
+/** Get the refresh token expiry duration in milliseconds based on rememberMe flag */
+export function getRefreshTokenExpiryMs(rememberMe: boolean): number {
+  const duration = rememberMe ? config.refreshTokenRememberMeExpiresIn : config.refreshTokenExpiresIn;
+  return parseDurationMs(duration);
 }
 
 export function verifyToken(token: string): JwtPayload | null {

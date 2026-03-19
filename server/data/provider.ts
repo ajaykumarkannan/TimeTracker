@@ -101,7 +101,7 @@ export interface DatabaseProvider {
   createAnonymousUser(sessionId: string): Promise<User>;
 
   // Refresh tokens
-  createRefreshToken(input: { user_id: number; token: string; expires_at: string }): Promise<RefreshToken>;
+  createRefreshToken(input: { user_id: number; token: string; expires_at: string; remember_me: boolean }): Promise<RefreshToken>;
   findRefreshToken(token: string): Promise<RefreshToken | null>;
   deleteRefreshTokenById(id: number): Promise<void>;
   deleteRefreshToken(token: string): Promise<void>;

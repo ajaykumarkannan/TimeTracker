@@ -125,13 +125,11 @@ router.post('/csv/preview', async (req: AuthRequest, res: Response) => {
 
       // Parse start time
       if (!error && startTimeStr) {
-        const startDate = new Date(startTimeStr);
+        const startDate = parseTimestamp(startTimeStr, offsetMs);
         if (isNaN(startDate.getTime())) {
           error = 'Invalid start time';
         } else {
-          // Apply time offset
-          const adjustedStart = new Date(startDate.getTime() - offsetMs);
-          startTime = adjustedStart.toISOString();
+          startTime = startDate.toISOString();
         }
       } else if (!error) {
         error = 'Start time is required';
@@ -139,15 +137,13 @@ router.post('/csv/preview', async (req: AuthRequest, res: Response) => {
 
       // Parse end time
       if (!error && endTimeStr) {
-        const endDate = new Date(endTimeStr);
+        const endDate = parseTimestamp(endTimeStr, offsetMs);
         if (isNaN(endDate.getTime())) {
           error = 'Invalid end time';
         } else {
-          // Apply time offset
-          const adjustedEnd = new Date(endDate.getTime() - offsetMs);
-          endTime = adjustedEnd.toISOString();
+          endTime = endDate.toISOString();
           // Calculate duration for display only
-          duration = Math.round((adjustedEnd.getTime() - new Date(startTime).getTime()) / 60000);
+          duration = Math.round((endDate.getTime() - new Date(startTime).getTime()) / 60000);
         }
       }
 
@@ -332,6 +328,33 @@ function escapeCSV(value: string | null): string {
     return `"${str.replace(/"/g, '""')}"`;
   }
   return str;
+}
+
+/**
+ * Check whether a timestamp string already contains an explicit timezone indicator.
+ * Matches: trailing 'Z', '+HH:MM', '-HH:MM', '+HHMM', '-HHMM', or '+HH'/'-HH'.
+ * When a timezone is present, the user-supplied offset should NOT be applied because
+ * `new Date()` already parses the value as an absolute point in time.
+ */
+function hasTimezoneIndicator(timestamp: string): boolean {
+  return /(?:Z|[+-]\d{2}(?::?\d{2})?)$/i.test(timestamp.trim());
+}
+
+/**
+ * Parse a timestamp string and convert it to a UTC ISO string.
+ *
+ * - If the raw string already contains a timezone indicator (Z, +05:30, etc.),
+ *   `new Date()` handles it correctly and the user offset is ignored.
+ * - If the raw string has NO timezone indicator (e.g. "2024-01-15 09:00:00"),
+ *   we treat it as local time in the user's selected timezone and subtract
+ *   `offsetMs` to convert to UTC.
+ */
+function parseTimestamp(raw: string, offsetMs: number): Date {
+  const date = new Date(raw);
+  if (hasTimezoneIndicator(raw)) {
+    return date; // Already an absolute timestamp — no adjustment needed
+  }
+  return new Date(date.getTime() - offsetMs);
 }
 
 // Helper function to parse a CSV line (handles quoted fields)

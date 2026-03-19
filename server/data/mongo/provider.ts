@@ -170,13 +170,14 @@ export function createMongoProvider(): DatabaseProvider {
         password_hash: 'anonymous-no-password'
       });
     },
-    async createRefreshToken(input: { user_id: number; token: string; expires_at: string }) {
+    async createRefreshToken(input: { user_id: number; token: string; expires_at: string; remember_me: boolean }) {
       const id = await nextSequence('refresh_tokens');
       const tokenDoc: RefreshToken = {
         id,
         user_id: input.user_id,
         token: input.token,
         expires_at: input.expires_at,
+        remember_me: input.remember_me,
         created_at: new Date().toISOString()
       };
       await collection('refresh_tokens').insertOne(tokenDoc);

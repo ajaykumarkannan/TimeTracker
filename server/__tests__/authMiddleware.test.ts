@@ -22,7 +22,9 @@ vi.mock('../logger', () => ({
 vi.mock('../config', () => ({
   config: {
     jwtSecret: 'test-secret',
-    jwtExpiresIn: '4h'
+    jwtExpiresIn: '4h',
+    refreshTokenExpiresIn: '7d',
+    refreshTokenRememberMeExpiresIn: '30d'
   }
 }));
 

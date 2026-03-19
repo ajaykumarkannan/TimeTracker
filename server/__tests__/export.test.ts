@@ -230,4 +230,104 @@ Development,#007bff,Working on feature,2024-01-15T09:00:00Z,2024-01-15T10:30:00Z
       expect(categoryResult[0].values).toHaveLength(1);
     });
   });
+
+  describe('Timezone Handling', () => {
+    // Mirror the helper functions from export.ts for testing
+    function hasTimezoneIndicator(timestamp: string): boolean {
+      return /(?:Z|[+-]\d{2}(?::?\d{2})?)$/i.test(timestamp.trim());
+    }
+
+    function parseTimestamp(raw: string, offsetMs: number): Date {
+      const date = new Date(raw);
+      if (hasTimezoneIndicator(raw)) {
+        return date;
+      }
+      return new Date(date.getTime() - offsetMs);
+    }
+
+    describe('hasTimezoneIndicator', () => {
+      it('detects Z suffix', () => {
+        expect(hasTimezoneIndicator('2024-01-15T09:00:00.000Z')).toBe(true);
+        expect(hasTimezoneIndicator('2024-01-15T09:00:00Z')).toBe(true);
+      });
+
+      it('detects +HH:MM offset', () => {
+        expect(hasTimezoneIndicator('2024-01-15T09:00:00+05:30')).toBe(true);
+        expect(hasTimezoneIndicator('2024-01-15T09:00:00+00:00')).toBe(true);
+      });
+
+      it('detects -HH:MM offset', () => {
+        expect(hasTimezoneIndicator('2024-01-15T09:00:00-05:00')).toBe(true);
+        expect(hasTimezoneIndicator('2024-01-15T09:00:00-08:00')).toBe(true);
+      });
+
+      it('detects +HHMM offset (no colon)', () => {
+        expect(hasTimezoneIndicator('2024-01-15T09:00:00+0530')).toBe(true);
+      });
+
+      it('returns false for timestamps without timezone', () => {
+        expect(hasTimezoneIndicator('2024-01-15T09:00:00')).toBe(false);
+        expect(hasTimezoneIndicator('2024-01-15 09:00:00')).toBe(false);
+        expect(hasTimezoneIndicator('Jan 15, 2024 9:00 AM')).toBe(false);
+      });
+
+      it('handles whitespace', () => {
+        expect(hasTimezoneIndicator('2024-01-15T09:00:00Z ')).toBe(true);
+        expect(hasTimezoneIndicator(' 2024-01-15T09:00:00+05:30 ')).toBe(true);
+      });
+    });
+
+    describe('parseTimestamp', () => {
+      const UTC_MINUS_5_MS = -300 * 60 * 1000; // UTC-5 (Eastern)
+      const UTC_PLUS_530_MS = 330 * 60 * 1000;  // UTC+5:30 (Mumbai)
+
+      it('does NOT apply offset to UTC timestamps (Z suffix)', () => {
+        // This is the core bug fix: re-importing a ChronoFlow export should preserve timestamps
+        const result = parseTimestamp('2024-01-15T14:00:00.000Z', UTC_MINUS_5_MS);
+        expect(result.toISOString()).toBe('2024-01-15T14:00:00.000Z');
+      });
+
+      it('does NOT apply offset to timestamps with explicit +offset', () => {
+        // 09:00 in UTC+05:30 = 03:30 UTC; offset should NOT be applied again
+        const result = parseTimestamp('2024-01-15T09:00:00+05:30', UTC_PLUS_530_MS);
+        expect(result.toISOString()).toBe('2024-01-15T03:30:00.000Z');
+      });
+
+      it('does NOT apply offset to timestamps with explicit -offset', () => {
+        // 09:00 in UTC-05:00 = 14:00 UTC; offset should NOT be applied again
+        const result = parseTimestamp('2024-01-15T09:00:00-05:00', UTC_MINUS_5_MS);
+        expect(result.toISOString()).toBe('2024-01-15T14:00:00.000Z');
+      });
+
+      it('DOES apply offset to timestamps without timezone info', () => {
+        // "09:00" with no TZ info, user says they're in UTC+05:30 (offset 330 min)
+        // new Date() parsing of bare ISO strings is platform-dependent (may be local or UTC).
+        // The key invariant: parseTimestamp should subtract the offset from whatever Date parsed.
+        const raw = '2024-01-15T09:00:00';
+        const offsetMs = 330 * 60 * 1000; // UTC+05:30
+        const naiveParse = new Date(raw); // platform-dependent
+        const expected = new Date(naiveParse.getTime() - offsetMs);
+
+        const result = parseTimestamp(raw, offsetMs);
+        expect(result.toISOString()).toBe(expected.toISOString());
+      });
+
+      it('round-trip: export then re-import preserves UTC timestamps', () => {
+        // Simulate what ChronoFlow stores in DB (UTC with Z)
+        const dbTimestamp = '2024-01-15T14:00:00.000Z';
+        
+        // Export emits this raw (no conversion)
+        const csvTimestamp = dbTimestamp;
+        
+        // Re-import with any timezone offset should preserve the original time
+        const eastern = parseTimestamp(csvTimestamp, -300 * 60 * 1000);
+        const mumbai = parseTimestamp(csvTimestamp, 330 * 60 * 1000);
+        const utc = parseTimestamp(csvTimestamp, 0);
+        
+        expect(eastern.toISOString()).toBe(dbTimestamp);
+        expect(mumbai.toISOString()).toBe(dbTimestamp);
+        expect(utc.toISOString()).toBe(dbTimestamp);
+      });
+    });
+  });
 });
