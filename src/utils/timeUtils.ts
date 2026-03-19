@@ -71,9 +71,24 @@ export function formatDuration(minutes: number | null): string {
   if (minutes === 0) return '<1m';
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
-  if (h === 0) return `${m}m`;
-  if (m === 0) return `${h}h`;
-  return `${h}h ${m}m`;
+  // Under 10 hours: exact hours and minutes
+  if (h < 10) {
+    if (h === 0) return `${m}m`;
+    if (m === 0) return `${h}h`;
+    return `${h}h ${m}m`;
+  }
+  // 24+ hours: days and hours
+  if (h >= 24) {
+    const d = Math.floor(h / 24);
+    const remH = h % 24;
+    if (remH === 0) return `${d}d`;
+    return `${d}d ${remH}h`;
+  }
+  // 10-23 hours: decimal hours (e.g. 10.5h)
+  const decimal = minutes / 60;
+  const rounded = Math.round(decimal * 10) / 10;
+  if (rounded === Math.floor(rounded)) return `${Math.floor(rounded)}h`;
+  return `${rounded}h`;
 }
 
 /**
