@@ -45,7 +45,7 @@ test.describe('Time Tracker E2E', () => {
 
     // Verify timer is running
     await expect(page.locator('button:has-text("Stop")')).toBeVisible();
-    await expect(page.locator('.category-badge:has-text("Development")')).toBeVisible();
+    await expect(page.locator('.timer-info .category-badge:has-text("Development")')).toBeVisible();
 
     // Wait a moment for time to elapse
     await page.waitForTimeout(2000);
