@@ -157,6 +157,7 @@ jobs:
 
   # PR version bump - commits version change to PR branch
   # Always bumps to next available patch version to ensure each PR gets a unique version
+  # If main's version has advanced past the PR's version, auto-rebases first
   pr-version-bump:
     name: Bump Version (PR)
     runs-on: ubuntu-latest
@@ -168,10 +169,69 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.head_ref }}
           token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
       - name: Configure Git
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Rebase on main if version is stale
+        run: |
+          git fetch origin main
+          
+          PR_VERSION=$(node -p 'require("./package.json").version')
+          MAIN_VERSION=$(git show origin/main:package.json | node -p 'JSON.parse(require("fs").readFileSync("/dev/stdin","utf8")).version')
+          
+          echo "PR version:   $PR_VERSION"
+          echo "Main version: $MAIN_VERSION"
+          
+          # Compare versions using node semver-style comparison
+          NEEDS_REBASE=$(node -e "
+            const [a, b] = ['$PR_VERSION', '$MAIN_VERSION'].map(v => v.split('.').map(Number));
+            const behind = (a[0] < b[0]) || (a[0] === b[0] && a[1] < b[1]) || (a[0] === b[0] && a[1] === b[1] && a[2] <= b[2]);
+            // Also rebase if there are new commits on main we don't have
+            process.stdout.write(behind ? 'true' : 'false');
+          ")
+          
+          if [ "$NEEDS_REBASE" = "true" ]; then
+            echo "PR version ($PR_VERSION) is at or behind main ($MAIN_VERSION) -- rebasing..."
+            
+            # Try rebase, auto-resolving version-file conflicts with main's version
+            # (the bump step that follows will set the correct next version anyway)
+            if git rebase origin/main; then
+              echo "Rebase succeeded cleanly"
+            else
+              # Check if the only conflicts are version files
+              CONFLICTED=$(git diff --name-only --diff-filter=U)
+              VERSION_ONLY=true
+              for f in $CONFLICTED; do
+                if [ "$f" != "package.json" ] && [ "$f" != "package-lock.json" ]; then
+                  VERSION_ONLY=false
+                  break
+                fi
+              done
+              
+              if [ "$VERSION_ONLY" = "true" ] && [ -n "$CONFLICTED" ]; then
+                echo "Only version-file conflicts detected -- resolving with main's version"
+                git checkout --theirs package.json package-lock.json 2>/dev/null || true
+                git add package.json package-lock.json
+                GIT_EDITOR=true git rebase --continue
+              else
+                echo "::error::Rebase failed with non-version conflicts. Please rebase manually."
+                echo "Conflicted files: $CONFLICTED"
+                git rebase --abort
+                exit 1
+              fi
+            fi
+            
+            git push --force-with-lease
+          else
+            echo "PR version ($PR_VERSION) is ahead of main ($MAIN_VERSION) -- no rebase needed"
+          fi
+
       - name: Bump version
         run: |
           CURRENT=$(node -p 'require("./package.json").version')

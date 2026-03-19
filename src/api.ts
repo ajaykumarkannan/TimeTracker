@@ -12,7 +12,7 @@ const PROACTIVE_REFRESH_THRESHOLD_MS = 5 * 60 * 1000;
 let accessToken: string | null = localStorage.getItem('accessToken');
 let refreshToken: string | null = localStorage.getItem('refreshToken');
 let sessionId: string | null = localStorage.getItem('sessionId');
-let refreshPromise: Promise<boolean> | null = null; // Prevent concurrent refresh attempts
+let refreshPromise: Promise<AuthResponse | null> | null = null; // Prevent concurrent refresh attempts
 
 // Auth state change listeners - used to notify when a logged-in user gets logged out unexpectedly
 type AuthStateChangeCallback = (reason: 'session_expired' | 'refresh_failed') => void;
@@ -124,19 +124,19 @@ function isTokenExpiringSoon(): boolean {
 }
 
 /**
- * Proactively refresh the access token if it's about to expire
- * Returns true if refresh was successful or not needed, false if refresh failed
+ * Perform a token refresh, deduplicating concurrent attempts.
+ * Both proactive refresh and reactive 401 retry share this function
+ * so that only one refresh request is in-flight at a time.
+ * Returns the new AuthResponse on success, or null on failure.
  */
-async function proactiveRefresh(): Promise<boolean> {
-  if (!refreshToken || !isTokenExpiringSoon()) {
-    return true; // No refresh needed
-  }
-  
-  // Prevent concurrent refresh attempts
+async function performTokenRefresh(): Promise<AuthResponse | null> {
+  if (!refreshToken) return null;
+
+  // Prevent concurrent refresh attempts -- reuse in-flight request
   if (refreshPromise) {
-    return refreshPromise;
+    return refreshPromise as Promise<AuthResponse | null>;
   }
-  
+
   refreshPromise = (async () => {
     try {
       const refreshRes = await fetchWithTimeout(`${API_BASE}/auth/refresh`, {
@@ -149,19 +149,31 @@ async function proactiveRefresh(): Promise<boolean> {
         const data: AuthResponse = await refreshRes.json();
         setTokens(data.accessToken, data.refreshToken);
         setStoredUser(data.user);
-        return true;
+        return data;
       } else {
-        // Refresh failed - don't clear tokens yet, let the actual request handle it
-        return false;
+        return null;
       }
     } catch {
-      return false;
+      return null;
     } finally {
       refreshPromise = null;
     }
   })();
+
+  return refreshPromise as Promise<AuthResponse | null>;
+}
+
+/**
+ * Proactively refresh the access token if it's about to expire
+ * Returns true if refresh was successful or not needed, false if refresh failed
+ */
+async function proactiveRefresh(): Promise<boolean> {
+  if (!refreshToken || !isTokenExpiringSoon()) {
+    return true; // No refresh needed
+  }
   
-  return refreshPromise;
+  const result = await performTokenRefresh();
+  return result !== null;
 }
 
 /**
@@ -229,18 +241,11 @@ async function apiFetch(url: string, options: RequestInit = {}, { skipProactiveR
   }
 
   // If unauthorized and we have a refresh token, try to refresh
+  // Uses the shared performTokenRefresh() to deduplicate concurrent 401 retries
   if (res.status === 401 && refreshToken) {
-    const refreshRes = await fetchWithTimeout(`${API_BASE}/auth/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken })
-    });
+    const data = await performTokenRefresh();
 
-    if (refreshRes.ok) {
-      const data: AuthResponse = await refreshRes.json();
-      setTokens(data.accessToken, data.refreshToken);
-      setStoredUser(data.user);
-      
+    if (data) {
       (headers as Record<string, string>)['Authorization'] = `Bearer ${data.accessToken}`;
       delete (headers as Record<string, string>)['X-Session-ID'];
       res = await fetchWithTimeout(url, { ...options, headers });

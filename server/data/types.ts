@@ -12,6 +12,7 @@ export interface RefreshToken {
   user_id: number;
   token: string;
   expires_at: string;
+  remember_me: boolean;
   created_at: string;
 }
 

@@ -279,6 +279,23 @@ const migrations: Migration[] = [
       db.run(`ALTER TABLE users_new RENAME TO users`);
     }
   },
+  {
+    version: 9,
+    name: 'add_remember_me_to_refresh_tokens',
+    up: (db) => {
+      // Check if column already exists
+      const tableInfo = db.exec(`PRAGMA table_info(refresh_tokens)`);
+      const columns = tableInfo[0]?.values.map(row => row[1] as string) || [];
+      
+      if (columns.includes('remember_me')) {
+        return; // Already migrated
+      }
+      
+      // Add remember_me column (0 = false by default, so existing tokens
+      // are treated as standard 7-day tokens which is the safe conservative default)
+      db.run(`ALTER TABLE refresh_tokens ADD COLUMN remember_me INTEGER NOT NULL DEFAULT 0`);
+    }
+  },
 ];
 
 export function runMigrations(db: SqlJsDatabase): void {

@@ -25,6 +25,7 @@ export const config = {
   jwtSecret: process.env.JWT_SECRET || 'dev-secret-change-in-production',
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '4h',
   refreshTokenExpiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN || '7d',
+  refreshTokenRememberMeExpiresIn: process.env.REFRESH_TOKEN_REMEMBER_ME_EXPIRES_IN || '30d',
   
   // CORS - comma-separated origins or * for all
   corsOrigin: process.env.CORS_ORIGIN || '*',

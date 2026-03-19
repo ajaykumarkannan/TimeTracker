@@ -9,7 +9,8 @@ import {
   verifyToken,
   authMiddleware,
   AuthRequest,
-  createDefaultCategories
+  createDefaultCategories,
+  getRefreshTokenExpiryMs
 } from '../middleware/auth';
 
 const router = Router();
@@ -50,8 +51,8 @@ router.post('/register', async (req: Request, res: Response) => {
     const refreshToken = generateRefreshToken(user.id, user.email);
 
     // Store refresh token
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-    await provider.createRefreshToken({ user_id: user.id, token: refreshToken, expires_at: expiresAt });
+    const expiresAt = new Date(Date.now() + getRefreshTokenExpiryMs(false)).toISOString();
+    await provider.createRefreshToken({ user_id: user.id, token: refreshToken, expires_at: expiresAt, remember_me: false });
 
     logger.info('User registered', { userId: user.id, email: user.email });
 
@@ -96,14 +97,11 @@ router.post('/login', async (req: Request, res: Response) => {
     const accessToken = generateAccessToken(user.id, user.email);
     const refreshToken = generateRefreshToken(user.id, user.email, rememberMe);
 
-    // Calculate token expiry: 30 days if rememberMe is true, 7 days otherwise
-    const tokenExpiry = rememberMe 
-      ? 30 * 24 * 60 * 60 * 1000  // 30 days
-      : 7 * 24 * 60 * 60 * 1000;  // 7 days (default)
-    const expiresAt = new Date(Date.now() + tokenExpiry).toISOString();
+    // Calculate token expiry based on rememberMe flag and config
+    const expiresAt = new Date(Date.now() + getRefreshTokenExpiryMs(!!rememberMe)).toISOString();
 
-    // Store refresh token with calculated expiry
-    await provider.createRefreshToken({ user_id: user.id, token: refreshToken, expires_at: expiresAt });
+    // Store refresh token with rememberMe flag for correct rotation behavior
+    await provider.createRefreshToken({ user_id: user.id, token: refreshToken, expires_at: expiresAt, remember_me: !!rememberMe });
 
     logger.info('User logged in', { userId: user.id, rememberMe: !!rememberMe });
 
@@ -141,7 +139,8 @@ router.post('/refresh', async (req: Request, res: Response) => {
     const tokenData = {
       id: tokenRecord.id,
       user_id: tokenRecord.user_id,
-      expires_at: tokenRecord.expires_at
+      expires_at: tokenRecord.expires_at,
+      remember_me: tokenRecord.remember_me
     };
 
     if (new Date(tokenData.expires_at) < new Date()) {
@@ -163,25 +162,16 @@ router.post('/refresh', async (req: Request, res: Response) => {
 
     const newAccessToken = generateAccessToken(user.id, user.email);
     
-    // Determine if original token was a "remember me" token (30-day)
-    // by checking if remaining time is greater than 7 days
-    const originalExpiresAt = new Date(tokenData.expires_at);
-    const now = new Date();
-    const remainingMs = originalExpiresAt.getTime() - now.getTime();
-    const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
-    const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
-    
-    // If remaining time > 7 days, it was a 30-day token, maintain extended expiration
-    const isExtendedToken = remainingMs > sevenDaysMs;
-    const newRefreshToken = generateRefreshToken(user.id, user.email, isExtendedToken);
-    const tokenExpiry = isExtendedToken ? thirtyDaysMs : sevenDaysMs;
-    const newExpiresAt = new Date(Date.now() + tokenExpiry).toISOString();
+    // Use the stored rememberMe flag to maintain the correct token lifetime across rotations
+    const isRememberMe = tokenData.remember_me;
+    const newRefreshToken = generateRefreshToken(user.id, user.email, isRememberMe);
+    const newExpiresAt = new Date(Date.now() + getRefreshTokenExpiryMs(isRememberMe)).toISOString();
 
-    // Rotate refresh token
+    // Rotate refresh token (preserving the rememberMe flag)
     await provider.deleteRefreshTokenById(tokenData.id);
-    await provider.createRefreshToken({ user_id: user.id, token: newRefreshToken, expires_at: newExpiresAt });
+    await provider.createRefreshToken({ user_id: user.id, token: newRefreshToken, expires_at: newExpiresAt, remember_me: isRememberMe });
 
-    logger.info('Token refreshed', { userId: user.id, extendedExpiration: isExtendedToken });
+    logger.info('Token refreshed', { userId: user.id, rememberMe: isRememberMe });
 
     res.json({
       user,
@@ -281,8 +271,8 @@ router.post('/convert', async (req: Request, res: Response) => {
     const refreshToken = generateRefreshToken(guestUserId, email);
 
     // Store refresh token
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-    await provider.createRefreshToken({ user_id: guestUserId, token: refreshToken, expires_at: expiresAt });
+    const expiresAt = new Date(Date.now() + getRefreshTokenExpiryMs(false)).toISOString();
+    await provider.createRefreshToken({ user_id: guestUserId, token: refreshToken, expires_at: expiresAt, remember_me: false });
 
     logger.info('Guest converted to account', { userId: guestUserId, email });
 

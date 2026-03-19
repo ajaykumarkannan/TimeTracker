@@ -38,6 +38,7 @@ beforeAll(async () => {
       user_id INTEGER NOT NULL,
       token TEXT NOT NULL UNIQUE,
       expires_at DATETIME NOT NULL,
+      remember_me INTEGER NOT NULL DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )
@@ -175,8 +176,8 @@ describe('Auth Database Operations', () => {
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
       
       db.run(
-        `INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES (?, ?, ?)`,
-        [testUserId, token, expiresAt]
+        `INSERT INTO refresh_tokens (user_id, token, expires_at, remember_me) VALUES (?, ?, ?, ?)`,
+        [testUserId, token, expiresAt, 0]
       );
       
       const result = db.exec(
@@ -187,6 +188,7 @@ describe('Auth Database Operations', () => {
       expect(result.length).toBe(1);
       expect(result[0].values[0][1]).toBe(testUserId);
       expect(result[0].values[0][2]).toBe(token);
+      expect(result[0].values[0][4]).toBe(0); // remember_me = false
     });
 
     it('retrieves token by value', () => {
@@ -194,17 +196,18 @@ describe('Auth Database Operations', () => {
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
       
       db.run(
-        `INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES (?, ?, ?)`,
-        [testUserId, token, expiresAt]
+        `INSERT INTO refresh_tokens (user_id, token, expires_at, remember_me) VALUES (?, ?, ?, ?)`,
+        [testUserId, token, expiresAt, 0]
       );
       
       const result = db.exec(
-        `SELECT id, user_id, expires_at FROM refresh_tokens WHERE token = ?`,
+        `SELECT id, user_id, expires_at, remember_me FROM refresh_tokens WHERE token = ?`,
         [token]
       );
       
       expect(result.length).toBe(1);
       expect(result[0].values[0][1]).toBe(testUserId);
+      expect(result[0].values[0][3]).toBe(0); // remember_me = false
     });
 
     it('deletes token on rotation', () => {
@@ -212,8 +215,8 @@ describe('Auth Database Operations', () => {
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
       
       db.run(
-        `INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES (?, ?, ?)`,
-        [testUserId, oldToken, expiresAt]
+        `INSERT INTO refresh_tokens (user_id, token, expires_at, remember_me) VALUES (?, ?, ?, ?)`,
+        [testUserId, oldToken, expiresAt, 0]
       );
       
       const insertResult = db.exec(`SELECT last_insert_rowid() as id`);
@@ -229,18 +232,18 @@ describe('Auth Database Operations', () => {
       expect(result.length === 0 || result[0].values.length === 0).toBe(true);
     });
 
-    it('stores 30-day token when rememberMe is true', () => {
+    it('stores 30-day token with remember_me flag when rememberMe is true', () => {
       const token = 'remember-me-token';
       const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
       const expiresAt = new Date(Date.now() + thirtyDaysMs).toISOString();
       
       db.run(
-        `INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES (?, ?, ?)`,
-        [testUserId, token, expiresAt]
+        `INSERT INTO refresh_tokens (user_id, token, expires_at, remember_me) VALUES (?, ?, ?, ?)`,
+        [testUserId, token, expiresAt, 1]
       );
       
       const result = db.exec(
-        `SELECT expires_at FROM refresh_tokens WHERE token = ?`,
+        `SELECT expires_at, remember_me FROM refresh_tokens WHERE token = ?`,
         [token]
       );
       
@@ -249,30 +252,46 @@ describe('Auth Database Operations', () => {
       
       // Allow 1 second tolerance for test execution time
       expect(Math.abs(storedExpiry.getTime() - expectedExpiry.getTime())).toBeLessThan(1000);
+      expect(result[0].values[0][1]).toBe(1); // remember_me = true
     });
 
-    it('identifies extended token by remaining time greater than 7 days', () => {
-      // Simulate a 30-day token with 20 days remaining
-      const twentyDaysMs = 20 * 24 * 60 * 60 * 1000;
-      const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
-      const expiresAt = new Date(Date.now() + twentyDaysMs);
-      
-      const remainingMs = expiresAt.getTime() - Date.now();
-      const isExtendedToken = remainingMs > sevenDaysMs;
-      
-      expect(isExtendedToken).toBe(true);
-    });
-
-    it('identifies standard token by remaining time less than or equal to 7 days', () => {
-      // Simulate a 7-day token with 5 days remaining
+    it('preserves remember_me flag across token rotation', () => {
+      // Simulate a 30-day remember-me token that was created 25 days ago
+      // (only 5 days remaining, which is less than 7 days).
+      // The old heuristic would have incorrectly downgraded this to a standard token.
       const fiveDaysMs = 5 * 24 * 60 * 60 * 1000;
+      const expiresAt = new Date(Date.now() + fiveDaysMs).toISOString();
+      
+      db.run(
+        `INSERT INTO refresh_tokens (user_id, token, expires_at, remember_me) VALUES (?, ?, ?, ?)`,
+        [testUserId, 'old-remember-token', expiresAt, 1]
+      );
+      
+      // Read the token back -- remember_me flag should still be true
+      const result = db.exec(
+        `SELECT remember_me FROM refresh_tokens WHERE token = ?`,
+        ['old-remember-token']
+      );
+      
+      expect(result[0].values[0][0]).toBe(1); // Still remember_me despite < 7 days remaining
+    });
+
+    it('stores standard token with remember_me=0', () => {
+      const token = 'standard-token';
       const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
-      const expiresAt = new Date(Date.now() + fiveDaysMs);
+      const expiresAt = new Date(Date.now() + sevenDaysMs).toISOString();
       
-      const remainingMs = expiresAt.getTime() - Date.now();
-      const isExtendedToken = remainingMs > sevenDaysMs;
+      db.run(
+        `INSERT INTO refresh_tokens (user_id, token, expires_at, remember_me) VALUES (?, ?, ?, ?)`,
+        [testUserId, token, expiresAt, 0]
+      );
       
-      expect(isExtendedToken).toBe(false);
+      const result = db.exec(
+        `SELECT remember_me FROM refresh_tokens WHERE token = ?`,
+        [token]
+      );
+      
+      expect(result[0].values[0][0]).toBe(0); // remember_me = false
     });
   });
 
@@ -289,8 +308,8 @@ describe('Auth Database Operations', () => {
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
       
       db.run(
-        `INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES (?, ?, ?)`,
-        [testUserId, token, expiresAt]
+        `INSERT INTO refresh_tokens (user_id, token, expires_at, remember_me) VALUES (?, ?, ?, ?)`,
+        [testUserId, token, expiresAt, 0]
       );
       
       db.run(`DELETE FROM refresh_tokens WHERE token = ?`, [token]);
@@ -302,12 +321,12 @@ describe('Auth Database Operations', () => {
     it('deletes all tokens for user (logout all devices)', () => {
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
       
-      db.run(`INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES (?, ?, ?)`,
-        [testUserId, 'token1', expiresAt]);
-      db.run(`INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES (?, ?, ?)`,
-        [testUserId, 'token2', expiresAt]);
-      db.run(`INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES (?, ?, ?)`,
-        [testUserId, 'token3', expiresAt]);
+      db.run(`INSERT INTO refresh_tokens (user_id, token, expires_at, remember_me) VALUES (?, ?, ?, ?)`,
+        [testUserId, 'token1', expiresAt, 0]);
+      db.run(`INSERT INTO refresh_tokens (user_id, token, expires_at, remember_me) VALUES (?, ?, ?, ?)`,
+        [testUserId, 'token2', expiresAt, 1]);
+      db.run(`INSERT INTO refresh_tokens (user_id, token, expires_at, remember_me) VALUES (?, ?, ?, ?)`,
+        [testUserId, 'token3', expiresAt, 0]);
       
       db.run(`DELETE FROM refresh_tokens WHERE user_id = ?`, [testUserId]);
       
@@ -450,8 +469,8 @@ describe('Auth Database Operations', () => {
         [testUserId, 'Work', '#007bff']);
       
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-      db.run(`INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES (?, ?, ?)`,
-        [testUserId, 'token', expiresAt]);
+      db.run(`INSERT INTO refresh_tokens (user_id, token, expires_at, remember_me) VALUES (?, ?, ?, ?)`,
+        [testUserId, 'token', expiresAt, 0]);
     });
 
     it('deletes all user data on account deletion', () => {
