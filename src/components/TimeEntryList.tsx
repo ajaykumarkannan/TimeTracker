@@ -1486,7 +1486,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                         </button>
                       )}
                       <div
-                        className={`entry-item ${isSelected ? 'selected' : ''} ${hasOverlap ? 'has-overlap' : ''} ${hasInvalidRange ? 'has-invalid-range' : ''} ${swipedEntryId === entry.id ? 'swiped' : ''}`}
+                         className={`entry-item ${index % 2 === 1 ? 'entry-striped' : ''} ${isSelected ? 'selected' : ''} ${hasOverlap ? 'has-overlap' : ''} ${hasInvalidRange ? 'has-invalid-range' : ''} ${swipedEntryId === entry.id ? 'swiped' : ''}`}
                         onClick={() => { if (swipedEntryId === entry.id) { setSwipedEntryId(null); } else { handleSelect(entry.id); } }}
                         onTouchStart={(e) => handleTouchStart(entry.id, e)}
                         onTouchEnd={handleTouchEnd}

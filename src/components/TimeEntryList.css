@@ -509,6 +509,10 @@
   cursor: pointer;
 }
 
+.entry-item.entry-striped {
+  background: var(--bg-hover);
+}
+
 .entry-item:hover {
   background: var(--bg-secondary);
 }
