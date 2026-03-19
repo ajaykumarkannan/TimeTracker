@@ -3,6 +3,8 @@ import { TimeEntry, Category } from '../types';
 import { api } from '../api';
 import { formatTime, formatTimeCompact, formatDuration, formatDate, formatDateOnly, formatTimeOnly, combineDateAndTime } from '../utils/timeUtils';
 import { fuzzyMatch } from '../utils/fuzzyMatch';
+import { useTheme } from '../contexts/ThemeContext';
+import { getAdaptiveCategoryColors } from '../hooks/useAdaptiveColors';
 import './TimeEntryList.css';
 
 // Debounce hook for search input
@@ -57,6 +59,8 @@ interface ShortEntry {
 }
 
 export function TimeEntryList({ categories, activeEntry, onEntryChange, onCategoryChange, refreshKey, lastOptimistic }: Props) {
+  const { resolvedTheme } = useTheme();
+  const isDarkMode = resolvedTheme === 'dark';
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<number | null>(null);
@@ -71,12 +75,16 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
   const [editEndTimeOnly, setEditEndTimeOnly] = useState<string>('');
   // Validation error shown during inline/modal time editing
   const [editTimeError, setEditTimeError] = useState<string | null>(null);
-  
+
   // Track current edit field in a ref so deferred blur can check it
   const editFieldRef = useRef<EditField>(null);
   const editingIdRef = useRef<number | null>(null);
   // Flag to suppress blur-save when user pressed Escape to cancel
   const cancelledRef = useRef(false);
+
+  // Swipe-to-reveal state for mobile entry actions
+  const [swipedEntryId, setSwipedEntryId] = useState<number | null>(null);
+  const touchStartRef = useRef<{ x: number; y: number; id: number } | null>(null);
 
   // Mobile time-edit modal state
   const [showTimeEditModal, setShowTimeEditModal] = useState(false);
@@ -93,16 +101,16 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryColor, setNewCategoryColor] = useState('#6366f1');
   const [creatingCategory, setCreatingCategory] = useState(false);
-  
+
   // Filter state
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<number | 'all'>('all');
   const [showFilters, setShowFilters] = useState(false);
   const [activePreset, setActivePreset] = useState<'today' | 'week' | 'month' | 'all' | null>('week');
-  
+
   // Debounce search query to avoid excessive API calls while typing
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
-  
+
   // Initialize date filters to "This Week" on mount
   const [dateFrom, setDateFrom] = useState(() => {
     const today = new Date();
@@ -115,7 +123,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
     const today = new Date();
     return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
   });
-  
+
   // Manual entry form state
   const [showManualEntry, setShowManualEntry] = useState(false);
   const [manualCategory, setManualCategory] = useState<number | ''>('');
@@ -126,20 +134,20 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
   const [manualEndTime, setManualEndTime] = useState('');
   const [manualError, setManualError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+
   // State for inline category creation in Add Entry modal
   const [showManualNewCategory, setShowManualNewCategory] = useState(false);
   const [manualNewCategoryName, setManualNewCategoryName] = useState('');
   const [manualNewCategoryColor, setManualNewCategoryColor] = useState('#6366f1');
-  
+
   // Track if user has manually edited end date (for date defaulting feature)
   const [endDateManuallySet, setEndDateManuallySet] = useState(false);
-  
+
   // Cleanup suggestions state
   const [showCleanupBanner, setShowCleanupBanner] = useState(true);
   const [dismissedMerges, setDismissedMerges] = useState<Set<string>>(new Set());
   const [dismissedShortEntries, setDismissedShortEntries] = useState<Set<number>>(new Set());
-  
+
   // Task name suggestions for manual entry
   const [cachedSuggestions, setCachedSuggestions] = useState<{ task_name: string; categoryId: number; count: number; totalMinutes: number; lastUsed: string }[]>([]);
   const [showManualSuggestions, setShowManualSuggestions] = useState(false);
@@ -164,7 +172,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
   // Filter suggestions based on task name input (shows all categories)
   const manualSuggestions = useMemo(() => {
     let filtered = cachedSuggestions;
-    
+
     // Fuzzy filter by task name
     if (manualDescription) {
       filtered = filtered
@@ -175,7 +183,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
       // No query - sort by count
       filtered = filtered.sort((a, b) => b.count - a.count);
     }
-    
+
     return filtered.slice(0, 8);
   }, [cachedSuggestions, manualDescription]);
 
@@ -188,7 +196,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (
-        suggestionsRef.current && 
+        suggestionsRef.current &&
         !suggestionsRef.current.contains(e.target as Node) &&
         manualDescriptionRef.current &&
         !manualDescriptionRef.current.contains(e.target as Node)
@@ -209,23 +217,23 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
       // This ensures the server filters based on the user's intended local dates
       let startDate: string | undefined;
       let endDate: string | undefined;
-      
+
       if (dateFrom) {
         const [year, month, day] = dateFrom.split('-').map(Number);
         const localStart = new Date(year, month - 1, day, 0, 0, 0, 0);
         startDate = localStart.toISOString();
       }
-      
+
       if (dateTo) {
         const [year, month, day] = dateTo.split('-').map(Number);
         const localEnd = new Date(year, month - 1, day, 23, 59, 59, 999);
         endDate = localEnd.toISOString();
       }
-      
+
       // Pass category and search filters to server for proper filtering across all entries
       const categoryIdParam = categoryFilter !== 'all' ? categoryFilter : undefined;
       const searchParam = debouncedSearchQuery.trim() || undefined;
-      
+
       const data = await api.getTimeEntries(startDate, endDate, categoryIdParam, searchParam);
       setEntries(data);
     } catch (error) {
@@ -278,32 +286,32 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
     const sorted = [...entries]
       .filter((e): e is TimeEntry & { end_time: string } => e.end_time !== null)
       .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
-    
+
     let i = 0;
     while (i < sorted.length) {
       const current = sorted[i];
       const group: (TimeEntry & { end_time: string })[] = [current];
-      
+
       // Look for consecutive entries with same category and task name
       let j = i + 1;
       while (j < sorted.length) {
         const next = sorted[j];
         const prev = group[group.length - 1];
-        
+
         // Check if same category and task_name
         if (next.category_id !== current.category_id || next.task_name !== current.task_name) break;
-        
+
         // Check if back-to-back (within 1 minute gap)
         const prevEnd = new Date(prev.end_time).getTime();
         const nextStart = new Date(next.start_time).getTime();
         const gapMs = nextStart - prevEnd;
-        
+
         if (gapMs < 0 || gapMs > 60000) break; // More than 1 minute gap
-        
+
         group.push(next);
         j++;
       }
-      
+
       if (group.length > 1) {
         const key = group.map(e => e.id).sort((a, b) => a - b).join('-');
         if (!dismissedMerges.has(key)) {
@@ -314,10 +322,10 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
           });
         }
       }
-      
+
       i = j > i + 1 ? j : i + 1;
     }
-    
+
     return candidates;
   }, [entries, dismissedMerges]);
 
@@ -333,7 +341,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
       })
       .map(e => ({
         entry: e,
-        durationSeconds: e.end_time 
+        durationSeconds: e.end_time
           ? Math.round((new Date(e.end_time).getTime() - new Date(e.start_time).getTime()) / 1000)
           : 0
       }));
@@ -344,27 +352,27 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
   // Check for overlaps with other entries (with 1-minute tolerance for back-to-back meetings)
   const checkOverlap = (entryId: number, start: Date, end: Date | null): TimeEntry | null => {
     if (!end) return null;
-    
+
     const ONE_MINUTE_MS = 60 * 1000;
-    
+
     for (const entry of entries) {
       if (entry.id === entryId) continue;
-      
+
       const entryStart = new Date(entry.start_time);
       const entryEnd = entry.end_time ? new Date(entry.end_time) : new Date();
-      
+
       // Check if ranges overlap
       if (start < entryEnd && end > entryStart) {
         // Calculate the actual overlap duration
         const overlapStart = Math.max(start.getTime(), entryStart.getTime());
         const overlapEnd = Math.min(end.getTime(), entryEnd.getTime());
         const overlapMs = overlapEnd - overlapStart;
-        
+
         // Ignore overlaps of 1 minute or less (tolerance for back-to-back meetings)
         if (overlapMs <= ONE_MINUTE_MS) {
           continue;
         }
-        
+
         return entry;
       }
     }
@@ -415,7 +423,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
         const toDate = new Date(year, month - 1, day, 23, 59, 59, 999);
         if (entryDate > toDate) return false;
       }
-      
+
       return true;
     });
   }, [entries, dateFrom, dateTo]);
@@ -439,16 +447,16 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
       const day = String(d.getDate()).padStart(2, '0');
       return `${year}-${month}-${day}`;
     };
-    
+
     if (preset === 'all') {
       setDateFrom('');
       setDateTo('');
       setActivePreset('all');
       return;
     }
-    
+
     let fromDate: Date;
-    
+
     if (preset === 'today') {
       fromDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     } else if (preset === 'week') {
@@ -458,7 +466,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
     } else { // month
       fromDate = new Date(today.getFullYear(), today.getMonth(), 1);
     }
-    
+
     setDateFrom(formatDateLocal(fromDate));
     setDateTo(formatDateLocal(today));
     setActivePreset(preset);
@@ -569,7 +577,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
   // Handler for start date change - auto-syncs end date if not manually edited
   const handleStartDateChange = (newStartDate: string) => {
     setManualStartDate(newStartDate);
-    
+
     // Auto-set end date if not manually edited (preserves end time value)
     if (!endDateManuallySet) {
       setManualEndDate(newStartDate);
@@ -671,7 +679,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault();
-        setSelectedSuggestionIndex(prev => 
+        setSelectedSuggestionIndex(prev =>
           prev < manualSuggestions.length - 1 ? prev + 1 : prev
         );
         break;
@@ -726,7 +734,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
     if (cancelledRef.current) return;
     const entry = entries.find(e => e.id === entryId);
     if (!entry) return;
-    
+
     // Reconstruct datetimes from split date/time state
     const newStart = editField === 'startTime'
       ? combineDateAndTime(editStartDate, editStartTimeOnly).toISOString()
@@ -955,13 +963,39 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
     }
   };
 
+  // Swipe-to-reveal touch handlers for mobile
+  const handleTouchStart = useCallback((entryId: number, e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY, id: entryId };
+  }, []);
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (!touchStartRef.current) return;
+    const touch = e.changedTouches[0];
+    const dx = touch.clientX - touchStartRef.current.x;
+    const dy = touch.clientY - touchStartRef.current.y;
+    const entryId = touchStartRef.current.id;
+    touchStartRef.current = null;
+
+    // Only register horizontal swipes (not vertical scrolls)
+    if (Math.abs(dx) < 50 || Math.abs(dy) > Math.abs(dx)) return;
+
+    if (dx < 0) {
+      // Swipe left → reveal actions
+      setSwipedEntryId(entryId);
+    } else {
+      // Swipe right → hide actions
+      setSwipedEntryId(null);
+    }
+  }, []);
+
   const handleMergeEntries = async (candidate: MergeCandidate) => {
-    const sorted = [...candidate.entries].sort((a, b) => 
+    const sorted = [...candidate.entries].sort((a, b) =>
       new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
     );
     const first = sorted[0];
     const last = sorted[sorted.length - 1];
-    
+
     try {
       // Update the first entry to span the entire range
       await api.updateEntry(first.id, {
@@ -970,12 +1004,12 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
         start_time: first.start_time,
         end_time: last.end_time
       });
-      
+
       // Delete the other entries
       for (let i = 1; i < sorted.length; i++) {
         await api.deleteEntry(sorted[i].id);
       }
-      
+
       handleEntryChangeInternal();
     } catch (error) {
       console.error('Failed to merge entries:', error);
@@ -1006,17 +1040,17 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
     const dayEntries = grouped[dateKey] || [];
     const totalCount = dayEntries.length;
     const hasActive = dayEntries.some(e => !e.end_time);
-    
+
     if (totalCount === 0) {
       alert('No entries to delete for this day.');
       return;
     }
-    
+
     const activeNote = hasActive ? ' (including running timer)' : '';
     if (!confirm(`Delete all ${totalCount} ${totalCount === 1 ? 'entry' : 'entries'} for ${formatDate(dayEntries[0].start_time)}${activeNote}?`)) {
       return;
     }
-    
+
     try {
       await api.deleteEntriesByDate(dateStr);
       if (hasActive) {
@@ -1106,8 +1140,8 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
             <div className="manual-entry-form">
               <div className="form-group">
                 <label>Category</label>
-                <select 
-                  value={manualCategory} 
+                <select
+                  value={manualCategory}
                   onChange={(e) => {
                     const val = e.target.value;
                     if (val === 'new') {
@@ -1123,7 +1157,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                   <option value="new">+ Add category</option>
                 </select>
               </div>
-              
+
               {/* Inline category creation form */}
               {showManualNewCategory && (
                 <div className="new-category-form animate-slide-in">
@@ -1148,8 +1182,8 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                     onChange={(e) => setManualNewCategoryColor(e.target.value)}
                     className="color-picker"
                   />
-                  <button 
-                    className="btn btn-ghost" 
+                  <button
+                    className="btn btn-ghost"
                     onClick={() => {
                       setShowManualNewCategory(false);
                       setManualNewCategoryName('');
@@ -1158,8 +1192,8 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                   >
                     Cancel
                   </button>
-                  <button 
-                    className="btn btn-primary" 
+                  <button
+                    className="btn btn-primary"
                     onClick={handleCreateManualCategory}
                     disabled={!manualNewCategoryName.trim()}
                   >
@@ -1170,11 +1204,11 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
               <div className="form-group">
                 <label>Task <span className="optional">(optional)</span></label>
                 <div className="description-input-wrapper">
-                  <input 
+                  <input
                     ref={manualDescriptionRef}
-                    type="text" 
-                    value={manualDescription} 
-                    onChange={(e) => setManualDescription(e.target.value)} 
+                    type="text"
+                    value={manualDescription}
+                    onChange={(e) => setManualDescription(e.target.value)}
                     onFocus={() => {
                       if (justSelectedSuggestionRef.current) {
                         justSelectedSuggestionRef.current = false;
@@ -1183,7 +1217,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                       if (manualSuggestions.length > 0) setShowManualSuggestions(true);
                     }}
                     onKeyDown={handleManualDescriptionKeyDown}
-                    placeholder="What were you working on?" 
+                    placeholder="What were you working on?"
                     autoComplete="off"
                     data-lpignore="true"
                     data-1p-ignore
@@ -1203,9 +1237,9 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                           >
                             <span className="suggestion-text">{suggestion.task_name}</span>
                             <span className="suggestion-meta">
-                              <span 
-                                className="category-dot" 
-                                style={{ backgroundColor: cat?.color || '#6366f1' }} 
+                              <span
+                                className="category-dot"
+                                style={{ backgroundColor: cat?.color || '#6366f1' }}
                               />
                               <span className="suggestion-category">{cat?.name || 'Unknown'}</span>
                               <span className="suggestion-count">×{suggestion.count}</span>
@@ -1252,25 +1286,25 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
       {showFilters && (
         <div className="filters-panel">
           <div className="date-presets">
-            <button 
+            <button
               className={`preset-btn ${activePreset === 'today' ? 'active' : ''}`}
               onClick={() => applyDatePreset('today')}
             >
               Today
             </button>
-            <button 
+            <button
               className={`preset-btn ${activePreset === 'week' ? 'active' : ''}`}
               onClick={() => applyDatePreset('week')}
             >
               This Week
             </button>
-            <button 
+            <button
               className={`preset-btn ${activePreset === 'month' ? 'active' : ''}`}
               onClick={() => applyDatePreset('month')}
             >
               This Month
             </button>
-            <button 
+            <button
               className={`preset-btn ${activePreset === 'all' ? 'active' : ''}`}
               onClick={() => applyDatePreset('all')}
             >
@@ -1342,7 +1376,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
             </button>
             <button className="btn-icon cleanup-close" onClick={() => setShowCleanupBanner(false)}>×</button>
           </div>
-          
+
           {mergeCandidates.map((candidate, idx) => {
             const totalMinutes = candidate.entries.reduce((sum, e) => sum + (e.duration_minutes || 0), 0);
             return (
@@ -1362,7 +1396,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
               </div>
             );
           })}
-          
+
           {shortEntries.map(({ entry, durationSeconds }) => (
             <div key={entry.id} className="cleanup-item">
               <div className="cleanup-item-info">
@@ -1422,7 +1456,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                   const isSelected = selected === entry.id;
                   const hasOverlap = overlaps[entry.id];
                   const hasInvalidRange = invalidTimeRanges.has(entry.id);
-                  
+
                   // Calculate break from previous entry (entries are sorted by start_time desc)
                   // So "previous" in the list is actually the entry that started AFTER this one
                   const prevEntry = index > 0 ? dateEntries[index - 1] : null;
@@ -1437,11 +1471,11 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                     breakEndTime = prevEntry.start_time;
                   }
                   const showBreak = breakMinutes > 5;
-                  
+
                   return (
                     <div key={entry.id}>
                       {showBreak && (
-                        <button 
+                        <button
                           className="break-indicator"
                           onClick={() => openBreakEntry(breakStartTime, breakEndTime)}
                           title="Click to add entry for this break"
@@ -1451,17 +1485,13 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                           <span className="break-line" />
                         </button>
                       )}
-                      <div 
-                        className={`entry-item ${isSelected ? 'selected' : ''} ${hasOverlap ? 'has-overlap' : ''} ${hasInvalidRange ? 'has-invalid-range' : ''}`}
-                        onClick={() => handleSelect(entry.id)}
+                      <div
+                        className={`entry-item ${isSelected ? 'selected' : ''} ${hasOverlap ? 'has-overlap' : ''} ${hasInvalidRange ? 'has-invalid-range' : ''} ${swipedEntryId === entry.id ? 'swiped' : ''}`}
+                        onClick={() => { if (swipedEntryId === entry.id) { setSwipedEntryId(null); } else { handleSelect(entry.id); } }}
+                        onTouchStart={(e) => handleTouchStart(entry.id, e)}
+                        onTouchEnd={handleTouchEnd}
                       >
-                        <div 
-                        className="entry-indicator" 
-                        style={{ backgroundColor: isEditing 
-                          ? categories.find(c => c.id === editCategory)?.color || '#6366f1'
-                          : entry.category_color || '#6366f1' 
-                        }}
-                      />
+
                       <div className="entry-content">
                         <div className="entry-main">
                           {isEditing && editField === 'category' ? (
@@ -1485,18 +1515,18 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                                   value={newCategoryColor}
                                   onChange={(e) => setNewCategoryColor(e.target.value)}
                                 />
-                                <button 
-                                  type="button" 
-                                  className="inline-edit-save-btn" 
+                                <button
+                                  type="button"
+                                  className="inline-edit-save-btn"
                                   onClick={handleCreateCategory}
                                   disabled={creatingCategory || !newCategoryName.trim()}
                                   title="Create"
                                 >
                                   ✓
                                 </button>
-                                <button 
-                                  type="button" 
-                                  className="inline-edit-cancel-btn" 
+                                <button
+                                  type="button"
+                                  className="inline-edit-cancel-btn"
                                   onClick={() => { setShowNewCategory(false); setNewCategoryName(''); }}
                                   title="Cancel"
                                 >
@@ -1519,14 +1549,19 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                                 <option value="new">+ Add Category</option>
                               </select>
                             )
-                          ) : (
-                            <span 
-                              className="entry-category editable"
-                              onClick={(e) => { e.stopPropagation(); startEdit(entry, 'category'); }}
-                            >
-                              {entry.category_name}
-                            </span>
-                          )}
+                          ) : (() => {
+                            const colors = getAdaptiveCategoryColors(entry.category_color, isDarkMode);
+                            return (
+                              <span
+                                className="entry-category category-badge editable"
+                                style={{ backgroundColor: colors.bgColor, color: '#fff' }}
+                                onClick={(e) => { e.stopPropagation(); startEdit(entry, 'category'); }}
+                              >
+                                <span className="category-dot" style={{ backgroundColor: colors.dotColor }} />
+                                <span className="category-badge-text">{entry.category_name}</span>
+                              </span>
+                            );
+                          })()}
                           {isEditing && editField === 'description' ? (
                             <input
                               type="text"
@@ -1540,7 +1575,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                               onClick={(e) => e.stopPropagation()}
                             />
                           ) : (
-                            <span 
+                            <span
                               className="entry-description editable"
                               onDoubleClick={(e) => { e.stopPropagation(); startEdit(entry, 'description'); }}
                             >
@@ -1550,7 +1585,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                         </div>
                         <div className="entry-meta">
                           {isEditing && editField === 'startTime' && !showTimeEditModal ? (
-                            <form 
+                            <form
                               className="inline-edit-time-form"
                               onSubmit={(e) => handleTimeInputSubmit(e, entry.id)}
                               onKeyDown={(e) => handleKeyDown(e, entry.id)}
@@ -1576,7 +1611,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                               {editTimeError && <span className="inline-edit-time-error">{editTimeError}</span>}
                             </form>
                           ) : (
-                            <button 
+                             <button
                               className="entry-time-btn editable"
                               onClick={(e) => { e.stopPropagation(); startEdit(entry, 'startTime'); }}
                               title="Tap to edit start time"
@@ -1585,40 +1620,41 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                               <span className="time-compact">{formatTimeCompact(entry.start_time)}</span>
                             </button>
                           )}
-                          <span className="time-separator">–</span>
-                          {isEditing && editField === 'endTime' && !showTimeEditModal ? (
-                            <form 
-                              className="inline-edit-time-form"
-                              onSubmit={(e) => handleTimeInputSubmit(e, entry.id)}
-                              onKeyDown={(e) => handleKeyDown(e, entry.id)}
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <input
-                                type="time"
-                                className="inline-edit-time inline-edit-time-only"
-                                value={editEndTimeOnly}
-                                onChange={(e) => handleEditEndTimeOnlyChange(e.target.value)}
-                                onBlur={(e) => handleTimeBlur(entry.id, 'endTime', e)}
-                                autoFocus
-                              />
-                              <input
-                                type="date"
-                                className="inline-edit-time inline-edit-date"
-                                value={editEndDate}
-                                onChange={(e) => handleEditEndDateChange(e.target.value)}
-                                onBlur={(e) => handleTimeBlur(entry.id, 'endTime', e)}
-                              />
-                              <button type="submit" className="inline-edit-save-btn" title="Save">✓</button>
-                              <button type="button" className="inline-edit-cancel-btn" onClick={handleCancel} title="Cancel">✕</button>
-                              {editTimeError && <span className="inline-edit-time-error">{editTimeError}</span>}
-                            </form>
-                          ) : (
-                            <button 
-                              className={`entry-time-btn editable ${!entry.end_time ? 'active-time' : ''}`}
-                              onClick={(e) => { 
+                          <span className="end-time-group">
+                            <span className="time-separator">&nbsp;–&nbsp;</span>
+                            {isEditing && editField === 'endTime' && !showTimeEditModal ? (
+                              <form
+                                className="inline-edit-time-form"
+                                onSubmit={(e) => handleTimeInputSubmit(e, entry.id)}
+                                onKeyDown={(e) => handleKeyDown(e, entry.id)}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <input
+                                  type="time"
+                                  className="inline-edit-time inline-edit-time-only"
+                                  value={editEndTimeOnly}
+                                  onChange={(e) => handleEditEndTimeOnlyChange(e.target.value)}
+                                  onBlur={(e) => handleTimeBlur(entry.id, 'endTime', e)}
+                                  autoFocus
+                                />
+                                <input
+                                  type="date"
+                                  className="inline-edit-time inline-edit-date"
+                                  value={editEndDate}
+                                  onChange={(e) => handleEditEndDateChange(e.target.value)}
+                                  onBlur={(e) => handleTimeBlur(entry.id, 'endTime', e)}
+                                />
+                                <button type="submit" className="inline-edit-save-btn" title="Save">✓</button>
+                                <button type="button" className="inline-edit-cancel-btn" onClick={handleCancel} title="Cancel">✕</button>
+                                {editTimeError && <span className="inline-edit-time-error">{editTimeError}</span>}
+                              </form>
+                            ) : (
+                              <button
+                                className={`entry-time-btn editable ${!entry.end_time ? 'active-time' : ''}`}
+                              onClick={(e) => {
                                 if (entry.end_time) {
-                                  e.stopPropagation(); 
-                                  startEdit(entry, 'endTime'); 
+                                  e.stopPropagation();
+                                  startEdit(entry, 'endTime');
                                 }
                               }}
                               disabled={!entry.end_time}
@@ -1632,7 +1668,8 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                               ) : 'now'}
                             </button>
                           )}
-                          <button 
+                          </span>
+                          <button
                             className={`entry-duration-btn ${!entry.end_time ? 'active' : ''}`}
                             onClick={(e) => { e.stopPropagation(); startEdit(entry, 'startTime'); }}
                             title="Tap to edit times"
@@ -1651,6 +1688,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                           ⛔
                         </span>
                       )}
+                      {/* Desktop hover actions */}
                       {entry.end_time && (
                         <div className="entry-actions">
                           {entry.id === mostRecentCompletedId && !activeEntry ? (
@@ -1670,8 +1708,8 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                               ↻
                             </button>
                           )}
-                          <button 
-                            className="btn-icon delete-btn" 
+                          <button
+                            className="btn-icon delete-btn"
                             onClick={(e) => { e.stopPropagation(); handleDelete(entry.id); }}
                             title="Delete"
                           >
@@ -1682,8 +1720,8 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                       {!entry.end_time && (
                         <div className="entry-actions">
                           <span className="btn-icon" style={{ visibility: 'hidden' }}>↻</span>
-                          <button 
-                            className="btn-icon delete-btn" 
+                          <button
+                            className="btn-icon delete-btn"
                             onClick={(e) => { e.stopPropagation(); handleDelete(entry.id); }}
                             title="Delete"
                           >
@@ -1691,6 +1729,32 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                           </button>
                         </div>
                       )}
+                      {/* Mobile swipe actions */}
+                      <div className="swipe-actions">
+                        {entry.end_time && (
+                          entry.id === mostRecentCompletedId && !activeEntry ? (
+                            <button
+                              className="swipe-action-btn resume"
+                              onClick={(e) => { e.stopPropagation(); setSwipedEntryId(null); handleResume(entry); }}
+                            >
+                              ▶
+                            </button>
+                          ) : (
+                            <button
+                              className="swipe-action-btn restart"
+                              onClick={(e) => { e.stopPropagation(); setSwipedEntryId(null); handleRestart(entry); }}
+                            >
+                              ↻
+                            </button>
+                          )
+                        )}
+                        <button
+                          className="swipe-action-btn delete"
+                          onClick={(e) => { e.stopPropagation(); setSwipedEntryId(null); handleDelete(entry.id); }}
+                        >
+                          ×
+                        </button>
+                      </div>
                       </div>
                     </div>
                   );

@@ -530,11 +530,9 @@
   flex-shrink: 0;
 }
 
-.entry-indicator {
-  width: 4px;
-  height: 2.5rem;
-  border-radius: 2px;
-  flex-shrink: 0;
+/* Swipe actions — hidden on desktop, shown on mobile via media query */
+.swipe-actions {
+  display: none;
 }
 
 .entry-content {
@@ -556,15 +554,28 @@
 }
 
 .entry-category {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--text-primary);
   flex-shrink: 0;
+  cursor: pointer;
+}
+
+/* Smaller pills in history compared to the timer view */
+.entry-category.category-badge {
+  padding: 0.1875rem 0.5rem;
+  font-size: 0.75rem;
+  gap: 0.25rem;
+  min-width: 6.5rem;
+  justify-content: center;
+  text-align: center;
+}
+
+.entry-category.category-badge .category-dot {
+  width: 6px;
+  height: 6px;
 }
 
 .entry-description {
-  font-size: 0.8125rem;
-  color: var(--text-secondary);
+  font-size: 0.875rem;
+  color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -579,8 +590,21 @@
   cursor: text;
 }
 
+/* Category pill already has its own padding — override generic editable */
+.entry-category.editable {
+  padding: 0.375rem 0.75rem;
+  margin: 0;
+  border-radius: var(--radius-full, 9999px);
+  cursor: pointer;
+}
+
 .editable:hover {
   background: var(--bg-tertiary);
+}
+
+.entry-category.editable:hover {
+  filter: brightness(0.95);
+  background: unset;
 }
 
 /* Inline edit inputs */
@@ -638,7 +662,6 @@
 .entry-meta {
   display: flex;
   align-items: center;
-  gap: 0.375rem;
   flex-shrink: 0;
 }
 
@@ -646,6 +669,10 @@
   font-family: 'JetBrains Mono', monospace;
   color: var(--text-muted);
   font-size: 0.75rem;
+}
+
+.end-time-group {
+  display: contents;
 }
 
 /* Time format switching - full format by default, compact on mobile */
@@ -707,7 +734,8 @@
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: all var(--transition-fast);
-  text-align: center;
+  text-align: left;
+  min-width: 10ch;
 }
 
 .entry-time-btn:hover:not(:disabled) {
@@ -927,37 +955,37 @@
     flex-direction: column;
     align-items: stretch;
   }
-  
+
   .filter-group.search-group {
     min-width: 100%;
   }
-  
+
   /* Category select fills width on mobile */
   .filter-group:has(.filter-select) {
     width: 100%;
   }
-  
+
   .filter-group:has(.filter-select) .filter-select {
     width: 100%;
   }
-  
+
   /* Date filter groups side by side on mobile */
   .filter-row:has(.date-group) {
     flex-direction: row;
     flex-wrap: wrap;
     gap: 0.75rem;
   }
-  
+
   .filter-group.date-group {
     flex: 0 0 auto;
   }
-  
+
   .date-input {
     width: auto;
     min-width: 8rem;
     height: 44px;
   }
-  
+
   .clear-filters {
     margin-left: 0;
     width: 100%;
@@ -970,22 +998,22 @@
     min-width: 0;
     flex-wrap: nowrap;
   }
-  
+
   /* When editing time inline, the form takes full width so it doesn't
      cramp the datetime-local picker against other elements */
   .entry-meta .inline-edit-time-form {
     flex: 1 1 100%;
   }
-  
+
   /* Use compact time format on mobile (4:18p instead of 4:18 PM) */
   .time-full {
     display: none;
   }
-  
+
   .time-compact {
     display: inline;
   }
-  
+
   .entry-actions,
   .entry-item > .delete-btn {
     display: none;
@@ -996,31 +1024,62 @@
     min-width: 44px;
     min-height: 44px;
   }
-  
+
   /* Compact entry items on mobile */
   .entry-item {
-    padding: 0.25rem 0.5rem 0.25rem 0;
+    padding: 0.5rem 0.5rem 0.5rem 0.5rem;
     align-items: center;
+    position: relative;
+    overflow: hidden;
   }
 
-  .entry-indicator {
-    align-self: stretch;
-    height: auto;
+  .entry-item + .entry-item,
+  .entry-item + .break-indicator + .entry-item {
+    margin-top: 0.25rem;
   }
-  
+
+  /* Hide end time and separator on mobile */
+  .end-time-group {
+    display: none;
+  }
+
   .entry-main {
     flex-wrap: nowrap;
-    gap: 0.375rem;
+    gap: 0.25rem;
     min-width: 0;
     overflow: hidden;
   }
-  
+
+  /* Dot-only category on mobile — hide pill text/bg, show colored dot with spacing */
   .entry-category {
-    font-size: 0.8125rem;
+    font-size: 0;
+    max-width: none;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
   }
-  
+
+  .entry-category.category-badge {
+    min-width: auto;
+    padding: 0;
+    gap: 0;
+    background: transparent !important;
+    border-radius: 0;
+  }
+
+  .entry-category .category-badge-text {
+    display: none;
+  }
+
+  .entry-category .category-dot {
+    width: 10px;
+    height: 10px;
+  }
+
   .entry-description {
-    font-size: 0.75rem;
+    font-size: 0.8125rem;
   }
 
   /* Compact time buttons — no boxes, just text */
@@ -1029,13 +1088,14 @@
     margin: 0;
     font-size: 0.75rem;
     min-width: 3.75rem;
-    text-align: center;
+    text-align: left;
   }
-  
+
   .entry-meta {
     gap: 0.25rem;
+    min-width: auto;
   }
-  
+
   /* Tappable duration on mobile */
   .entry-duration-btn {
     font-size: 0.75rem;
@@ -1043,7 +1103,7 @@
     padding: 0.25rem 0.25rem;
     text-align: right;
   }
-  
+
   .entry-duration-btn:hover,
   .entry-duration-btn:active {
     background: var(--bg-tertiary);
@@ -1053,13 +1113,13 @@
   .entry-duration-btn.active {
     color: var(--success);
   }
-  
+
   /* Inline edit time form on mobile */
   .inline-edit-time-form {
     width: 100%;
     flex-wrap: wrap;
   }
-  
+
   .inline-edit-time {
     min-width: 0;
     min-height: 44px;
@@ -1072,7 +1132,7 @@
     flex: 1;
     width: auto;
   }
-  
+
   .inline-edit-save-btn,
   .inline-edit-cancel-btn {
     width: 44px;
@@ -1080,18 +1140,18 @@
     font-size: 1.125rem;
     flex-shrink: 0;
   }
-  
+
   /* Filter inputs touch targets */
   .filter-input,
   .filter-select {
     min-height: 44px;
   }
-  
+
   .preset-btn {
     min-height: 44px;
     padding: 0.5rem 0.875rem;
   }
-  
+
   /* Manual entry modal improvements */
   .manual-entry-modal {
     max-width: calc(100vw - 2rem);
@@ -1121,10 +1181,57 @@
     align-items: flex-start;
     gap: 0.625rem;
   }
-  
+
   .cleanup-item-actions {
     width: 100%;
     justify-content: flex-end;
+  }
+
+  /* Swipe-to-reveal actions on mobile */
+  .swipe-actions {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: stretch;
+    transform: translateX(100%);
+    transition: transform 0.2s ease;
+    z-index: 2;
+  }
+
+  .entry-item.swiped .swipe-actions {
+    transform: translateX(0);
+  }
+
+  .entry-item.swiped .entry-content {
+    transform: translateX(-6rem);
+    transition: transform 0.2s ease;
+  }
+
+  .entry-content {
+    transition: transform 0.2s ease;
+  }
+
+  .swipe-action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 3rem;
+    border: none;
+    color: white;
+    font-size: 1.125rem;
+    cursor: pointer;
+    padding: 0;
+  }
+
+  .swipe-action-btn.resume,
+  .swipe-action-btn.restart {
+    background: var(--primary);
+  }
+
+  .swipe-action-btn.delete {
+    background: var(--error, #ef4444);
   }
 }
 .cleanup-banner {

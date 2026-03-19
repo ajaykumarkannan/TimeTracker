@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { TimeEntryList } from '../TimeEntryList';
+import { ThemeProvider } from '../../contexts/ThemeContext';
 import { api } from '../../api';
 import type { Category, TimeEntry } from '../../types';
 
@@ -17,6 +18,11 @@ vi.mock('../../api', () => ({
 }));
 
 const mockApi = api as any;
+
+// Helper to render with ThemeProvider
+const renderWithTheme = (ui: React.ReactElement) => {
+  return render(<ThemeProvider>{ui}</ThemeProvider>);
+};
 
 const categories: Category[] = [
   { id: 1, name: 'Deep Work', color: '#10b981', created_at: '2026-02-01' },
@@ -64,7 +70,7 @@ describe('TimeEntryList', () => {
   });
 
   it('opens manual entry modal and validates required fields', async () => {
-    render(
+    renderWithTheme(
       <TimeEntryList
         activeEntry={null}
         categories={categories}
@@ -107,7 +113,7 @@ describe('TimeEntryList', () => {
   });
 
   it('submits a valid manual entry', async () => {
-    render(
+    renderWithTheme(
       <TimeEntryList
         activeEntry={null}
         categories={categories}
@@ -142,7 +148,7 @@ describe('TimeEntryList', () => {
   });
 
   it('shows filters panel and clears filters', async () => {
-    render(
+    renderWithTheme(
       <TimeEntryList
         activeEntry={null}
         categories={categories}
@@ -173,7 +179,7 @@ describe('TimeEntryList', () => {
     mockApi.getTimeEntries.mockResolvedValueOnce(entries);
 
     const onEntryChange = vi.fn();
-    render(
+    renderWithTheme(
       <TimeEntryList
         activeEntry={null}
         categories={categories}
@@ -195,7 +201,7 @@ describe('TimeEntryList', () => {
     const entries = [baseEntry({ id: 10 })];
     mockApi.getTimeEntries.mockResolvedValueOnce(entries);
 
-    render(
+    renderWithTheme(
       <TimeEntryList
         activeEntry={null}
         categories={categories}
@@ -232,7 +238,7 @@ describe('TimeEntryList', () => {
     ];
     mockApi.getTimeEntries.mockResolvedValueOnce(entries);
 
-    render(
+    renderWithTheme(
       <TimeEntryList
         activeEntry={null}
         categories={categories}
@@ -251,7 +257,7 @@ describe('TimeEntryList', () => {
     const entries = [baseEntry({ id: 20 })];
     mockApi.getTimeEntries.mockResolvedValueOnce(entries);
 
-    render(
+    renderWithTheme(
       <TimeEntryList
         activeEntry={null}
         categories={categories}
@@ -277,7 +283,7 @@ describe('TimeEntryList', () => {
     const entries = [baseEntry({ id: 30, task_name: 'Existing task' })];
     mockApi.getTimeEntries.mockResolvedValue(entries);
 
-    const { rerender } = render(
+    const { rerender } = renderWithTheme(
       <TimeEntryList
         activeEntry={null}
         categories={categories}
@@ -297,13 +303,15 @@ describe('TimeEntryList', () => {
     mockApi.getTimeEntries.mockResolvedValue(updatedEntries);
 
     rerender(
-      <TimeEntryList
-        activeEntry={null}
-        categories={categories}
-        onEntryChange={vi.fn()}
-        onCategoryChange={vi.fn()}
-        refreshKey={1}
-      />
+      <ThemeProvider>
+        <TimeEntryList
+          activeEntry={null}
+          categories={categories}
+          onEntryChange={vi.fn()}
+          onCategoryChange={vi.fn()}
+          refreshKey={1}
+        />
+      </ThemeProvider>
     );
 
     // The loading spinner should NOT appear during background refresh
@@ -320,7 +328,7 @@ describe('TimeEntryList', () => {
     mockApi.getTimeEntries.mockResolvedValueOnce(entries);
     mockApi.updateEntry.mockResolvedValue(entries[0]);
 
-    render(
+    renderWithTheme(
       <TimeEntryList
         activeEntry={null}
         categories={categories}
@@ -359,7 +367,7 @@ describe('TimeEntryList', () => {
     const entries = [baseEntry({ id: 51 })];
     mockApi.getTimeEntries.mockResolvedValueOnce(entries);
 
-    render(
+    renderWithTheme(
       <TimeEntryList
         activeEntry={null}
         categories={categories}

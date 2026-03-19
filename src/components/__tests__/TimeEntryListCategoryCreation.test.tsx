@@ -9,8 +9,15 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import React from 'react';
 import { TimeEntryList } from '../TimeEntryList';
+import { ThemeProvider } from '../../contexts/ThemeContext';
 import { Category } from '../../types';
+
+// Helper to render with ThemeProvider
+function renderWithTheme(ui: React.ReactElement) {
+  return render(<ThemeProvider>{ui}</ThemeProvider>);
+}
 
 // Mock the api module
 vi.mock('../../api', () => ({
@@ -62,7 +69,7 @@ describe('TimeEntryList - Category Creation in Add Entry Modal', () => {
      * WHEN the Add_Entry_Modal is displayed, THE Category_Selector SHALL include an "Add category" option
      */
     it('shows "+ Add category" option in the category dropdown', async () => {
-      render(
+      renderWithTheme(
         <TimeEntryList 
           activeEntry={null}
           categories={mockCategories}
@@ -88,7 +95,7 @@ describe('TimeEntryList - Category Creation in Add Entry Modal', () => {
      * The category dropdown should show all existing categories plus the add option
      */
     it('shows all existing categories along with "+ Add category" option', async () => {
-      render(
+      renderWithTheme(
         <TimeEntryList 
           activeEntry={null}
           categories={mockCategories}
@@ -115,7 +122,7 @@ describe('TimeEntryList - Category Creation in Add Entry Modal', () => {
      * THE System SHALL display an inline category creation form
      */
     it('shows inline category creation form when "+ Add category" is selected', async () => {
-      render(
+      renderWithTheme(
         <TimeEntryList 
           activeEntry={null}
           categories={mockCategories}
@@ -153,7 +160,7 @@ describe('TimeEntryList - Category Creation in Add Entry Modal', () => {
      * The inline form should have a name input field that is auto-focused
      */
     it('auto-focuses the category name input when form appears', async () => {
-      render(
+      renderWithTheme(
         <TimeEntryList 
           activeEntry={null}
           categories={mockCategories}
@@ -185,7 +192,7 @@ describe('TimeEntryList - Category Creation in Add Entry Modal', () => {
      * THE System SHALL return to the category selection state
      */
     it('hides inline form when Cancel button is clicked', async () => {
-      render(
+      renderWithTheme(
         <TimeEntryList 
           activeEntry={null}
           categories={mockCategories}
@@ -234,7 +241,7 @@ describe('TimeEntryList - Category Creation in Add Entry Modal', () => {
      * Pressing Escape key should cancel category creation
      */
     it('hides inline form when Escape key is pressed', async () => {
-      render(
+      renderWithTheme(
         <TimeEntryList 
           activeEntry={null}
           categories={mockCategories}
@@ -281,7 +288,7 @@ describe('TimeEntryList - Category Creation in Add Entry Modal', () => {
      * Cancelling should reset the form state (clear name and color)
      */
     it('resets form state when cancelled', async () => {
-      render(
+      renderWithTheme(
         <TimeEntryList 
           activeEntry={null}
           categories={mockCategories}
@@ -347,7 +354,7 @@ describe('TimeEntryList - Category Creation in Add Entry Modal', () => {
         created_at: new Date().toISOString()
       });
 
-      render(
+      renderWithTheme(
         <TimeEntryList 
           activeEntry={null}
           categories={mockCategories}
@@ -405,7 +412,7 @@ describe('TimeEntryList - Category Creation in Add Entry Modal', () => {
         created_at: new Date().toISOString()
       });
 
-      render(
+      renderWithTheme(
         <TimeEntryList 
           activeEntry={null}
           categories={mockCategories}
@@ -456,7 +463,7 @@ describe('TimeEntryList - Category Creation in Add Entry Modal', () => {
         created_at: new Date().toISOString()
       });
 
-      render(
+      renderWithTheme(
         <TimeEntryList 
           activeEntry={null}
           categories={mockCategories}
@@ -502,7 +509,7 @@ describe('TimeEntryList - Category Creation in Add Entry Modal', () => {
      * Create button should be disabled when category name is empty
      */
     it('disables Create button when category name is empty', async () => {
-      render(
+      renderWithTheme(
         <TimeEntryList 
           activeEntry={null}
           categories={mockCategories}
@@ -531,7 +538,7 @@ describe('TimeEntryList - Category Creation in Add Entry Modal', () => {
      * Create button should be enabled when category name has content
      */
     it('enables Create button when category name has content', async () => {
-      render(
+      renderWithTheme(
         <TimeEntryList 
           activeEntry={null}
           categories={mockCategories}
@@ -566,7 +573,7 @@ describe('TimeEntryList - Category Creation in Add Entry Modal', () => {
      * Should not create category with whitespace-only name
      */
     it('does not create category when name is only whitespace', async () => {
-      render(
+      renderWithTheme(
         <TimeEntryList 
           activeEntry={null}
           categories={mockCategories}
@@ -601,7 +608,7 @@ describe('TimeEntryList - Category Creation in Add Entry Modal', () => {
      * Closing the modal should reset the inline category creation state
      */
     it('resets category creation state when modal is closed', async () => {
-      render(
+      renderWithTheme(
         <TimeEntryList 
           activeEntry={null}
           categories={mockCategories}
@@ -647,7 +654,7 @@ describe('TimeEntryList - Category Creation in Add Entry Modal', () => {
      * Clicking overlay should close modal and reset state
      */
     it('resets category creation state when clicking overlay to close', async () => {
-      render(
+      renderWithTheme(
         <TimeEntryList 
           activeEntry={null}
           categories={mockCategories}
