@@ -912,13 +912,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
     if (e.key === 'Enter') {
       e.preventDefault();
       e.stopPropagation();
-      // Set cancelled flag to suppress the deferred blur-save that follows
-      cancelledRef.current = true;
-      // Use setTimeout to ensure the input value is captured before saving
-      setTimeout(() => {
-        cancelledRef.current = false;
-        handleSave(entryId);
-      }, 0);
+      handleSave(entryId);
     } else if (e.key === 'Escape') {
       e.preventDefault();
       handleCancel();
@@ -1635,7 +1629,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                                   <span className="time-full">{formatTime(entry.end_time)}</span>
                                   <span className="time-compact">{formatTimeCompact(entry.end_time)}</span>
                                 </>
-                              ) : 'now\u00A0\u00A0\u00A0\u00A0\u00A0'}
+                              ) : 'now'}
                             </button>
                           )}
                           <button 
