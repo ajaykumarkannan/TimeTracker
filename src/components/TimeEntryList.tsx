@@ -1486,7 +1486,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                         </button>
                       )}
                       <div
-                         className={`entry-item ${index % 2 === 1 ? 'entry-striped' : ''} ${isSelected ? 'selected' : ''} ${hasOverlap ? 'has-overlap' : ''} ${hasInvalidRange ? 'has-invalid-range' : ''} ${swipedEntryId === entry.id ? 'swiped' : ''}`}
+                         className={`entry-item ${index % 2 === 1 ? 'entry-striped' : ''} ${isSelected ? 'selected' : ''} ${swipedEntryId === entry.id ? 'swiped' : ''}`}
                         onClick={() => { if (swipedEntryId === entry.id) { setSwipedEntryId(null); } else { handleSelect(entry.id); } }}
                         onTouchStart={(e) => handleTouchStart(entry.id, e)}
                         onTouchEnd={handleTouchEnd}
@@ -1577,13 +1577,24 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                           ) : (
                             <span
                               className="entry-description editable"
-                              onDoubleClick={(e) => { e.stopPropagation(); startEdit(entry, 'description'); }}
+                              onClick={(e) => { if (!isMobileRef.current) { e.stopPropagation(); startEdit(entry, 'description'); } }}
+                              onDoubleClick={(e) => { if (isMobileRef.current) { e.stopPropagation(); startEdit(entry, 'description'); } }}
                             >
                               {entry.task_name || '—'}
                             </span>
                           )}
                         </div>
                         <div className="entry-meta">
+                          {hasOverlap && (
+                            <span className="overlap-warning" title={`Overlaps with: ${hasOverlap.category_name}`}>
+                              ⚠️
+                            </span>
+                          )}
+                          {hasInvalidRange && (
+                            <span className="overlap-warning" title="Start time is after end time — click to fix">
+                              ⛔
+                            </span>
+                          )}
                           {isEditing && editField === 'startTime' && !showTimeEditModal ? (
                             <form
                               className="inline-edit-time-form"
@@ -1678,16 +1689,6 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                           </button>
                         </div>
                       </div>
-                      {hasOverlap && (
-                        <span className="overlap-warning" title={`Overlaps with: ${hasOverlap.category_name}`}>
-                          ⚠️
-                        </span>
-                      )}
-                      {hasInvalidRange && (
-                        <span className="overlap-warning" title="Start time is after end time — click to fix">
-                          ⛔
-                        </span>
-                      )}
                       {/* Desktop hover actions */}
                       {entry.end_time && (
                         <div className="entry-actions">
