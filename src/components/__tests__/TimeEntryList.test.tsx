@@ -216,7 +216,7 @@ describe('TimeEntryList', () => {
 
     const description = screen.getByText('Focus');
     await act(async () => {
-      fireEvent.doubleClick(description);
+      fireEvent.click(description);
     });
 
     const input = screen.getByPlaceholderText('Add a task name...');

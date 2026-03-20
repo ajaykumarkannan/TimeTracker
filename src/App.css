@@ -10,6 +10,7 @@
   --bg-secondary: #f4f4f5;
   --bg-tertiary: #e4e4e7;
   --bg-hover: rgba(0, 0, 0, 0.04);
+  --bg-row-hover: rgba(99, 102, 241, 0.07);
   --bg-gradient: linear-gradient(145deg, #fafafa 0%, #f0f0f2 100%);
   --bg-gradient-hero: linear-gradient(135deg, #f8f9ff 0%, #f0f4ff 50%, #faf5ff 100%);
   
@@ -71,6 +72,7 @@
   --bg-secondary: #18181b;
   --bg-tertiary: #27272a;
   --bg-hover: rgba(255, 255, 255, 0.04);
+  --bg-row-hover: rgba(129, 140, 248, 0.10);
   --bg-gradient: linear-gradient(145deg, #0f0f10 0%, #18181b 100%);
   --bg-gradient-hero: linear-gradient(135deg, #0f0f10 0%, #1a1a2e 50%, #16161d 100%);
   

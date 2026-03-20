@@ -514,7 +514,7 @@
 }
 
 .entry-item:hover {
-  background: var(--bg-secondary);
+  background: var(--bg-row-hover);
 }
 
 .entry-item.selected {
@@ -812,10 +812,7 @@
   margin-top: 0.125rem;
 }
 
-/* Invalid time range warning (start >= end) */
-.entry-item.has-invalid-range {
-  border-left: 3px solid var(--error);
-}
+/* Overlap/invalid indicators are placed inline in entry-meta (before start time) */
 
 /* Time-edit modal validation error */
 .time-edit-error {
@@ -862,20 +859,18 @@
 }
 
 /* Overlap warning */
-.entry-item.has-overlap {
-  border-left: 3px solid var(--warning);
-}
 
 .overlap-warning {
   font-size: 0.875rem;
   cursor: help;
   flex-shrink: 0;
+  margin-right: 0.5rem;
 }
 
 .delete-btn,
 .resume-btn,
 .restart-btn {
-  opacity: 0.15;
+  opacity: 0.4;
   color: var(--text-muted);
   background: none;
   border: none;
