@@ -4,7 +4,7 @@
   --primary: #6366f1;
   --primary-hover: #4f46e5;
   --primary-alpha: rgba(99, 102, 241, 0.12);
-  
+
   /* Backgrounds */
   --bg-primary: #fafafa;
   --bg-secondary: #f4f4f5;
@@ -13,26 +13,26 @@
   --bg-row-hover: rgba(99, 102, 241, 0.07);
   --bg-gradient: linear-gradient(145deg, #fafafa 0%, #f0f0f2 100%);
   --bg-gradient-hero: linear-gradient(135deg, #f8f9ff 0%, #f0f4ff 50%, #faf5ff 100%);
-  
+
   /* Cards */
   --card-bg: #ffffff;
   --card-border: rgba(0, 0, 0, 0.06);
   --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.03);
   --card-shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.08), 0 8px 24px rgba(0, 0, 0, 0.04);
-  
+
   /* Inputs */
   --input-bg: #ffffff;
   --input-border: #e4e4e7;
-  
+
   /* Text */
   --text-primary: #18181b;
   --text-secondary: #52525b;
   --text-tertiary: #71717a;
   --text-muted: #a1a1aa;
-  
+
   /* Borders */
   --border: #e4e4e7;
-  
+
   /* Status colors */
   --error: #ef4444;
   --error-bg: rgba(239, 68, 68, 0.08);
@@ -44,7 +44,7 @@
   --success-hover: #16a34a;
   --info: #3b82f6;
   --info-bg: rgba(59, 130, 246, 0.08);
-  
+
   /* Shadows */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
   --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.06), 0 4px 16px rgba(0, 0, 0, 0.04);
@@ -52,13 +52,13 @@
   --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.12), 0 32px 80px rgba(0, 0, 0, 0.08);
   --overlay-bg: rgba(0, 0, 0, 0.5);
   --text-on-primary: #ffffff;
-  
+
   /* Radius */
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 14px;
   --radius-xl: 20px;
-  
+
   /* Touch targets */
   --touch-target-min: 44px;
 }
@@ -67,7 +67,7 @@
   --primary: #818cf8;
   --primary-hover: #a5b4fc;
   --primary-alpha: rgba(129, 140, 248, 0.18);
-  
+
   --bg-primary: #0f0f10;
   --bg-secondary: #18181b;
   --bg-tertiary: #27272a;
@@ -75,22 +75,22 @@
   --bg-row-hover: rgba(129, 140, 248, 0.10);
   --bg-gradient: linear-gradient(145deg, #0f0f10 0%, #18181b 100%);
   --bg-gradient-hero: linear-gradient(135deg, #0f0f10 0%, #1a1a2e 50%, #16161d 100%);
-  
+
   --card-bg: #18181b;
   --card-border: rgba(255, 255, 255, 0.06);
   --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 4px 12px rgba(0, 0, 0, 0.2);
   --card-shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.3);
-  
+
   --input-bg: #27272a;
   --input-border: #3f3f46;
-  
-  --text-primary: #fafafa;
+
+  --text-primary: #fcfcfc;
   --text-secondary: #a1a1aa;
   --text-tertiary: #71717a;
-  --text-muted: #52525b;
-  
+  --text-muted: #62626b;
+
   --border: #27272a;
-  
+
   --error: #f87171;
   --error-bg: rgba(248, 113, 113, 0.12);
   --success: #4ade80;
@@ -101,7 +101,7 @@
   --success-hover: #22c55e;
   --info: #60a5fa;
   --info-bg: rgba(96, 165, 250, 0.12);
-  
+
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
   --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.5), 0 4px 16px rgba(0, 0, 0, 0.3);
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5), 0 16px 48px rgba(0, 0, 0, 0.4);
@@ -786,33 +786,33 @@ body {
   .app-header {
     padding: 0.5rem 0.75rem;
   }
-  
+
   .username {
     display: none;
   }
-  
+
   /* Hide desktop nav, show hamburger on mobile */
   .desktop-nav {
     display: none;
   }
-  
+
   .hamburger-btn {
     display: flex;
   }
-  
+
   .nav-label {
     display: inline;
   }
-  
+
   .nav-btn {
     padding: 0.5rem 0.75rem;
   }
-  
+
   .app-main {
     padding: 1rem;
     gap: 1rem;
   }
-  
+
   /* Prevent iOS zoom on input focus - inputs must be 16px minimum */
   .form-group input,
   .form-group select,
@@ -823,23 +823,23 @@ body {
   textarea {
     font-size: 16px;
   }
-  
+
   /* Settings menu button touch target */
   .settings-menu-btn {
     width: 44px;
     height: 44px;
   }
-  
+
   /* Logo text smaller on mobile */
   .logo-text {
     font-size: 1rem;
   }
-  
+
   .logo-icon {
     width: 24px;
     height: 24px;
   }
-  
+
   /* Settings modal full screen on mobile */
   .settings-modal {
     max-width: 100%;
@@ -847,11 +847,11 @@ body {
     border-radius: 0;
     height: 100%;
   }
-  
+
   .settings-modal-overlay {
     padding: 0;
   }
-  
+
   .settings-modal-content {
     padding: 1rem;
   }
