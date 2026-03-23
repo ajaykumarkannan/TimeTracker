@@ -29,7 +29,11 @@ function getStoredPeriod(): Period {
   return 'last7';
 }
 
-export function Analytics() {
+interface AnalyticsProps {
+  refreshKey?: number;
+}
+
+export function Analytics({ refreshKey }: AnalyticsProps = {}) {
   const [period, setPeriod] = useState<Period>(getStoredPeriod);
   const [periodOffset, setPeriodOffset] = useState(0); // 0 = current, -1 = previous, etc.
   const [dayOffset, setDayOffset] = useState(0); // For "last N days" periods: shifts the window by days
@@ -520,30 +524,39 @@ export function Analytics() {
   // Get the effective offset based on period type
   const effectiveOffset = isLastNDaysPeriod ? dayOffset : periodOffset;
 
-  useEffect(() => {
-    const loadAnalytics = async () => {
-      // Only show full loading state on initial load (when no data exists)
-      // For subsequent loads, keep showing previous data with a subtle indicator
-      if (!data) {
-        setLoading(true);
-      }
-      try {
-        const { start, end } = getDateRange(period, effectiveOffset);
-        const analytics = await api.getAnalytics(start.toISOString(), end.toISOString());
-        setData(analytics);
+  const loadAnalytics = useCallback(async (background = false) => {
+    // Only show full loading state on initial load (when no data exists)
+    // For subsequent loads, keep showing previous data with a subtle indicator
+    if (!background && !data) {
+      setLoading(true);
+    }
+    try {
+      const { start, end } = getDateRange(period, effectiveOffset);
+      const analytics = await api.getAnalytics(start.toISOString(), end.toISOString());
+      setData(analytics);
+      if (!background) {
         // Reset drill-down state when period changes
         setSelectedCategory(null);
         setCategoryDrilldown(null);
         setCategoryDrilldownPage(1);
         setTaskNamesPage(1);
-      } catch (error) {
-        console.error('Failed to load analytics:', error);
       }
-      setLoading(false);
-    };
-
-    loadAnalytics();
+    } catch (error) {
+      console.error('Failed to load analytics:', error);
+    }
+    if (!background) setLoading(false);
   }, [period, effectiveOffset]);
+
+  useEffect(() => {
+    loadAnalytics();
+  }, [loadAnalytics]);
+
+  // Reload analytics when parent signals a change via refreshKey (e.g., sync from another device)
+  useEffect(() => {
+    if (refreshKey !== undefined && refreshKey > 0) {
+      loadAnalytics(true);
+    }
+  }, [refreshKey, loadAnalytics]);
 
   // Load all task names once when period changes (for client-side filtering)
   // If total exceeds cache limit, we'll need server-side search
