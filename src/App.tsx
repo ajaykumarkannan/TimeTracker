@@ -564,7 +564,7 @@ export function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLogge
             onCategoryChange={handleCategoryChange}
           />
         )}
-        {activeTab === 'analytics' && <Analytics />}
+        {activeTab === 'analytics' && <Analytics refreshKey={entryRefreshKey} />}
       </main>
 
       {/* Settings Modal */}

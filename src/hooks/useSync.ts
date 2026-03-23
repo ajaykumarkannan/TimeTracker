@@ -25,6 +25,9 @@ export function useSync({ onSync, enabled = true }: UseSyncOptions) {
   const channelRef = useRef<BroadcastChannel | null>(null);
   const reconnectTimeoutRef = useRef<number | null>(null);
   const lastEventTimestampRef = useRef<number>(0);
+  // Keep a ref to always call the latest onSync without tearing down SSE/BroadcastChannel
+  const onSyncRef = useRef(onSync);
+  onSyncRef.current = onSync;
 
   // Debounce sync events to avoid duplicate refreshes
   const handleSyncEvent = useCallback((event: SyncEvent) => {
@@ -34,8 +37,8 @@ export function useSync({ onSync, enabled = true }: UseSyncOptions) {
       return;
     }
     lastEventTimestampRef.current = now;
-    onSync(event);
-  }, [onSync]);
+    onSyncRef.current(event);
+  }, []);
 
   // Broadcast local changes to other tabs
   const broadcastChange = useCallback((type: SyncEventType) => {
