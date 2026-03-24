@@ -10,7 +10,8 @@ import {
   authMiddleware,
   AuthRequest,
   createDefaultCategories,
-  getRefreshTokenExpiryMs
+  getRefreshTokenExpiryMs,
+  createTokenPair
 } from '../middleware/auth';
 
 const router = Router();
@@ -47,12 +48,7 @@ router.post('/register', async (req: Request, res: Response) => {
     // Create default categories for new user
     await createDefaultCategories(user.id);
 
-    const accessToken = generateAccessToken(user.id, user.email);
-    const refreshToken = generateRefreshToken(user.id, user.email);
-
-    // Store refresh token
-    const expiresAt = new Date(Date.now() + getRefreshTokenExpiryMs(false)).toISOString();
-    await provider.createRefreshToken({ user_id: user.id, token: refreshToken, expires_at: expiresAt, remember_me: false });
+    const { accessToken, refreshToken } = await createTokenPair(user.id, user.email);
 
     logger.info('User registered', { userId: user.id, email: user.email });
 
@@ -94,14 +90,7 @@ router.post('/login', async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    const accessToken = generateAccessToken(user.id, user.email);
-    const refreshToken = generateRefreshToken(user.id, user.email, rememberMe);
-
-    // Calculate token expiry based on rememberMe flag and config
-    const expiresAt = new Date(Date.now() + getRefreshTokenExpiryMs(!!rememberMe)).toISOString();
-
-    // Store refresh token with rememberMe flag for correct rotation behavior
-    await provider.createRefreshToken({ user_id: user.id, token: refreshToken, expires_at: expiresAt, remember_me: !!rememberMe });
+    const { accessToken, refreshToken } = await createTokenPair(user.id, user.email, !!rememberMe);
 
     logger.info('User logged in', { userId: user.id, rememberMe: !!rememberMe });
 
@@ -267,12 +256,7 @@ router.post('/convert', async (req: Request, res: Response) => {
     // Update the guest user to a registered user
     await provider.updateUser(guestUserId, { email, username: name, password_hash: passwordHash });
 
-    const accessToken = generateAccessToken(guestUserId, email);
-    const refreshToken = generateRefreshToken(guestUserId, email);
-
-    // Store refresh token
-    const expiresAt = new Date(Date.now() + getRefreshTokenExpiryMs(false)).toISOString();
-    await provider.createRefreshToken({ user_id: guestUserId, token: refreshToken, expires_at: expiresAt, remember_me: false });
+    const { accessToken, refreshToken } = await createTokenPair(guestUserId, email);
 
     logger.info('Guest converted to account', { userId: guestUserId, email });
 

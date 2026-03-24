@@ -45,6 +45,23 @@ export function getRefreshTokenExpiryMs(rememberMe: boolean): number {
   return parseDurationMs(duration);
 }
 
+/**
+ * Generate an access + refresh token pair and persist the refresh token.
+ * Returns both tokens ready to include in an auth response.
+ */
+export async function createTokenPair(
+  userId: number,
+  email: string,
+  rememberMe = false
+): Promise<{ accessToken: string; refreshToken: string }> {
+  const provider = getProvider();
+  const accessToken = generateAccessToken(userId, email);
+  const refreshToken = generateRefreshToken(userId, email, rememberMe);
+  const expiresAt = new Date(Date.now() + getRefreshTokenExpiryMs(rememberMe)).toISOString();
+  await provider.createRefreshToken({ user_id: userId, token: refreshToken, expires_at: expiresAt, remember_me: rememberMe });
+  return { accessToken, refreshToken };
+}
+
 export function verifyToken(token: string): JwtPayload | null {
   try {
     return jwt.verify(token, config.jwtSecret) as JwtPayload;
