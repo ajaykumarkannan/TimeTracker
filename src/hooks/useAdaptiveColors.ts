@@ -1,4 +1,5 @@
 import {
+  DEFAULT_CATEGORY_COLOR,
   getAdaptiveTextColor,
   getAdaptiveBgColor,
   getAdaptiveDotColor,
@@ -18,7 +19,7 @@ export function getAdaptiveCategoryColors(
   baseColor: string | null,
   isDarkMode: boolean
 ): AdaptiveCategoryColors {
-  const color = baseColor || '#6366f1';
+  const color = baseColor || DEFAULT_CATEGORY_COLOR;
   return {
     textColor: getAdaptiveTextColor(color, isDarkMode),
     bgColor: getAdaptiveBgColor(color, isDarkMode),

@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Category } from '../types';
 import { api } from '../api';
-import { getNextAvailableColor } from '../utils/colorUtils';
+import { DEFAULT_CATEGORY_COLOR, getNextAvailableColor } from '../utils/colorUtils';
 import './CategoryManager.css';
 
 interface Props {
@@ -50,7 +50,7 @@ export function CategoryManager({ categories, onCategoryChange }: Props) {
 
   const handleEdit = (category: Category) => {
     setName(category.name);
-    setColor(category.color || '#6366f1');
+    setColor(category.color || DEFAULT_CATEGORY_COLOR);
     setEditingId(category.id);
   };
 
@@ -160,7 +160,7 @@ export function CategoryManager({ categories, onCategoryChange }: Props) {
                 <div className="category-info">
                   <div 
                     className="category-color" 
-                    style={{ backgroundColor: category.color || '#6366f1' }}
+                    style={{ backgroundColor: category.color || DEFAULT_CATEGORY_COLOR }}
                   />
                   <span className="category-name">{category.name}</span>
                 </div>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../api';
+import { LogoIcon } from './LogoIcon';
 import './Login.css';
 
 interface Props {
@@ -224,13 +225,7 @@ export function Login({ onBack, onSuccess, sessionExpired }: Props) {
     <div className="login-container">
       <div className="login-card">
         <div className="login-logo">
-          <svg viewBox="0 0 48 48" className="logo-icon">
-            <circle cx="24" cy="24" r="22" fill="none" stroke="currentColor" strokeWidth="2" />
-            <circle cx="24" cy="24" r="3" fill="currentColor" />
-            <line x1="24" y1="24" x2="24" y2="10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-            <line x1="24" y1="24" x2="34" y2="28" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-            <path d="M12 8 L16 12 M36 8 L32 12 M8 24 L4 24 M44 24 L40 24" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" opacity="0.5" />
-          </svg>
+          <LogoIcon showTicks />
           <h1>ChronoFlow</h1>
           <p className="tagline">Track your time, master your day</p>
         </div>

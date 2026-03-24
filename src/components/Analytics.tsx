@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { api } from '../api';
 import { AnalyticsData, Period, DailyTotal, TimeEntry, CategoryDrilldown, Category, TopTask } from '../types';
+import { downloadFile } from '../utils/downloadUtils';
+import { useClickOutside } from '../hooks/useClickOutside';
 import { InlineCategoryForm } from './InlineCategoryForm';
 import './Analytics.css';
 
@@ -95,15 +97,7 @@ export function Analytics({ refreshKey }: AnalyticsProps = {}) {
   }, []);
 
   // Close menus when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (previousMenuRef.current && !previousMenuRef.current.contains(e.target as Node)) {
-        setShowPreviousMenu(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  useClickOutside(previousMenuRef, () => setShowPreviousMenu(false));
 
   // Fetch active entry
   useEffect(() => {
@@ -281,15 +275,7 @@ export function Analytics({ refreshKey }: AnalyticsProps = {}) {
     setExporting(true);
     try {
       const csvData = await api.exportCSV();
-      const blob = new Blob([csvData], { type: 'text/csv' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `chronoflow-export-${new Date().toISOString().split('T')[0]}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      downloadFile(csvData, 'text/csv', `chronoflow-export-${new Date().toISOString().split('T')[0]}.csv`);
     } catch (error) {
       console.error('Export failed:', error);
     }
