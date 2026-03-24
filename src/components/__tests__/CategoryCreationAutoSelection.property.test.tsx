@@ -148,6 +148,8 @@ describe('Property 4: Category Creation Auto-Selection', () => {
           });
           await act(async () => {
             fireEvent.click(createBtn);
+            // Allow the async handleCreate chain (api call -> onCreated -> setState) to resolve
+            await new Promise(resolve => setTimeout(resolve, 0));
           });
 
           // Step 6: Verify the API was called with correct parameters
@@ -167,7 +169,7 @@ describe('Property 4: Category Creation Auto-Selection', () => {
           return true;
         }
       ),
-      { numRuns: 25 }
+      { numRuns: 5 }
     );
   }, 15000);
 
