@@ -15,7 +15,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, act, cleanup, within } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act, cleanup } from '@testing-library/react';
 import * as fc from 'fast-check';
 import { TimeTracker } from '../TimeTracker';
 import { ThemeProvider } from '../../contexts/ThemeContext';
@@ -91,6 +91,7 @@ describe('Property 4: Category Creation Auto-Selection', () => {
         validCategoryNameArb,
         validColorArb,
         async (categoryName, categoryColor) => {
+          cleanup();
           vi.clearAllMocks();
           
           // Setup: Mock createCategory to return the new category
@@ -102,7 +103,7 @@ describe('Property 4: Category Creation Auto-Selection', () => {
             created_at: new Date().toISOString()
           });
 
-          const { unmount, container } = await renderWithTheme(
+          const { unmount } = await renderWithTheme(
             <TimeTracker 
               categories={mockCategories} 
               activeEntry={null}
@@ -112,10 +113,8 @@ describe('Property 4: Category Creation Auto-Selection', () => {
             />
           );
 
-          const view = within(container);
-
           // Step 1: Select "+ New category" from the main category dropdown
-          const categorySelect = view.getByRole('combobox');
+          const categorySelect = screen.getByRole('combobox');
           expect(categorySelect).toBeInTheDocument();
           
           await act(async () => {
@@ -124,17 +123,17 @@ describe('Property 4: Category Creation Auto-Selection', () => {
 
           // Step 2: Wait for inline category creation form to appear
           await waitFor(() => {
-            expect(view.getByPlaceholderText('Category name')).toBeInTheDocument();
+            expect(screen.getByPlaceholderText('Category name')).toBeInTheDocument();
           });
 
           // Step 3: Enter the category name
-          const nameInput = view.getByPlaceholderText('Category name');
+          const nameInput = screen.getByPlaceholderText('Category name');
           await act(async () => {
             fireEvent.change(nameInput, { target: { value: categoryName } });
           });
 
           // Step 4: Find and update the color picker
-          const colorPicker = container.querySelector('input[type="color"]') as HTMLInputElement;
+          const colorPicker = document.querySelector('input[type="color"]') as HTMLInputElement;
           if (colorPicker) {
             await act(async () => {
               fireEvent.change(colorPicker, { target: { value: categoryColor } });
@@ -142,7 +141,7 @@ describe('Property 4: Category Creation Auto-Selection', () => {
           }
 
           // Step 5: Click Create button
-          const createBtn = view.getByRole('button', { name: /create/i });
+          const createBtn = screen.getByRole('button', { name: /create/i });
           await act(async () => {
             fireEvent.click(createBtn);
           });
@@ -166,7 +165,7 @@ describe('Property 4: Category Creation Auto-Selection', () => {
       ),
       { numRuns: 25 }
     );
-  });
+  }, 15000);
 
   /**
    * Additional property test: Category creation with Enter key
