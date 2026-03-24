@@ -947,6 +947,11 @@
 }
 /* Responsive */
 @media (max-width: 640px) {
+  /* On mobile, hide category name in suggestions to preserve task name */
+  .suggestion-category {
+    display: none;
+  }
+
   .filter-row {
     flex-direction: column;
     align-items: stretch;

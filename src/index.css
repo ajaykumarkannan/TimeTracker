@@ -108,23 +108,33 @@ input::placeholder, textarea::placeholder {
   color: var(--text-muted);
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+/* Scrollbar styling — use standard properties so Safari keeps its native
+   auto-hiding overlay scrollbar.  The -webkit overrides are scoped to
+   non-Safari browsers via @supports to avoid breaking overlay behaviour. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
 }
 
-::-webkit-scrollbar-track {
-  background: transparent;
-}
+/* Chrome / Edge (non-Safari) — safe to customise the track/thumb */
+@supports not (-webkit-touch-callout: none) {
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
 
-::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 4px;
-}
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
 
-::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted);
+  ::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+  }
 }
 
 /* Selection */

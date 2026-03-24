@@ -386,23 +386,30 @@
   height: 12rem;
 }
 
-/* Hide scrollbar but keep functionality */
-.daily-chart::-webkit-scrollbar {
-  height: 6px;
+/* Scrollbar styling — thin scrollbar everywhere, webkit overrides only for non-Safari */
+.daily-chart {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) var(--bg-secondary);
 }
 
-.daily-chart::-webkit-scrollbar-track {
-  background: var(--bg-secondary);
-  border-radius: 3px;
-}
+@supports not (-webkit-touch-callout: none) {
+  .daily-chart::-webkit-scrollbar {
+    height: 6px;
+  }
 
-.daily-chart::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 3px;
-}
+  .daily-chart::-webkit-scrollbar-track {
+    background: var(--bg-secondary);
+    border-radius: 3px;
+  }
 
-.daily-chart::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted);
+  .daily-chart::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 3px;
+  }
+
+  .daily-chart::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+  }
 }
 
 /* When empty, maintain structure but show minimal height */

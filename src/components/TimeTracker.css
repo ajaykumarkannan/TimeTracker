@@ -755,6 +755,11 @@
     padding: 1rem;
   }
 
+  /* On mobile, hide category name in suggestions to preserve task name */
+  .description-suggestions .suggestion-category {
+    display: none;
+  }
+
   /* Mobile grid: timer+stop on row 1, category+task on row 2 */
   .active-tracker {
     display: grid;

@@ -3,7 +3,8 @@ import { Category, TimeEntry } from '../types';
 import { api } from '../api';
 import { useTheme } from '../contexts/ThemeContext';
 import { getAdaptiveCategoryColors } from '../hooks/useAdaptiveColors';
-import { fuzzyMatch } from '../utils/fuzzyMatch';
+import { useTaskSuggestions } from '../hooks/useTaskSuggestions';
+import { TaskSuggestionInput } from './TaskSuggestionInput';
 import './TimeTracker.css';
 
 // Primary color palette - visually distinct colors
@@ -79,13 +80,14 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryColor, setNewCategoryColor] = useState(nextColor);
 
-  // Cached suggestions - fetched once, filtered locally
-  const [cachedSuggestions, setCachedSuggestions] = useState<{ task_name: string; categoryId: number; count: number; totalMinutes: number; lastUsed: string }[]>([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
-  const descriptionInputRef = useRef<HTMLInputElement>(null);
-  const suggestionsRef = useRef<HTMLDivElement>(null);
-  const suppressSuggestionOpenRef = useRef(false);
+  // Task suggestions hook
+  const taskSuggestions = useTaskSuggestions({
+    value: description,
+    entryCount: entries.length,
+    preferCategoryId: selectedCategory,
+    tiebreaker: 'recency',
+    autoOpen: true,
+  });
 
   // Forgotten timer state (8+ hours)
   const [showForgottenPrompt, setShowForgottenPrompt] = useState(false);
@@ -105,86 +107,10 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   const [scheduledRemaining, setScheduledRemaining] = useState<string | null>(null);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
 
-  // Fetch all suggestions once and cache them
-  useEffect(() => {
-    const fetchAllSuggestions = async () => {
-      try {
-        const results = await api.getTaskNameSuggestions(undefined, undefined);
-        setCachedSuggestions(results);
-      } catch (error) {
-        console.error('Failed to fetch suggestions:', error);
-      }
-    };
-    fetchAllSuggestions();
-  }, [entries.length]); // Refetch when entries change
-
-  // Filter suggestions locally with fuzzy matching
-  // Prefer selected category but show all tasks
-  const suggestions = useMemo(() => {
-    let filtered = [...cachedSuggestions];
-
-    // Fuzzy filter by task name if there's a description
-    if (description) {
-      filtered = filtered
-        .map(s => ({ ...s, ...fuzzyMatch(description, s.task_name) }))
-        .filter(s => s.match)
-        .sort((a, b) => {
-          // Prefer selected category
-          if (selectedCategory) {
-            const aInCategory = a.categoryId === selectedCategory ? 1 : 0;
-            const bInCategory = b.categoryId === selectedCategory ? 1 : 0;
-            if (aInCategory !== bInCategory) return bInCategory - aInCategory;
-          }
-          // Then by match score, then by recency
-          return b.score - a.score || new Date(b.lastUsed).getTime() - new Date(a.lastUsed).getTime();
-        });
-    } else {
-      // No query - sort by category preference, then recency
-      filtered = filtered.sort((a, b) => {
-        if (selectedCategory) {
-          const aInCategory = a.categoryId === selectedCategory ? 1 : 0;
-          const bInCategory = b.categoryId === selectedCategory ? 1 : 0;
-          if (aInCategory !== bInCategory) return bInCategory - aInCategory;
-        }
-        return new Date(b.lastUsed).getTime() - new Date(a.lastUsed).getTime();
-      });
-    }
-
-    return filtered.slice(0, 8);
-  }, [cachedSuggestions, selectedCategory, description]);
-
-  // Show/hide suggestions based on filtered results
-  useEffect(() => {
-    if (suggestions.length > 0 && (selectedCategory || description) && !suppressSuggestionOpenRef.current) {
-      setShowSuggestions(true);
-    } else if (suggestions.length === 0) {
-      setShowSuggestions(false);
-    }
-    setSelectedSuggestionIndex(-1);
-  }, [suggestions, selectedCategory, description]);
-
-  // Close suggestions when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (
-        suggestionsRef.current &&
-        !suggestionsRef.current.contains(e.target as Node) &&
-        descriptionInputRef.current &&
-        !descriptionInputRef.current.contains(e.target as Node)
-      ) {
-        setShowSuggestions(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
   const handleSuggestionSelect = (suggestion: { task_name: string; categoryId: number }) => {
-    suppressSuggestionOpenRef.current = true;
     setDescription(suggestion.task_name);
     setSelectedCategory(suggestion.categoryId);
-    setShowSuggestions(false);
-    descriptionInputRef.current?.focus();
+    taskSuggestions.completeSelection();
   };
 
   // Get recent tasks from entries (unique task_name + category combinations)
@@ -792,7 +718,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                       setShowNewCategory(true);
                       setSelectedCategory(null);
                     } else {
-                      suppressSuggestionOpenRef.current = false;
+                      taskSuggestions.clearSuppress();
                       setSelectedCategory(Number(val));
                       setShowNewCategory(false);
                     }
@@ -807,87 +733,32 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
               </div>
             );
           })()}
-          <div className="description-input-wrapper switch-description-wrapper">
-            <input
-              ref={descriptionInputRef}
-              type="text"
-              className="switch-description-input"
-              value={description}
-              onChange={(e) => {
-                suppressSuggestionOpenRef.current = false;
-                setDescription(e.target.value);
-              }}
-              placeholder="Task (optional)"
-              autoComplete="off"
-              data-lpignore="true"
-              data-1p-ignore
-              data-form-type="other"
-              onFocus={() => {
-                if (suggestions.length > 0 && !suppressSuggestionOpenRef.current) {
-                  setShowSuggestions(true);
+          <TaskSuggestionInput
+            value={description}
+            onChange={(val) => {
+              taskSuggestions.clearSuppress();
+              setDescription(val);
+            }}
+            onFocus={taskSuggestions.handleFocus}
+            onKeyDown={(e) => {
+              const selected = taskSuggestions.handleKeyDown(e, () => {
+                if (selectedCategory) {
+                  handleSwitchTask(selectedCategory, description || undefined);
                 }
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Escape') {
-                  if (showSuggestions) {
-                    suppressSuggestionOpenRef.current = true;
-                    setShowSuggestions(false);
-                    setSelectedSuggestionIndex(-1);
-                  }
-                  return;
-                }
-                if (!showSuggestions || suggestions.length === 0) {
-                  if (e.key === 'Enter' && selectedCategory) {
-                    handleSwitchTask(selectedCategory, description || undefined);
-                  }
-                  return;
-                }
-                switch (e.key) {
-                  case 'ArrowDown':
-                    e.preventDefault();
-                    setSelectedSuggestionIndex(prev =>
-                      prev < suggestions.length - 1 ? prev + 1 : prev
-                    );
-                    break;
-                  case 'ArrowUp':
-                    e.preventDefault();
-                    setSelectedSuggestionIndex(prev => prev > 0 ? prev - 1 : -1);
-                    break;
-                  case 'Enter':
-                    e.preventDefault();
-                    if (selectedSuggestionIndex >= 0) {
-                      handleSuggestionSelect(suggestions[selectedSuggestionIndex]);
-                    } else if (selectedCategory) {
-                      handleSwitchTask(selectedCategory, description || undefined);
-                    }
-                    break;
-                }
-              }}
-            />
-            {showSuggestions && suggestions.length > 0 && (
-              <div className="description-suggestions" ref={suggestionsRef}>
-                {suggestions.map((suggestion, idx) => {
-                  const cat = categories.find(c => c.id === suggestion.categoryId);
-                  const colors = getCategoryColors(cat?.color || null);
-                  return (
-                    <button
-                      key={`${suggestion.categoryId}-${suggestion.task_name}`}
-                      className={`suggestion-item ${idx === selectedSuggestionIndex ? 'selected' : ''}`}
-                      onClick={() => handleSuggestionSelect(suggestion)}
-                      onMouseEnter={() => setSelectedSuggestionIndex(idx)}
-                    >
-                      <span className="suggestion-text">{suggestion.task_name}</span>
-                      <span className="suggestion-meta">
-                        <span className="category-dot" style={{ backgroundColor: colors.dotColor }} />
-                        <span className="suggestion-category">{cat?.name || 'Unknown'}</span>
-                        <span className="suggestion-count">×{suggestion.count}</span>
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+              });
+              if (selected) handleSuggestionSelect(selected);
+            }}
+            inputRef={taskSuggestions.inputRef}
+            listRef={taskSuggestions.listRef}
+            suggestions={taskSuggestions.suggestions}
+            show={taskSuggestions.showSuggestions}
+            selectedIndex={taskSuggestions.selectedIndex}
+            onSelect={handleSuggestionSelect}
+            onHover={taskSuggestions.setSelectedIndex}
+            categories={categories}
+            isDarkMode={isDarkMode}
+            className="switch-description-wrapper"
+          />
           <button
             className="btn btn-success start-btn"
             onClick={() => selectedCategory && handleSwitchTask(selectedCategory, description || undefined)}
