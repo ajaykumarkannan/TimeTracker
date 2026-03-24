@@ -1,34 +1,8 @@
 import { useState, useMemo } from 'react';
 import { Category } from '../types';
 import { api } from '../api';
+import { DEFAULT_CATEGORY_COLOR, getNextAvailableColor } from '../utils/colorUtils';
 import './CategoryManager.css';
-
-// Primary color palette - visually distinct colors
-const COLOR_PALETTE = [
-  '#6366f1', // Indigo (primary)
-  '#10b981', // Emerald
-  '#f59e0b', // Amber
-  '#ef4444', // Red
-  '#8b5cf6', // Violet
-  '#06b6d4', // Cyan
-  '#ec4899', // Pink
-  '#84cc16', // Lime
-  '#f97316', // Orange
-  '#14b8a6', // Teal
-  '#a855f7', // Purple
-  '#eab308', // Yellow
-];
-
-function getNextAvailableColor(usedColors: (string | null)[]): string {
-  const normalizedUsed = new Set(usedColors.map(c => c?.toLowerCase()));
-  for (const color of COLOR_PALETTE) {
-    if (!normalizedUsed.has(color.toLowerCase())) {
-      return color;
-    }
-  }
-  // All palette colors used, return a random one
-  return COLOR_PALETTE[Math.floor(Math.random() * COLOR_PALETTE.length)];
-}
 
 interface Props {
   categories: Category[];
@@ -76,7 +50,7 @@ export function CategoryManager({ categories, onCategoryChange }: Props) {
 
   const handleEdit = (category: Category) => {
     setName(category.name);
-    setColor(category.color || '#6366f1');
+    setColor(category.color || DEFAULT_CATEGORY_COLOR);
     setEditingId(category.id);
   };
 
@@ -186,7 +160,7 @@ export function CategoryManager({ categories, onCategoryChange }: Props) {
                 <div className="category-info">
                   <div 
                     className="category-color" 
-                    style={{ backgroundColor: category.color || '#6366f1' }}
+                    style={{ backgroundColor: category.color || DEFAULT_CATEGORY_COLOR }}
                   />
                   <span className="category-name">{category.name}</span>
                 </div>

@@ -6,6 +6,36 @@
  * - Dark mode: Lighten saturated colors for better contrast, use a darker tinted background
  */
 
+/** Default/fallback category color (Indigo) */
+export const DEFAULT_CATEGORY_COLOR = '#6366f1';
+
+/** Primary color palette — visually distinct colors for categories */
+export const COLOR_PALETTE = [
+  '#6366f1', // Indigo (primary)
+  '#10b981', // Emerald
+  '#f59e0b', // Amber
+  '#ef4444', // Red
+  '#8b5cf6', // Violet
+  '#06b6d4', // Cyan
+  '#ec4899', // Pink
+  '#84cc16', // Lime
+  '#f97316', // Orange
+  '#14b8a6', // Teal
+  '#a855f7', // Purple
+  '#eab308', // Yellow
+];
+
+/** Pick the first palette color not yet used; falls back to a random one. */
+export function getNextAvailableColor(usedColors: (string | null)[]): string {
+  const normalizedUsed = new Set(usedColors.map(c => c?.toLowerCase()));
+  for (const color of COLOR_PALETTE) {
+    if (!normalizedUsed.has(color.toLowerCase())) {
+      return color;
+    }
+  }
+  return COLOR_PALETTE[Math.floor(Math.random() * COLOR_PALETTE.length)];
+}
+
 /**
  * Parse a hex color to RGB components
  */

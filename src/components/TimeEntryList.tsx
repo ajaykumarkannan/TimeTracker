@@ -5,6 +5,7 @@ import { formatTime, formatTimeCompact, formatDuration, formatDate, formatDateOn
 import { useTheme } from '../contexts/ThemeContext';
 import { getAdaptiveCategoryColors } from '../hooks/useAdaptiveColors';
 import { useTaskSuggestions } from '../hooks/useTaskSuggestions';
+import { InlineCategoryForm } from './InlineCategoryForm';
 import { TaskSuggestionInput } from './TaskSuggestionInput';
 import './TimeEntryList.css';
 
@@ -99,9 +100,6 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
   }, []);
   // Inline new category form state
   const [showNewCategory, setShowNewCategory] = useState(false);
-  const [newCategoryName, setNewCategoryName] = useState('');
-  const [newCategoryColor, setNewCategoryColor] = useState('#6366f1');
-  const [creatingCategory, setCreatingCategory] = useState(false);
 
   // Filter state
   const [searchQuery, setSearchQuery] = useState('');
@@ -138,8 +136,6 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
 
   // State for inline category creation in Add Entry modal
   const [showManualNewCategory, setShowManualNewCategory] = useState(false);
-  const [manualNewCategoryName, setManualNewCategoryName] = useState('');
-  const [manualNewCategoryColor, setManualNewCategoryColor] = useState('#6366f1');
 
   // Track if user has manually edited end date (for date defaulting feature)
   const [endDateManuallySet, setEndDateManuallySet] = useState(false);
@@ -496,28 +492,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
     setShowManualEntry(false);
     setManualError('');
     manualSuggestions.close();
-    // Reset inline category creation state
     setShowManualNewCategory(false);
-    setManualNewCategoryName('');
-    setManualNewCategoryColor('#6366f1');
-  };
-
-  // Handler for creating category in manual entry context
-  const handleCreateManualCategory = async () => {
-    if (!manualNewCategoryName.trim()) return;
-    try {
-      const category = await api.createCategory(manualNewCategoryName.trim(), manualNewCategoryColor);
-      // Auto-select the newly created category
-      setManualCategory(category.id);
-      // Reset inline category creation state
-      setManualNewCategoryName('');
-      setManualNewCategoryColor('#6366f1');
-      setShowManualNewCategory(false);
-      // Notify parent to refresh categories
-      onCategoryChange();
-    } catch (error) {
-      console.error('Failed to create category:', error);
-    }
   };
 
   // Handler for start date change - auto-syncs end date if not manually edited
@@ -708,8 +683,6 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
     editingIdRef.current = null;
     editFieldRef.current = null;
     setShowNewCategory(false);
-    setNewCategoryName('');
-    setNewCategoryColor('#6366f1');
     setEditTimeError(null);
   };
 
@@ -801,22 +774,6 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
     editingIdRef.current = null;
     editFieldRef.current = null;
     setEditTimeError(null);
-  };
-
-  const handleCreateCategory = async () => {
-    if (!newCategoryName.trim()) return;
-    setCreatingCategory(true);
-    try {
-      const newCategory = await api.createCategory(newCategoryName.trim(), newCategoryColor);
-      setEditCategory(newCategory.id);
-      setShowNewCategory(false);
-      setNewCategoryName('');
-      setNewCategoryColor('#6366f1');
-      onCategoryChange();
-    } catch (error) {
-      console.error('Failed to create category:', error);
-    }
-    setCreatingCategory(false);
   };
 
   const handleCategorySelectChange = (e: React.ChangeEvent<HTMLSelectElement>, _entryId: number) => {
@@ -1074,44 +1031,15 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
               {/* Inline category creation form */}
               {showManualNewCategory && (
                 <div className="new-category-form animate-slide-in">
-                  <input
-                    type="text"
-                    value={manualNewCategoryName}
-                    onChange={(e) => setManualNewCategoryName(e.target.value)}
-                    placeholder="Category name"
-                    autoFocus
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleCreateManualCategory();
-                      if (e.key === 'Escape') {
-                        setShowManualNewCategory(false);
-                        setManualNewCategoryName('');
-                        setManualNewCategoryColor('#6366f1');
-                      }
-                    }}
-                  />
-                  <input
-                    type="color"
-                    value={manualNewCategoryColor}
-                    onChange={(e) => setManualNewCategoryColor(e.target.value)}
-                    className="color-picker"
-                  />
-                  <button
-                    className="btn btn-ghost"
-                    onClick={() => {
+                  <InlineCategoryForm
+                    variant="labeled"
+                    onCreated={(category) => {
+                      setManualCategory(category.id);
                       setShowManualNewCategory(false);
-                      setManualNewCategoryName('');
-                      setManualNewCategoryColor('#6366f1');
+                      onCategoryChange();
                     }}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    className="btn btn-primary"
-                    onClick={handleCreateManualCategory}
-                    disabled={!manualNewCategoryName.trim()}
-                  >
-                    Create
-                  </button>
+                    onCancel={() => setShowManualNewCategory(false)}
+                  />
                 </div>
               )}
               <div className="form-group">
@@ -1381,41 +1309,19 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                           {isEditing && editField === 'category' ? (
                             showNewCategory ? (
                               <div className="inline-new-category" onClick={(e) => e.stopPropagation()}>
-                                <input
-                                  type="text"
-                                  className="inline-edit-input"
-                                  value={newCategoryName}
-                                  onChange={(e) => setNewCategoryName(e.target.value)}
-                                  placeholder="Category name"
-                                  autoFocus
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') handleCreateCategory();
-                                    if (e.key === 'Escape') { setShowNewCategory(false); setNewCategoryName(''); }
+                                <InlineCategoryForm
+                                  variant="compact"
+                                  inputClassName="inline-edit-input"
+                                  colorClassName="inline-color-picker"
+                                  saveBtnClassName="inline-edit-save-btn"
+                                  cancelBtnClassName="inline-edit-cancel-btn"
+                                  onCreated={(category) => {
+                                    setEditCategory(category.id);
+                                    setShowNewCategory(false);
+                                    onCategoryChange();
                                   }}
+                                  onCancel={() => setShowNewCategory(false)}
                                 />
-                                <input
-                                  type="color"
-                                  className="inline-color-picker"
-                                  value={newCategoryColor}
-                                  onChange={(e) => setNewCategoryColor(e.target.value)}
-                                />
-                                <button
-                                  type="button"
-                                  className="inline-edit-save-btn"
-                                  onClick={handleCreateCategory}
-                                  disabled={creatingCategory || !newCategoryName.trim()}
-                                  title="Create"
-                                >
-                                  ✓
-                                </button>
-                                <button
-                                  type="button"
-                                  className="inline-edit-cancel-btn"
-                                  onClick={() => { setShowNewCategory(false); setNewCategoryName(''); }}
-                                  title="Cancel"
-                                >
-                                  ✕
-                                </button>
                               </div>
                             ) : (
                               <select

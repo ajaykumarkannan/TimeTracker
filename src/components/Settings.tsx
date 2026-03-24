@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTimezone } from '../contexts/TimezoneContext';
 import { api } from '../api';
+import { downloadFile } from '../utils/downloadUtils';
 import { ImportWizard } from './ImportWizard';
 import './Settings.css';
 
@@ -115,15 +116,7 @@ export function Settings({ onLogout, onConvertSuccess }: SettingsProps) {
     setExportingCSV(true);
     try {
       const csv = await api.exportCSV();
-      const blob = new Blob([csv], { type: 'text/csv' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `chronoflow-export-${new Date().toISOString().split('T')[0]}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      downloadFile(csv, 'text/csv', `chronoflow-export-${new Date().toISOString().split('T')[0]}.csv`);
     } catch (error) {
       console.error('CSV export failed:', error);
     }

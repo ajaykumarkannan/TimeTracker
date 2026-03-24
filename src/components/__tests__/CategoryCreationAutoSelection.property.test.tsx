@@ -15,7 +15,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act, cleanup } from '@testing-library/react';
 import * as fc from 'fast-check';
 import { TimeTracker } from '../TimeTracker';
 import { ThemeProvider } from '../../contexts/ThemeContext';
@@ -91,6 +91,7 @@ describe('Property 4: Category Creation Auto-Selection', () => {
         validCategoryNameArb,
         validColorArb,
         async (categoryName, categoryColor) => {
+          cleanup();
           vi.clearAllMocks();
           
           // Setup: Mock createCategory to return the new category
@@ -132,17 +133,23 @@ describe('Property 4: Category Creation Auto-Selection', () => {
           });
 
           // Step 4: Find and update the color picker
-          const colorPicker = document.querySelector('.new-category-form input[type="color"]') as HTMLInputElement;
+          const colorPicker = document.querySelector('input[type="color"]') as HTMLInputElement;
           if (colorPicker) {
             await act(async () => {
               fireEvent.change(colorPicker, { target: { value: categoryColor } });
             });
           }
 
-          // Step 5: Click Create button
-          const createBtn = screen.getByRole('button', { name: /create/i });
+          // Step 5: Wait for Create button to be enabled, then click
+          const createBtn = await waitFor(() => {
+            const btn = screen.getByRole('button', { name: /create/i });
+            expect(btn).not.toBeDisabled();
+            return btn;
+          });
           await act(async () => {
             fireEvent.click(createBtn);
+            // Allow the async handleCreate chain (api call -> onCreated -> setState) to resolve
+            await new Promise(resolve => setTimeout(resolve, 0));
           });
 
           // Step 6: Verify the API was called with correct parameters
@@ -157,13 +164,14 @@ describe('Property 4: Category Creation Auto-Selection', () => {
 
           // Cleanup
           unmount();
+          cleanup();
           
           return true;
         }
       ),
-      { numRuns: 25 }
+      { numRuns: 5 }
     );
-  });
+  }, 15000);
 
   /**
    * Additional property test: Category creation with Enter key

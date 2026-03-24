@@ -11,10 +11,12 @@ import { Analytics } from './components/Analytics';
 import { Settings } from './components/Settings';
 import { Help } from './components/Help';
 import { ThemeToggle } from './components/ThemeToggle';
+import { LogoIcon } from './components/LogoIcon';
 import { SettingsIcon, LogoutIcon, HelpIcon, ClockIcon, TagIcon, ChartIcon } from './components/Icons';
 import { api, onApiError } from './api';
 import { useSync } from './hooks/useSync';
 import { useAppBadge } from './hooks/useAppBadge';
+import { useClickOutside } from './hooks/useClickOutside';
 import { Category, TimeEntry } from './types';
 import './App.css';
 
@@ -157,18 +159,8 @@ export function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLogge
   }, []);
 
   // Close menus when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setShowSettingsMenu(false);
-      }
-      if (mobileNavRef.current && !mobileNavRef.current.contains(event.target as Node)) {
-        setShowMobileNav(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  useClickOutside(menuRef, () => setShowSettingsMenu(false));
+  useClickOutside(mobileNavRef, () => setShowMobileNav(false));
 
   // Show a banner when the API returns a rate-limit (429) error
   useEffect(() => {
@@ -402,12 +394,7 @@ export function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLogge
         </div>
         <div className="header-center">
           <div className="logo">
-            <svg viewBox="0 0 48 48" className="logo-icon">
-              <circle cx="24" cy="24" r="22" fill="none" stroke="currentColor" strokeWidth="2" />
-              <circle cx="24" cy="24" r="3" fill="currentColor" />
-              <line x1="24" y1="24" x2="24" y2="10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-              <line x1="24" y1="24" x2="34" y2="28" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-            </svg>
+            <LogoIcon />
             <span className="logo-text">ChronoFlow</span>
           </div>
         </div>

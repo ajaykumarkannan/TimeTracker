@@ -1,4 +1,5 @@
 import { ThemeToggle } from './ThemeToggle';
+import { LogoIcon } from './LogoIcon';
 import './Landing.css';
 
 interface Props {
@@ -11,12 +12,7 @@ export function Landing({ onLogin, onGuest }: Props) {
     <div className="landing">
       <header className="landing-header">
         <div className="landing-logo">
-          <svg viewBox="0 0 48 48" className="logo-icon">
-            <circle cx="24" cy="24" r="22" fill="none" stroke="currentColor" strokeWidth="2" />
-            <circle cx="24" cy="24" r="3" fill="currentColor" />
-            <line x1="24" y1="24" x2="24" y2="10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-            <line x1="24" y1="24" x2="34" y2="28" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-          </svg>
+          <LogoIcon />
           <span>ChronoFlow</span>
         </div>
         <ThemeToggle />

@@ -32,6 +32,9 @@ logs/
 .DS_Store
 Thumbs.db
 
+# Watch/lock files
+watch_*
+
 # Local work directory (for dev/test runs)
 work/
 .work
