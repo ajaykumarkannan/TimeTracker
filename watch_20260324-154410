@@ -1,0 +1,43 @@
+ src/components/TimeEntryList.css |   5 ++                                                                      
+ src/components/TimeEntryList.tsx |  39 +++++++-------                                                          
+ src/components/TimeTracker.css   |   5 ++                                                                      
+ src/components/TimeTracker.tsx   | 203 +++++++++++++---------------------------------------------------------- 
+ 4 files changed, 68 insertions(+), 184 deletions(-)                                                            
+                                                                                                                
+                                                                                                                
+                                                                                                                
+                                                                                                                
+                                                                                                                
+                                                                                                                
+                                                                                                                
+                                                                                                                
+                                                                                                                
+                                                                                                                
+                                                                                                                
+                                                                                                                
+                                                                                                                
+                                                                                                                
+                                                                                                                
+                                                                                                                
+                                                                                                                
+                                                                                                                
+                                                                                                                
+                                                                                                                
+                                                                                                                
+                                                                                                                
+                                                                                                                
+                                                                                                                
+                                                                                                                
+                                                                                                                
+                                                                                                                
+                                                                                                                
+                                                                                                                
+                                                                                                                
+                                                                                                                
+                                                                                                                
+                                                                                                                
+                                                                                                                
+                                                                                                                
+                                                                                                                
+                                                                                                                
+                                                                                                                
