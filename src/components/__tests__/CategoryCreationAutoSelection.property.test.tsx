@@ -140,8 +140,12 @@ describe('Property 4: Category Creation Auto-Selection', () => {
             });
           }
 
-          // Step 5: Click Create button
-          const createBtn = screen.getByRole('button', { name: /create/i });
+          // Step 5: Wait for Create button to be enabled, then click
+          const createBtn = await waitFor(() => {
+            const btn = screen.getByRole('button', { name: /create/i });
+            expect(btn).not.toBeDisabled();
+            return btn;
+          });
           await act(async () => {
             fireEvent.click(createBtn);
           });
