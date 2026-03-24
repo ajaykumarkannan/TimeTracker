@@ -2,9 +2,10 @@ import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { TimeEntry, Category } from '../types';
 import { api } from '../api';
 import { formatTime, formatTimeCompact, formatDuration, formatDate, formatDateOnly, formatTimeOnly, combineDateAndTime } from '../utils/timeUtils';
-import { fuzzyMatch } from '../utils/fuzzyMatch';
 import { useTheme } from '../contexts/ThemeContext';
 import { getAdaptiveCategoryColors } from '../hooks/useAdaptiveColors';
+import { useTaskSuggestions } from '../hooks/useTaskSuggestions';
+import { TaskSuggestionInput } from './TaskSuggestionInput';
 import './TimeEntryList.css';
 
 // Debounce hook for search input
@@ -149,64 +150,12 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
   const [dismissedShortEntries, setDismissedShortEntries] = useState<Set<number>>(new Set());
 
   // Task name suggestions for manual entry
-  const [cachedSuggestions, setCachedSuggestions] = useState<{ task_name: string; categoryId: number; count: number; totalMinutes: number; lastUsed: string }[]>([]);
-  const [showManualSuggestions, setShowManualSuggestions] = useState(false);
-  const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
-  const manualDescriptionRef = useRef<HTMLInputElement>(null);
-  const suggestionsRef = useRef<HTMLDivElement>(null);
-  const justSelectedSuggestionRef = useRef(false);
-
-  // Fetch suggestions for manual entry
-  useEffect(() => {
-    const fetchSuggestions = async () => {
-      try {
-        const results = await api.getTaskNameSuggestions(undefined, undefined);
-        setCachedSuggestions(results);
-      } catch (error) {
-        console.error('Failed to fetch suggestions:', error);
-      }
-    };
-    fetchSuggestions();
-  }, [entries.length]); // Refetch when entries change
-
-  // Filter suggestions based on task name input (shows all categories)
-  const manualSuggestions = useMemo(() => {
-    let filtered = cachedSuggestions;
-
-    // Fuzzy filter by task name
-    if (manualDescription) {
-      filtered = filtered
-        .map(s => ({ ...s, ...fuzzyMatch(manualDescription, s.task_name) }))
-        .filter(s => s.match)
-        .sort((a, b) => b.score - a.score || b.count - a.count);
-    } else {
-      // No query - sort by count
-      filtered = filtered.sort((a, b) => b.count - a.count);
-    }
-
-    return filtered.slice(0, 8);
-  }, [cachedSuggestions, manualDescription]);
-
-  // Reset suggestion selection when suggestions list changes
-  useEffect(() => {
-    setSelectedSuggestionIndex(-1);
-  }, [manualSuggestions]);
-
-  // Close suggestions when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (
-        suggestionsRef.current &&
-        !suggestionsRef.current.contains(e.target as Node) &&
-        manualDescriptionRef.current &&
-        !manualDescriptionRef.current.contains(e.target as Node)
-      ) {
-        setShowManualSuggestions(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  const manualSuggestions = useTaskSuggestions({
+    value: manualDescription,
+    entryCount: entries.length,
+    tiebreaker: 'count',
+    autoOpen: false,
+  });
 
   // Load entries based on date filter
   const loadEntries = useCallback(async (background = false) => {
@@ -524,8 +473,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
     setManualCategory('');
     setManualDescription('');
     setManualError('');
-    setShowManualSuggestions(false);
-    setSelectedSuggestionIndex(-1);
+    manualSuggestions.close();
     setEndDateManuallySet(false);
     setShowManualEntry(true);
   };
@@ -539,8 +487,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
     setManualCategory('');
     setManualDescription('');
     setManualError('');
-    setShowManualSuggestions(false);
-    setSelectedSuggestionIndex(-1);
+    manualSuggestions.close();
     setEndDateManuallySet(true); // Prevent auto-sync since we're setting both
     setShowManualEntry(true);
   };
@@ -548,8 +495,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
   const closeManualEntry = () => {
     setShowManualEntry(false);
     setManualError('');
-    setShowManualSuggestions(false);
-    setSelectedSuggestionIndex(-1);
+    manualSuggestions.close();
     // Reset inline category creation state
     setShowManualNewCategory(false);
     setManualNewCategoryName('');
@@ -664,40 +610,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
     if (!manualCategory || manualCategory !== suggestion.categoryId) {
       setManualCategory(suggestion.categoryId);
     }
-    setShowManualSuggestions(false);
-    setSelectedSuggestionIndex(-1);
-    // Suppress the onFocus handler from reopening suggestions after selection
-    justSelectedSuggestionRef.current = true;
-    manualDescriptionRef.current?.focus();
-  };
-
-  const handleManualDescriptionKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (!showManualSuggestions || manualSuggestions.length === 0) {
-      return;
-    }
-
-    switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault();
-        setSelectedSuggestionIndex(prev =>
-          prev < manualSuggestions.length - 1 ? prev + 1 : prev
-        );
-        break;
-      case 'ArrowUp':
-        e.preventDefault();
-        setSelectedSuggestionIndex(prev => prev > 0 ? prev - 1 : -1);
-        break;
-      case 'Enter':
-        if (selectedSuggestionIndex >= 0) {
-          e.preventDefault();
-          handleManualSuggestionSelect(manualSuggestions[selectedSuggestionIndex]);
-        }
-        break;
-      case 'Escape':
-        setShowManualSuggestions(false);
-        setSelectedSuggestionIndex(-1);
-        break;
-    }
+    manualSuggestions.completeSelection();
   };
 
   const handleManualSubmit = async () => {
@@ -1203,53 +1116,24 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
               )}
               <div className="form-group">
                 <label>Task <span className="optional">(optional)</span></label>
-                <div className="description-input-wrapper">
-                  <input
-                    ref={manualDescriptionRef}
-                    type="text"
-                    value={manualDescription}
-                    onChange={(e) => setManualDescription(e.target.value)}
-                    onFocus={() => {
-                      if (justSelectedSuggestionRef.current) {
-                        justSelectedSuggestionRef.current = false;
-                        return;
-                      }
-                      if (manualSuggestions.length > 0) setShowManualSuggestions(true);
-                    }}
-                    onKeyDown={handleManualDescriptionKeyDown}
-                    placeholder="What were you working on?"
-                    autoComplete="off"
-                    data-lpignore="true"
-                    data-1p-ignore
-                    data-form-type="other"
-                  />
-                  {showManualSuggestions && manualSuggestions.length > 0 && (
-                    <div className="description-suggestions" ref={suggestionsRef}>
-                      {manualSuggestions.map((suggestion, idx) => {
-                        const cat = categories.find(c => c.id === suggestion.categoryId);
-                        return (
-                          <button
-                            key={`${suggestion.categoryId}-${suggestion.task_name}`}
-                            className={`suggestion-item ${idx === selectedSuggestionIndex ? 'selected' : ''}`}
-                            onClick={() => handleManualSuggestionSelect(suggestion)}
-                            onMouseEnter={() => setSelectedSuggestionIndex(idx)}
-                            type="button"
-                          >
-                            <span className="suggestion-text">{suggestion.task_name}</span>
-                            <span className="suggestion-meta">
-                              <span
-                                className="category-dot"
-                                style={{ backgroundColor: cat?.color || '#6366f1' }}
-                              />
-                              <span className="suggestion-category">{cat?.name || 'Unknown'}</span>
-                              <span className="suggestion-count">×{suggestion.count}</span>
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
+                <TaskSuggestionInput
+                  value={manualDescription}
+                  onChange={setManualDescription}
+                  onFocus={manualSuggestions.handleFocus}
+                  onKeyDown={(e) => {
+                    const selected = manualSuggestions.handleKeyDown(e);
+                    if (selected) handleManualSuggestionSelect(selected);
+                  }}
+                  inputRef={manualSuggestions.inputRef}
+                  listRef={manualSuggestions.listRef}
+                  suggestions={manualSuggestions.suggestions}
+                  show={manualSuggestions.showSuggestions}
+                  selectedIndex={manualSuggestions.selectedIndex}
+                  onSelect={handleManualSuggestionSelect}
+                  onHover={manualSuggestions.setSelectedIndex}
+                  categories={categories}
+                  isDarkMode={isDarkMode}
+                />
               </div>
               <div className="form-row-datetime">
                 <div className="form-group">
