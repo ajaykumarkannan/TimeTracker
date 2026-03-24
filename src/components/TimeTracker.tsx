@@ -5,6 +5,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { getAdaptiveCategoryColors } from '../hooks/useAdaptiveColors';
 import { useTaskSuggestions } from '../hooks/useTaskSuggestions';
 import { getNextAvailableColor } from '../utils/colorUtils';
+import { InlineCategoryForm } from './InlineCategoryForm';
 import { TaskSuggestionInput } from './TaskSuggestionInput';
 import './TimeTracker.css';
 
@@ -52,8 +53,6 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   const [description, setDescription] = useState('');
   const [elapsed, setElapsed] = useState(0);
   const [showNewCategory, setShowNewCategory] = useState(false);
-  const [newCategoryName, setNewCategoryName] = useState('');
-  const [newCategoryColor, setNewCategoryColor] = useState(nextColor);
 
   // Task suggestions hook
   const taskSuggestions = useTaskSuggestions({
@@ -393,20 +392,6 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
       onEntryChange({ active: entry });
     } catch (error) {
       console.error('Failed to switch task:', error);
-    }
-  };
-
-  const handleCreateCategory = async () => {
-    if (!newCategoryName.trim()) return;
-    try {
-      const category = await api.createCategory(newCategoryName, newCategoryColor);
-      setSelectedCategory(category.id);
-      setNewCategoryName('');
-      setNewCategoryColor(nextColor);
-      setShowNewCategory(false);
-      onCategoryChange();
-    } catch (error) {
-      console.error('Failed to create category:', error);
     }
   };
 
@@ -754,35 +739,16 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
             </div>
             <div className="new-category-modal-form">
               <div className="new-category-input-row">
-                <input
-                  type="text"
-                  value={newCategoryName}
-                  onChange={(e) => setNewCategoryName(e.target.value)}
-                  placeholder="Category name"
-                  autoFocus
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && newCategoryName.trim()) handleCreateCategory();
-                    if (e.key === 'Escape') setShowNewCategory(false);
+                <InlineCategoryForm
+                  variant="labeled"
+                  initialColor={nextColor}
+                  onCreated={(category) => {
+                    setSelectedCategory(category.id);
+                    setShowNewCategory(false);
+                    onCategoryChange();
                   }}
+                  onCancel={() => setShowNewCategory(false)}
                 />
-                <input
-                  type="color"
-                  value={newCategoryColor}
-                  onChange={(e) => setNewCategoryColor(e.target.value)}
-                  className="color-picker"
-                />
-              </div>
-              <div className="new-category-modal-actions">
-                <button className="btn btn-ghost" onClick={() => setShowNewCategory(false)}>
-                  Cancel
-                </button>
-                <button
-                  className="btn btn-primary"
-                  onClick={handleCreateCategory}
-                  disabled={!newCategoryName.trim()}
-                >
-                  Create
-                </button>
               </div>
             </div>
           </div>
