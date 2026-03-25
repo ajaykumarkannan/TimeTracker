@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { api } from '../api';
 import { AnalyticsData, Period, DailyTotal, TimeEntry, CategoryDrilldown, Category, TopTask } from '../types';
 import { downloadFile } from '../utils/downloadUtils';
+import { roundToSingleDecimal } from '../utils/timeUtils';
 import { useClickOutside } from '../hooks/useClickOutside';
 import { InlineCategoryForm } from './InlineCategoryForm';
 import './Analytics.css';
@@ -824,8 +825,7 @@ export function Analytics({ refreshKey }: AnalyticsProps = {}) {
       if (remH === 0) return `${d}d`;
       return `${d}d ${remH}h`;
     }
-    const decimal = minutes / 60;
-    const rounded = Math.round(decimal * 10) / 10;
+    const rounded = roundToSingleDecimal(minutes / 60);
     if (rounded === Math.floor(rounded)) return `${Math.floor(rounded)}h`;
     return `${rounded}h`;
   };

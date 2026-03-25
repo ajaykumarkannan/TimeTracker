@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { api } from '../api';
 import { ColumnMapping, ImportEntry } from '../types';
+import { roundToSingleDecimal } from '../utils/timeUtils';
 import './ImportWizard.css';
 
 interface Props {
@@ -176,8 +177,7 @@ export function ImportWizard({ csv, onClose, onSuccess }: Props) {
       if (remH === 0) return `${d}d`;
       return `${d}d ${remH}h`;
     }
-    const decimal = minutes / 60;
-    const rounded = Math.round(decimal * 10) / 10;
+    const rounded = roundToSingleDecimal(minutes / 60);
     if (rounded === Math.floor(rounded)) return `${Math.floor(rounded)}h`;
     return `${rounded}h`;
   };

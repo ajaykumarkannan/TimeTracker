@@ -9,6 +9,11 @@ import {
   getAdaptiveDotColor,
 } from '../colorUtils';
 
+const getHslFromHex = (hex: string) => {
+  const rgb = hexToRgb(hex)!;
+  return rgbToHsl(rgb.r, rgb.g, rgb.b);
+};
+
 describe('colorUtils', () => {
   describe('hexToRgb', () => {
     it('converts hex to RGB', () => {
@@ -95,8 +100,7 @@ describe('colorUtils', () => {
       const adaptedDark = getAdaptiveTextColor(darkPurple, true);
       
       // The adapted color should be lighter (higher lightness)
-      const adaptedRgb = hexToRgb(adaptedDark)!;
-      const adaptedHsl = rgbToHsl(adaptedRgb.r, adaptedRgb.g, adaptedRgb.b);
+      const adaptedHsl = getHslFromHex(adaptedDark);
       
       // Should be at least 64 (close to minimum 65)
       expect(adaptedHsl.l).toBeGreaterThanOrEqual(64);
@@ -106,8 +110,7 @@ describe('colorUtils', () => {
       const lightColor = '#e0e0ff';
       const adaptedLight = getAdaptiveTextColor(lightColor, false);
       
-      const adaptedRgb = hexToRgb(adaptedLight)!;
-      const adaptedHsl = rgbToHsl(adaptedRgb.r, adaptedRgb.g, adaptedRgb.b);
+      const adaptedHsl = getHslFromHex(adaptedLight);
       
       // Should be at most 46 (close to maximum 45)
       expect(adaptedHsl.l).toBeLessThanOrEqual(46);
@@ -122,8 +125,7 @@ describe('colorUtils', () => {
     it('returns dark background in dark mode', () => {
       const color = '#6366f1';
       const bg = getAdaptiveBgColor(color, true);
-      const rgb = hexToRgb(bg)!;
-      const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
+      const hsl = getHslFromHex(bg);
       
       expect(hsl.l).toBeLessThanOrEqual(25); // Dark background
     });
@@ -131,8 +133,7 @@ describe('colorUtils', () => {
     it('returns light background in light mode', () => {
       const color = '#6366f1';
       const bg = getAdaptiveBgColor(color, false);
-      const rgb = hexToRgb(bg)!;
-      const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
+      const hsl = getHslFromHex(bg);
       
       expect(hsl.l).toBeGreaterThanOrEqual(90); // Light background
     });
@@ -148,8 +149,7 @@ describe('colorUtils', () => {
       const darkColor = '#333333';
       const adapted = getAdaptiveDotColor(darkColor, true);
       
-      const adaptedRgb = hexToRgb(adapted)!;
-      const adaptedHsl = rgbToHsl(adaptedRgb.r, adaptedRgb.g, adaptedRgb.b);
+      const adaptedHsl = getHslFromHex(adapted);
       
       // Should be at least 54 (close to minimum 55)
       expect(adaptedHsl.l).toBeGreaterThanOrEqual(54);
@@ -168,8 +168,7 @@ describe('colorUtils', () => {
     it('keeps already light colors unchanged in dark mode', () => {
       const lightColor = '#aaaaaa'; // Already light
       const adapted = getAdaptiveDotColor(lightColor, true);
-      const adaptedRgb = hexToRgb(adapted)!;
-      const adaptedHsl = rgbToHsl(adaptedRgb.r, adaptedRgb.g, adaptedRgb.b);
+      const adaptedHsl = getHslFromHex(adapted);
       
       // Should maintain at least minimum lightness
       expect(adaptedHsl.l).toBeGreaterThanOrEqual(55);

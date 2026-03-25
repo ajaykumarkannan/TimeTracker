@@ -26,25 +26,21 @@ describe('Icons', () => {
   ];
 
   icons.forEach(({ name, Component }) => {
-    it(`renders ${name} with default size`, () => {
-      const { container } = render(<Component />);
-      const svg = container.querySelector('svg');
-      expect(svg).toBeInTheDocument();
-      expect(svg).toHaveAttribute('width', '16');
-      expect(svg).toHaveAttribute('height', '16');
-    });
+    it(`renders ${name} with expected props`, () => {
+      const { container: defaultContainer } = render(<Component />);
+      const defaultSvg = defaultContainer.querySelector('svg');
+      expect(defaultSvg).toBeInTheDocument();
+      expect(defaultSvg).toHaveAttribute('width', '16');
+      expect(defaultSvg).toHaveAttribute('height', '16');
 
-    it(`renders ${name} with custom size`, () => {
-      const { container } = render(<Component size={24} />);
-      const svg = container.querySelector('svg');
-      expect(svg).toHaveAttribute('width', '24');
-      expect(svg).toHaveAttribute('height', '24');
-    });
+      const { container: sizedContainer } = render(<Component size={24} />);
+      const sizedSvg = sizedContainer.querySelector('svg');
+      expect(sizedSvg).toHaveAttribute('width', '24');
+      expect(sizedSvg).toHaveAttribute('height', '24');
 
-    it(`renders ${name} with custom className`, () => {
-      const { container } = render(<Component className="custom-class" />);
-      const svg = container.querySelector('svg');
-      expect(svg).toHaveClass('custom-class');
+      const { container: classContainer } = render(<Component className="custom-class" />);
+      const classSvg = classContainer.querySelector('svg');
+      expect(classSvg).toHaveClass('custom-class');
     });
   });
 });

@@ -85,10 +85,13 @@ export function formatDuration(minutes: number | null): string {
     return `${d}d ${remH}h`;
   }
   // 10-23 hours: decimal hours (e.g. 10.5h)
-  const decimal = minutes / 60;
-  const rounded = Math.round(decimal * 10) / 10;
+  const rounded = roundToSingleDecimal(minutes / 60);
   if (rounded === Math.floor(rounded)) return `${Math.floor(rounded)}h`;
   return `${rounded}h`;
+}
+
+export function roundToSingleDecimal(value: number): number {
+  return Math.round(value * 10) / 10;
 }
 
 /**
