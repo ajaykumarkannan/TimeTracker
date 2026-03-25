@@ -1455,6 +1455,12 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                         onPointerUp={handleSwipePointerUp}
                         onPointerCancel={handleSwipePointerUp}
                         onWheel={(e) => handleSwipeWheel(entry.id, e)}
+                        onPointerLeave={(e) => {
+                          // On desktop (mouse), dismiss when pointer leaves the entry row
+                          if (e.pointerType === 'mouse' && swipedEntryId === entry.id) {
+                            setSwipedEntryId(null);
+                          }
+                        }}
                       >
 
                       <div className="entry-content">
