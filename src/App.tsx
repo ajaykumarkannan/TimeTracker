@@ -38,6 +38,22 @@ function useIsMobile() {
   return isMobile;
 }
 
+// Hook for detecting short vertical viewport (e.g. landscape phones)
+function useIsShortViewport(threshold = 500) {
+  const [isShort, setIsShort] = useState(false);
+
+  useEffect(() => {
+    const check = () => {
+      setIsShort(window.innerHeight <= threshold);
+    };
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, [threshold]);
+
+  return isShort;
+}
+
 // Hook for hide-on-scroll header
 function useHideOnScroll() {
   const [hidden, setHidden] = useState(false);
@@ -66,6 +82,13 @@ export function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLogge
   const { showTimezonePrompt, detectedTimezone, acceptDetectedTimezone, dismissTimezonePrompt, timezone } = useTimezone();
   const isMobile = useIsMobile();
   const headerHidden = useHideOnScroll();
+  const isShortViewport = useIsShortViewport();
+  const [headerRevealed, setHeaderRevealed] = useState(false);
+
+  // Reset revealed state when viewport is no longer short
+  useEffect(() => {
+    if (!isShortViewport) setHeaderRevealed(false);
+  }, [isShortViewport]);
   const [activeTab, setActiveTab] = useState<Tab>(() => {
     const saved = localStorage.getItem('chronoflow_tab');
     // Reset to tracker if saved tab was settings or help (now in menu)
@@ -361,9 +384,31 @@ export function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLogge
     { id: 'analytics', label: 'Analytics', icon: <ChartIcon size={16} /> }
   ];
 
+  const autoHideHeader = isMobile && isShortViewport && !headerRevealed;
+  const headerIsHidden = (headerHidden && isMobile) || autoHideHeader;
+
   return (
     <div className="app">
-      <header className={`app-header ${headerHidden && isMobile ? 'header-hidden' : ''}`}>
+      {/* Reveal zone: invisible touch target at top of screen to bring header back when auto-hidden */}
+      {autoHideHeader && (
+        <div
+          className="header-reveal-zone"
+          onPointerDown={() => setHeaderRevealed(true)}
+          aria-label="Tap to show header"
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setHeaderRevealed(true); }}
+        />
+      )}
+      <header
+        className={`app-header${headerIsHidden ? ' header-hidden' : ''}${autoHideHeader ? ' header-collapsed' : ''}`}
+        onPointerLeave={() => {
+          // Re-hide after user moves away from the revealed header on short viewports
+          if (isMobile && isShortViewport && headerRevealed) {
+            setHeaderRevealed(false);
+          }
+        }}
+      >
         <div className="header-left" ref={mobileNavRef}>
           {/* Mobile hamburger menu in header */}
           <button 

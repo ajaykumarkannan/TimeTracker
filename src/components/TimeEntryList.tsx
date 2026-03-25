@@ -86,7 +86,12 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
 
   // Swipe-to-reveal state for mobile entry actions
   const [swipedEntryId, setSwipedEntryId] = useState<number | null>(null);
-  const touchStartRef = useRef<{ x: number; y: number; id: number } | null>(null);
+  const swipeStartRef = useRef<{ x: number; y: number; id: number; time: number } | null>(null);
+  const swipeOffsetRef = useRef<number>(0); // current drag offset in px (negative = swiping left)
+  const swipeLocked = useRef<'horizontal' | 'vertical' | null>(null); // axis lock after initial movement
+  const swipeEntryRef = useRef<HTMLDivElement | null>(null); // DOM ref for the currently-dragging entry
+  const swipePointerId = useRef<number | null>(null); // pointer id for capture
+  const swipeDidDrag = useRef(false); // true if the gesture was a real drag (not a tap) – used to suppress click
 
   // Mobile time-edit modal state
   const [showTimeEditModal, setShowTimeEditModal] = useState(false);
@@ -833,31 +838,139 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
     }
   };
 
-  // Swipe-to-reveal touch handlers for mobile
-  const handleTouchStart = useCallback((entryId: number, e: React.TouchEvent) => {
-    const touch = e.touches[0];
-    touchStartRef.current = { x: touch.clientX, y: touch.clientY, id: entryId };
+  // Swipe-to-reveal pointer handlers for mobile (works with touch AND mouse)
+  const SWIPE_ACTION_WIDTH = 96; // px – total width of the action buttons panel (3rem * 2 buttons or 6rem)
+  const SNAP_THRESHOLD = SWIPE_ACTION_WIDTH / 3; // how far the user must drag before it snaps open
+  const VELOCITY_THRESHOLD = 0.3; // px/ms – fast flick will snap even if distance is short
+
+  // Apply inline transforms to the entry being dragged (avoids React re-renders during the gesture)
+  const applySwipeTransform = useCallback((el: HTMLElement, offset: number) => {
+    const content = el.querySelector('.entry-content') as HTMLElement | null;
+    const actions = el.querySelector('.swipe-actions') as HTMLElement | null;
+    if (content) content.style.transform = `translateX(${offset}px)`;
+    if (actions) actions.style.transform = `translateX(${Math.max(0, SWIPE_ACTION_WIDTH + offset)}px)`;
+  }, [SWIPE_ACTION_WIDTH]);
+
+  // Clear inline styles and let CSS classes take over
+  const clearSwipeTransform = useCallback((el: HTMLElement) => {
+    const content = el.querySelector('.entry-content') as HTMLElement | null;
+    const actions = el.querySelector('.swipe-actions') as HTMLElement | null;
+    if (content) content.style.transform = '';
+    if (actions) actions.style.transform = '';
   }, []);
 
-  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
-    if (!touchStartRef.current) return;
-    const touch = e.changedTouches[0];
-    const dx = touch.clientX - touchStartRef.current.x;
-    const dy = touch.clientY - touchStartRef.current.y;
-    const entryId = touchStartRef.current.id;
-    touchStartRef.current = null;
-
-    // Only register horizontal swipes (not vertical scrolls)
-    if (Math.abs(dx) < 50 || Math.abs(dy) > Math.abs(dx)) return;
-
-    if (dx < 0) {
-      // Swipe left → reveal actions
-      setSwipedEntryId(entryId);
-    } else {
-      // Swipe right → hide actions
+  const handleSwipePointerDown = useCallback((entryId: number, e: React.PointerEvent) => {
+    // If another entry is swiped open, close it immediately
+    if (swipedEntryId !== null && swipedEntryId !== entryId) {
       setSwipedEntryId(null);
     }
-  }, []);
+    const startOffset = swipedEntryId === entryId ? -SWIPE_ACTION_WIDTH : 0;
+    swipeStartRef.current = { x: e.clientX, y: e.clientY, id: entryId, time: Date.now() };
+    swipeOffsetRef.current = startOffset;
+    swipeLocked.current = null;
+    swipeEntryRef.current = (e.currentTarget as HTMLDivElement);
+    swipePointerId.current = e.pointerId;
+    // Capture pointer so we get move/up even if finger leaves the element
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  }, [swipedEntryId, SWIPE_ACTION_WIDTH]);
+
+  const handleSwipePointerMove = useCallback((e: React.PointerEvent) => {
+    if (!swipeStartRef.current || !swipeEntryRef.current) return;
+    const dx = e.clientX - swipeStartRef.current.x;
+    const dy = e.clientY - swipeStartRef.current.y;
+
+    // Lock to an axis after a small movement to avoid jank
+    if (!swipeLocked.current) {
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return; // dead zone
+      swipeLocked.current = Math.abs(dx) >= Math.abs(dy) ? 'horizontal' : 'vertical';
+    }
+
+    if (swipeLocked.current === 'vertical') return; // let the browser scroll
+
+    // Starting offset accounts for whether the entry was already swiped open
+    const startOffset = swipedEntryId === swipeStartRef.current.id ? -SWIPE_ACTION_WIDTH : 0;
+    // Clamp offset between -SWIPE_ACTION_WIDTH (fully open) and 0 (fully closed), with slight rubber-band
+    const raw = startOffset + dx;
+    const clamped = Math.max(-SWIPE_ACTION_WIDTH - 20, Math.min(20, raw));
+    // Apply rubber-band effect beyond bounds
+    const offset = clamped < -SWIPE_ACTION_WIDTH
+      ? -SWIPE_ACTION_WIDTH + (clamped + SWIPE_ACTION_WIDTH) * 0.3
+      : clamped > 0
+        ? clamped * 0.3
+        : clamped;
+
+    swipeOffsetRef.current = offset;
+    applySwipeTransform(swipeEntryRef.current, offset);
+  }, [swipedEntryId, SWIPE_ACTION_WIDTH, applySwipeTransform]);
+
+  const handleSwipePointerUp = useCallback((e: React.PointerEvent) => {
+    if (!swipeStartRef.current || !swipeEntryRef.current) return;
+    const dx = e.clientX - swipeStartRef.current.x;
+    const dy = e.clientY - swipeStartRef.current.y;
+    const dt = Date.now() - swipeStartRef.current.time;
+    const entryId = swipeStartRef.current.id;
+    const el = swipeEntryRef.current;
+
+    // Release pointer capture
+    if (swipePointerId.current !== null) {
+      try { (e.currentTarget as HTMLElement).releasePointerCapture(swipePointerId.current); } catch { /* already released */ }
+      swipePointerId.current = null;
+    }
+
+    swipeStartRef.current = null;
+    swipeEntryRef.current = null;
+
+    // If locked to vertical or barely moved, ignore
+    if (swipeLocked.current === 'vertical' || (Math.abs(dx) < 10 && Math.abs(dy) < 10)) {
+      swipeLocked.current = null;
+      swipeDidDrag.current = false;
+      return;
+    }
+    swipeLocked.current = null;
+    swipeDidDrag.current = true; // mark that a real drag happened – suppress the upcoming click
+
+    const velocity = Math.abs(dx) / Math.max(dt, 1); // px/ms
+    const offset = swipeOffsetRef.current;
+
+    // Determine whether to snap open or closed
+    const wasOpen = swipedEntryId === entryId;
+    let shouldOpen: boolean;
+
+    if (velocity > VELOCITY_THRESHOLD) {
+      // Fast flick: direction determines outcome
+      shouldOpen = dx < 0;
+    } else {
+      // Slow drag: threshold determines outcome
+      shouldOpen = offset < -SNAP_THRESHOLD;
+    }
+
+    // Clear inline styles and let CSS transition handle the snap animation
+    clearSwipeTransform(el);
+    setSwipedEntryId(shouldOpen ? entryId : null);
+
+    // If state didn't actually change, we still need to clear transforms
+    if ((shouldOpen && wasOpen) || (!shouldOpen && !wasOpen)) {
+      clearSwipeTransform(el);
+    }
+  }, [swipedEntryId, clearSwipeTransform, SNAP_THRESHOLD, VELOCITY_THRESHOLD]);
+
+  // Dismiss swiped entry on scroll or clicking/tapping outside
+  useEffect(() => {
+    if (swipedEntryId === null) return;
+    const dismissOnScroll = () => setSwipedEntryId(null);
+    const dismissOnClickOutside = (e: PointerEvent) => {
+      // Don't dismiss if the click is inside the swiped entry itself (let its own handlers manage it)
+      const target = e.target as HTMLElement;
+      if (target.closest('.entry-item.swiped')) return;
+      setSwipedEntryId(null);
+    };
+    window.addEventListener('scroll', dismissOnScroll, { passive: true, once: true });
+    document.addEventListener('pointerdown', dismissOnClickOutside);
+    return () => {
+      window.removeEventListener('scroll', dismissOnScroll);
+      document.removeEventListener('pointerdown', dismissOnClickOutside);
+    };
+  }, [swipedEntryId]);
 
   const handleMergeEntries = async (candidate: MergeCandidate) => {
     const sorted = [...candidate.entries].sort((a, b) =>
@@ -1299,9 +1412,11 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                       )}
                       <div
                          className={`entry-item ${index % 2 === 1 ? 'entry-striped' : ''} ${isSelected ? 'selected' : ''} ${swipedEntryId === entry.id ? 'swiped' : ''}`}
-                        onClick={() => { if (swipedEntryId === entry.id) { setSwipedEntryId(null); } else { handleSelect(entry.id); } }}
-                        onTouchStart={(e) => handleTouchStart(entry.id, e)}
-                        onTouchEnd={handleTouchEnd}
+                        onClick={() => { if (swipeDidDrag.current) { swipeDidDrag.current = false; return; } if (swipedEntryId === entry.id) { setSwipedEntryId(null); } else { handleSelect(entry.id); } }}
+                        onPointerDown={(e) => handleSwipePointerDown(entry.id, e)}
+                        onPointerMove={handleSwipePointerMove}
+                        onPointerUp={handleSwipePointerUp}
+                        onPointerCancel={handleSwipePointerUp}
                       >
 
                       <div className="entry-content">
