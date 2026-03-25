@@ -92,6 +92,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
   const swipeEntryRef = useRef<HTMLDivElement | null>(null); // DOM ref for the currently-dragging entry
   const swipePointerId = useRef<number | null>(null); // pointer id for capture
   const swipeDidDrag = useRef(false); // true if the gesture was a real drag (not a tap) – used to suppress click
+  const wheelAccum = useRef<{ id: number; dx: number; timer: ReturnType<typeof setTimeout> | null }>({ id: 0, dx: 0, timer: null }); // trackpad two-finger swipe accumulator
 
   // Mobile time-edit modal state
   const [showTimeEditModal, setShowTimeEditModal] = useState(false);
@@ -958,6 +959,38 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
     }
   }, [swipedEntryId, clearSwipeTransform, SNAP_THRESHOLD, VELOCITY_THRESHOLD]);
 
+  // Two-finger trackpad swipe: accumulate horizontal wheel deltaX to open/close actions
+  const handleSwipeWheel = useCallback((entryId: number, e: React.WheelEvent) => {
+    // Ignore if predominantly vertical scroll
+    if (Math.abs(e.deltaY) > Math.abs(e.deltaX) || Math.abs(e.deltaX) < 2) return;
+
+    const acc = wheelAccum.current;
+
+    // Reset accumulator if switching to a different entry
+    if (acc.id !== entryId) {
+      acc.id = entryId;
+      acc.dx = 0;
+    }
+
+    acc.dx += e.deltaX;
+
+    // Reset accumulator after a pause (gesture ended)
+    if (acc.timer) clearTimeout(acc.timer);
+    acc.timer = setTimeout(() => { acc.dx = 0; }, 200);
+
+    const isOpen = swipedEntryId === entryId;
+
+    if (!isOpen && acc.dx > SNAP_THRESHOLD) {
+      // Scrolled right (deltaX positive = swipe left on trackpad) → open
+      setSwipedEntryId(entryId);
+      acc.dx = 0;
+    } else if (isOpen && acc.dx < -SNAP_THRESHOLD) {
+      // Scrolled left (deltaX negative = swipe right on trackpad) → close
+      setSwipedEntryId(null);
+      acc.dx = 0;
+    }
+  }, [swipedEntryId, SNAP_THRESHOLD]);
+
   // Dismiss swiped entry on scroll or clicking/tapping outside
   useEffect(() => {
     if (swipedEntryId === null) return;
@@ -1421,6 +1454,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                         onPointerMove={handleSwipePointerMove}
                         onPointerUp={handleSwipePointerUp}
                         onPointerCancel={handleSwipePointerUp}
+                        onWheel={(e) => handleSwipeWheel(entry.id, e)}
                       >
 
                       <div className="entry-content">
