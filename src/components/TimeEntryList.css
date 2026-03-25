@@ -958,6 +958,8 @@
     align-items: center;
     position: relative;
     overflow: hidden;
+    touch-action: pan-y; /* allow vertical scroll, handle horizontal swipe via pointer events */
+    user-select: none; /* prevent text selection during swipe on desktop */
   }
 
   .entry-item + .entry-item,
@@ -1123,7 +1125,7 @@
     display: flex;
     align-items: stretch;
     transform: translateX(100%);
-    transition: transform 0.2s ease;
+    transition: transform 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     z-index: 2;
   }
 
@@ -1133,11 +1135,10 @@
 
   .entry-item.swiped .entry-content {
     transform: translateX(-6rem);
-    transition: transform 0.2s ease;
   }
 
   .entry-content {
-    transition: transform 0.2s ease;
+    transition: transform 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   }
 
   .swipe-action-btn {

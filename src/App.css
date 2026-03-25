@@ -151,6 +151,33 @@ body {
   transform: translateY(-100%);
 }
 
+/* Short-viewport auto-hide: pull header out of document flow so no blank space remains */
+.app-header.header-collapsed {
+  position: fixed;
+  left: 0;
+  right: 0;
+}
+
+/* Invisible touch zone at the top of the screen to reveal the header on short viewports */
+.header-reveal-zone {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 12px;
+  z-index: 101;
+  cursor: pointer;
+  /* Subtle visual hint: thin gradient line */
+  background: linear-gradient(to bottom, var(--primary), transparent);
+  opacity: 0.4;
+  transition: opacity 0.2s ease;
+}
+
+.header-reveal-zone:hover,
+.header-reveal-zone:focus-visible {
+  opacity: 0.7;
+}
+
 [data-theme="dark"] .app-header {
   background: rgba(24, 24, 27, 0.85);
 }
