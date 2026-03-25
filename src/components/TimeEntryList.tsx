@@ -861,11 +861,6 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
   }, []);
 
   const handleSwipePointerDown = useCallback((entryId: number, e: React.PointerEvent) => {
-    // Don't capture pointer if user is interacting with an inline edit control
-    const target = e.target as HTMLElement;
-    if (target.closest('input, select, textarea, button, .inline-edit-input, .inline-edit-select, .inline-new-category, .editable, .entry-actions, .swipe-actions')) {
-      return;
-    }
     // If another entry is swiped open, close it immediately
     if (swipedEntryId !== null && swipedEntryId !== entryId) {
       setSwipedEntryId(null);
