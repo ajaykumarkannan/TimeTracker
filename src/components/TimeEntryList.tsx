@@ -860,11 +860,6 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
   }, []);
 
   const handleSwipePointerDown = useCallback((entryId: number, e: React.PointerEvent) => {
-    // Don't capture pointer if user is interacting with an inline edit control
-    const target = e.target as HTMLElement;
-    if (target.closest('input, select, textarea, button, .inline-edit-input, .inline-edit-select, .inline-new-category, .editable, .entry-actions, .swipe-actions')) {
-      return;
-    }
     // If another entry is swiped open, close it immediately
     if (swipedEntryId !== null && swipedEntryId !== entryId) {
       setSwipedEntryId(null);
@@ -875,8 +870,8 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
     swipeLocked.current = null;
     swipeEntryRef.current = (e.currentTarget as HTMLDivElement);
     swipePointerId.current = e.pointerId;
-    // Capture pointer so we get move/up even if finger leaves the element
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    // Don't capture yet — wait until pointerMove confirms a horizontal drag.
+    // This lets clicks on child elements (inputs, selects, buttons, editable spans) work normally.
   }, [swipedEntryId, SWIPE_ACTION_WIDTH]);
 
   const handleSwipePointerMove = useCallback((e: React.PointerEvent) => {
@@ -888,6 +883,10 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
     if (!swipeLocked.current) {
       if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return; // dead zone
       swipeLocked.current = Math.abs(dx) >= Math.abs(dy) ? 'horizontal' : 'vertical';
+      // Capture pointer only once we confirm a horizontal swipe
+      if (swipeLocked.current === 'horizontal' && swipePointerId.current !== null) {
+        try { swipeEntryRef.current.setPointerCapture(swipePointerId.current); } catch { /* ok */ }
+      }
     }
 
     if (swipeLocked.current === 'vertical') return; // let the browser scroll
