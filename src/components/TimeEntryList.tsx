@@ -83,6 +83,8 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
   const editingIdRef = useRef<number | null>(null);
   // Flag to suppress blur-save when user pressed Escape to cancel
   const cancelledRef = useRef(false);
+  // Flag to suppress blur-save when Enter already triggered a save
+  const enterSavingRef = useRef(false);
 
   // Swipe-to-reveal state for mobile entry actions
   const [swipedEntryId, setSwipedEntryId] = useState<number | null>(null);
@@ -442,6 +444,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
 
   const startEdit = (entry: TimeEntry, field: EditField) => {
     cancelledRef.current = false;
+    enterSavingRef.current = false;
     setEditingId(entry.id);
     setEditField(field);
     editingIdRef.current = entry.id;
@@ -709,9 +712,14 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
     const snapshotField = field;
     const snapshotId = entryId;
     setTimeout(() => {
-      // If the user pressed Escape, don't save
+      // If the user pressed Escape to cancel, don't save
       if (cancelledRef.current) {
         cancelledRef.current = false;
+        return;
+      }
+      // If Enter/submit already triggered a save, don't double-save
+      if (enterSavingRef.current) {
+        enterSavingRef.current = false;
         return;
       }
       // If the user tapped another editable field, startEdit already ran
@@ -796,6 +804,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
     if (e.key === 'Enter') {
       e.preventDefault();
       e.stopPropagation();
+      enterSavingRef.current = true;
       handleSave(entryId);
     } else if (e.key === 'Escape') {
       e.preventDefault();
@@ -806,6 +815,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
   // Handle form submission for time inputs (Enter key may not work consistently on datetime-local)
   const handleTimeInputSubmit = (e: React.FormEvent, entryId: number) => {
     e.preventDefault();
+    enterSavingRef.current = true;
     handleSave(entryId);
   };
 
@@ -840,17 +850,22 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
   };
 
   // Swipe-to-reveal pointer handlers for mobile (works with touch AND mouse)
-  const SWIPE_ACTION_WIDTH = 96; // px – total width of the action buttons panel (3rem * 2 buttons or 6rem)
-  const SNAP_THRESHOLD = SWIPE_ACTION_WIDTH / 3; // how far the user must drag before it snaps open
+  const SWIPE_WIDTH_NORMAL = 96; // px – 2 buttons × 3rem (6rem)
+  const SWIPE_WIDTH_WIDE = 144;  // px – 3 buttons × 3rem (9rem)
   const VELOCITY_THRESHOLD = 0.3; // px/ms – fast flick will snap even if distance is short
+
+  // Determine swipe panel width from the element's class (set during render)
+  const getSwipeWidth = (el: HTMLElement | null) =>
+    el?.classList.contains('swiped-wide') ? SWIPE_WIDTH_WIDE : SWIPE_WIDTH_NORMAL;
 
   // Apply inline transforms to the entry being dragged (avoids React re-renders during the gesture)
   const applySwipeTransform = useCallback((el: HTMLElement, offset: number) => {
+    const w = getSwipeWidth(el);
     const content = el.querySelector('.entry-content') as HTMLElement | null;
     const actions = el.querySelector('.swipe-actions') as HTMLElement | null;
     if (content) content.style.transform = `translateX(${offset}px)`;
-    if (actions) actions.style.transform = `translateX(${Math.max(0, SWIPE_ACTION_WIDTH + offset)}px)`;
-  }, [SWIPE_ACTION_WIDTH]);
+    if (actions) actions.style.transform = `translateX(${Math.max(0, w + offset)}px)`;
+  }, [getSwipeWidth]);
 
   // Clear inline styles and let CSS classes take over
   const clearSwipeTransform = useCallback((el: HTMLElement) => {
@@ -865,15 +880,17 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
     if (swipedEntryId !== null && swipedEntryId !== entryId) {
       setSwipedEntryId(null);
     }
-    const startOffset = swipedEntryId === entryId ? -SWIPE_ACTION_WIDTH : 0;
+    const el = e.currentTarget as HTMLDivElement;
+    const w = getSwipeWidth(el);
+    const startOffset = swipedEntryId === entryId ? -w : 0;
     swipeStartRef.current = { x: e.clientX, y: e.clientY, id: entryId, time: Date.now() };
     swipeOffsetRef.current = startOffset;
     swipeLocked.current = null;
-    swipeEntryRef.current = (e.currentTarget as HTMLDivElement);
+    swipeEntryRef.current = el;
     swipePointerId.current = e.pointerId;
     // Don't capture yet — wait until pointerMove confirms a horizontal drag.
     // This lets clicks on child elements (inputs, selects, buttons, editable spans) work normally.
-  }, [swipedEntryId, SWIPE_ACTION_WIDTH]);
+  }, [swipedEntryId, getSwipeWidth]);
 
   const handleSwipePointerMove = useCallback((e: React.PointerEvent) => {
     if (!swipeStartRef.current || !swipeEntryRef.current) return;
@@ -892,21 +909,22 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
 
     if (swipeLocked.current === 'vertical') return; // let the browser scroll
 
+    const w = getSwipeWidth(swipeEntryRef.current);
     // Starting offset accounts for whether the entry was already swiped open
-    const startOffset = swipedEntryId === swipeStartRef.current.id ? -SWIPE_ACTION_WIDTH : 0;
-    // Clamp offset between -SWIPE_ACTION_WIDTH (fully open) and 0 (fully closed), with slight rubber-band
+    const startOffset = swipedEntryId === swipeStartRef.current.id ? -w : 0;
+    // Clamp offset between -w (fully open) and 0 (fully closed), with slight rubber-band
     const raw = startOffset + dx;
-    const clamped = Math.max(-SWIPE_ACTION_WIDTH - 20, Math.min(20, raw));
+    const clamped = Math.max(-w - 20, Math.min(20, raw));
     // Apply rubber-band effect beyond bounds
-    const offset = clamped < -SWIPE_ACTION_WIDTH
-      ? -SWIPE_ACTION_WIDTH + (clamped + SWIPE_ACTION_WIDTH) * 0.3
+    const offset = clamped < -w
+      ? -w + (clamped + w) * 0.3
       : clamped > 0
         ? clamped * 0.3
         : clamped;
 
     swipeOffsetRef.current = offset;
     applySwipeTransform(swipeEntryRef.current, offset);
-  }, [swipedEntryId, SWIPE_ACTION_WIDTH, applySwipeTransform]);
+  }, [swipedEntryId, getSwipeWidth, applySwipeTransform]);
 
   const handleSwipePointerUp = useCallback((e: React.PointerEvent) => {
     if (!swipeStartRef.current || !swipeEntryRef.current) return;
@@ -936,6 +954,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
 
     const velocity = Math.abs(dx) / Math.max(dt, 1); // px/ms
     const offset = swipeOffsetRef.current;
+    const snapThreshold = getSwipeWidth(el) / 3;
 
     // Determine whether to snap open or closed
     const wasOpen = swipedEntryId === entryId;
@@ -946,7 +965,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
       shouldOpen = dx < 0;
     } else {
       // Slow drag: threshold determines outcome
-      shouldOpen = offset < -SNAP_THRESHOLD;
+      shouldOpen = offset < -snapThreshold;
     }
 
     // Clear inline styles and let CSS transition handle the snap animation
@@ -957,7 +976,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
     if ((shouldOpen && wasOpen) || (!shouldOpen && !wasOpen)) {
       clearSwipeTransform(el);
     }
-  }, [swipedEntryId, clearSwipeTransform, SNAP_THRESHOLD, VELOCITY_THRESHOLD]);
+  }, [swipedEntryId, clearSwipeTransform, getSwipeWidth, VELOCITY_THRESHOLD]);
 
   // Two-finger trackpad swipe: accumulate horizontal wheel deltaX to open/close actions
   const handleSwipeWheel = useCallback((entryId: number, e: React.WheelEvent) => {
@@ -979,17 +998,18 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
     acc.timer = setTimeout(() => { acc.dx = 0; }, 200);
 
     const isOpen = swipedEntryId === entryId;
+    const snapThreshold = getSwipeWidth(e.currentTarget as HTMLElement) / 3;
 
-    if (!isOpen && acc.dx > SNAP_THRESHOLD) {
+    if (!isOpen && acc.dx > snapThreshold) {
       // Scrolled right (deltaX positive = swipe left on trackpad) → open
       setSwipedEntryId(entryId);
       acc.dx = 0;
-    } else if (isOpen && acc.dx < -SNAP_THRESHOLD) {
+    } else if (isOpen && acc.dx < -snapThreshold) {
       // Scrolled left (deltaX negative = swipe right on trackpad) → close
       setSwipedEntryId(null);
       acc.dx = 0;
     }
-  }, [swipedEntryId, SNAP_THRESHOLD]);
+  }, [swipedEntryId, getSwipeWidth]);
 
   // Dismiss swiped entry on scroll or clicking/tapping outside
   useEffect(() => {
@@ -1104,12 +1124,18 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
   };
 
   // Find the most recently completed entry (latest end_time) for resume vs restart logic
-  const mostRecentCompletedId = useMemo(() => {
+  const RESUME_STALE_HOURS = 4;
+  const { mostRecentCompletedId, isMostRecentFresh } = useMemo(() => {
     const completed = filteredEntries.filter((e): e is TimeEntry & { end_time: string } => !!e.end_time);
-    if (completed.length === 0) return null;
-    return completed.reduce((latest, e) =>
-      new Date(e.end_time).getTime() > new Date(latest.end_time).getTime() ? e : latest
-    ).id;
+    if (completed.length === 0) return { mostRecentCompletedId: null, isMostRecentFresh: false };
+    const latest = completed.reduce((a, b) =>
+      new Date(b.end_time).getTime() > new Date(a.end_time).getTime() ? b : a
+    );
+    const elapsedMs = Date.now() - new Date(latest.end_time).getTime();
+    return {
+      mostRecentCompletedId: latest.id,
+      isMostRecentFresh: elapsedMs < RESUME_STALE_HOURS * 3600_000,
+    };
   }, [filteredEntries]);
 
   const groupByDate = () => {
@@ -1448,7 +1474,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                         </button>
                       )}
                       <div
-                         className={`entry-item ${index % 2 === 1 ? 'entry-striped' : ''} ${isSelected ? 'selected' : ''} ${swipedEntryId === entry.id ? 'swiped' : ''}`}
+                         className={`entry-item ${index % 2 === 1 ? 'entry-striped' : ''} ${isSelected ? 'selected' : ''} ${swipedEntryId === entry.id ? 'swiped' : ''} ${entry.id === mostRecentCompletedId && !activeEntry && isMostRecentFresh && entry.end_time ? 'swiped-wide' : ''}`}
                         onClick={() => { if (swipeDidDrag.current) { swipeDidDrag.current = false; return; } if (swipedEntryId === entry.id) { setSwipedEntryId(null); } else { handleSelect(entry.id); } }}
                         onPointerDown={(e) => handleSwipePointerDown(entry.id, e)}
                         onPointerMove={handleSwipePointerMove}
@@ -1641,7 +1667,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                       {/* Desktop hover actions */}
                       {entry.end_time && (
                         <div className="entry-actions">
-                          {entry.id === mostRecentCompletedId && !activeEntry ? (
+                          {entry.id === mostRecentCompletedId && !activeEntry && isMostRecentFresh ? (
                             <button
                               className="btn-icon resume-btn"
                               onClick={(e) => { e.stopPropagation(); handleResume(entry); }}
@@ -1682,13 +1708,21 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                       {/* Mobile swipe actions */}
                       <div className="swipe-actions">
                         {entry.end_time && (
-                          entry.id === mostRecentCompletedId && !activeEntry ? (
-                            <button
-                              className="swipe-action-btn resume"
-                              onClick={(e) => { e.stopPropagation(); setSwipedEntryId(null); handleResume(entry); }}
-                            >
-                              ▶
-                            </button>
+                          entry.id === mostRecentCompletedId && !activeEntry && isMostRecentFresh ? (
+                            <>
+                              <button
+                                className="swipe-action-btn resume"
+                                onClick={(e) => { e.stopPropagation(); setSwipedEntryId(null); handleResume(entry); }}
+                              >
+                                ▶
+                              </button>
+                              <button
+                                className="swipe-action-btn restart"
+                                onClick={(e) => { e.stopPropagation(); setSwipedEntryId(null); handleRestart(entry); }}
+                              >
+                                ↻
+                              </button>
+                            </>
                           ) : (
                             <button
                               className="swipe-action-btn restart"
