@@ -8,8 +8,10 @@ interface TaskSuggestionInputProps {
   value: string;
   onChange: (value: string) => void;
   onFocus: () => void;
+  onBlur?: (e: React.FocusEvent<HTMLInputElement>) => void;
   onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
   placeholder?: string;
+  autoFocus?: boolean;
   /** Ref forwarded to the <input> element */
   inputRef: React.Ref<HTMLInputElement>;
   /** Ref for the dropdown container */
@@ -34,8 +36,10 @@ export function TaskSuggestionInput({
   value,
   onChange,
   onFocus,
+  onBlur,
   onKeyDown,
   placeholder = 'Task (optional)',
+  autoFocus = false,
   inputRef,
   listRef,
   suggestions,
@@ -57,8 +61,10 @@ export function TaskSuggestionInput({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onFocus={onFocus}
+        onBlur={onBlur}
         onKeyDown={onKeyDown}
         placeholder={placeholder}
+        autoFocus={autoFocus}
         autoComplete="off"
         data-lpignore="true"
         data-1p-ignore

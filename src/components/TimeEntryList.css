@@ -586,6 +586,32 @@
   color: var(--text-muted);
 }
 
+/* Inline edit suggestion dropdown overrides */
+.inline-edit-suggestions {
+  flex: 1;
+  min-width: 6.25rem;
+}
+
+.inline-edit-suggestions .switch-description-input {
+  font-size: 0.8125rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--primary);
+  background: var(--card-bg);
+  color: var(--text-primary);
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.inline-edit-suggestions .switch-description-input::placeholder {
+  color: var(--text-muted);
+}
+
+.inline-edit-suggestions .description-suggestions {
+  min-width: 220px;
+}
+
 .entry-meta {
   display: flex;
   align-items: center;

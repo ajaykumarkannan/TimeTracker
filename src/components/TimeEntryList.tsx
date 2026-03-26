@@ -161,6 +161,15 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
     autoOpen: false,
   });
 
+  // Task name suggestions for inline edit
+  const inlineSuggestions = useTaskSuggestions({
+    value: editField === 'description' ? editDescription : '',
+    entryCount: entries.length,
+    preferCategoryId: editCategory || null,
+    tiebreaker: 'recency',
+    autoOpen: false,
+  });
+
   // Load entries based on date filter
   const loadEntries = useCallback(async (background = false) => {
     // Only show loading spinner on initial load, not background refreshes
@@ -597,6 +606,12 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
     manualSuggestions.completeSelection();
   };
 
+  const handleInlineSuggestionSelect = (suggestion: { task_name: string; categoryId: number }) => {
+    setEditDescription(suggestion.task_name);
+    setEditCategory(suggestion.categoryId);
+    inlineSuggestions.completeSelection();
+  };
+
   const handleManualSubmit = async () => {
     if (!manualCategory) {
       setManualError('Please select a category');
@@ -673,6 +688,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
       setEditField(null);
       editingIdRef.current = null;
       editFieldRef.current = null;
+      inlineSuggestions.close();
       // Notify parent with optimistic data so it doesn't do a full refetch
       // (a bare onEntryChange() fires 2-5 extra API requests per save).
       if (activeEntry && activeEntry.id === entryId) {
@@ -693,6 +709,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
     editFieldRef.current = null;
     setShowNewCategory(false);
     setEditTimeError(null);
+    inlineSuggestions.close();
   };
 
   // Deferred blur handler: gives click/touch events on sibling edit buttons
@@ -1538,16 +1555,43 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                             );
                           })()}
                           {isEditing && editField === 'description' ? (
-                            <input
-                              type="text"
-                              className="inline-edit-input"
+                            <TaskSuggestionInput
                               value={editDescription}
-                              onChange={(e) => setEditDescription(e.target.value)}
-                              onBlur={(e) => handleDeferredBlur(entry.id, 'description', e)}
-                              onKeyDown={(e) => handleKeyDown(e, entry.id)}
+                              onChange={(val) => { setEditDescription(val); inlineSuggestions.clearSuppress(); }}
+                              onFocus={inlineSuggestions.handleFocus}
+                              onBlur={(e) => {
+                                // Don't save if focus moves into the suggestion dropdown
+                                const target = e.relatedTarget as HTMLElement | null;
+                                if (target?.closest('.description-suggestions')) return;
+                                handleDeferredBlur(entry.id, 'description', e);
+                              }}
+                              onKeyDown={(e) => {
+                                const selected = inlineSuggestions.handleKeyDown(e, () => {
+                                  // Enter without a highlighted suggestion → save
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  enterSavingRef.current = true;
+                                  handleSave(entry.id);
+                                });
+                                if (selected) {
+                                  handleInlineSuggestionSelect(selected);
+                                } else if (e.key === 'Escape' && !inlineSuggestions.showSuggestions) {
+                                  e.preventDefault();
+                                  handleCancel();
+                                }
+                              }}
                               placeholder="Add a task name..."
                               autoFocus
-                              onClick={(e) => e.stopPropagation()}
+                              inputRef={inlineSuggestions.inputRef}
+                              listRef={inlineSuggestions.listRef}
+                              suggestions={inlineSuggestions.suggestions}
+                              show={inlineSuggestions.showSuggestions}
+                              selectedIndex={inlineSuggestions.selectedIndex}
+                              onSelect={handleInlineSuggestionSelect}
+                              onHover={inlineSuggestions.setSelectedIndex}
+                              categories={categories}
+                              isDarkMode={isDarkMode}
+                              className="inline-edit-suggestions"
                             />
                           ) : (
                             <span
