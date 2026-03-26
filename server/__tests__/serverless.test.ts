@@ -248,7 +248,7 @@ describe('Serverless mode', () => {
         default: mockApp,
       }));
 
-      const { default: handler } = await import('../../api/index');
+      const { default: handler } = await import('../../api/index.ts');
 
       const mockReq = {} as import('http').IncomingMessage;
       const mockRes = {} as import('http').ServerResponse;
@@ -270,7 +270,7 @@ describe('Serverless mode', () => {
         default: mockApp,
       }));
 
-      const { default: handler } = await import('../../api/index');
+      const { default: handler } = await import('../../api/index.ts');
 
       const mockReq = {} as import('http').IncomingMessage;
       const mockRes = {} as import('http').ServerResponse;
@@ -298,7 +298,7 @@ describe('Serverless mode', () => {
         default: mockApp,
       }));
 
-      const { default: handler } = await import('../../api/index');
+      const { default: handler } = await import('../../api/index.ts');
 
       const mockReq = {} as import('http').IncomingMessage;
       const mockRes = {} as import('http').ServerResponse;
