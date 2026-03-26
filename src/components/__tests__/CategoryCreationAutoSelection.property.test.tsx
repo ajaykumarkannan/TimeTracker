@@ -153,8 +153,9 @@ describe('Property 4: Category Creation Auto-Selection', () => {
           });
 
           // Step 6: Verify the API was called with correct parameters
+          // The component trims category names before submission
           await waitFor(() => {
-            expect(api.createCategory).toHaveBeenCalledWith(categoryName, expect.any(String));
+            expect(api.createCategory).toHaveBeenCalledWith(categoryName.trim(), expect.any(String));
           });
 
           // Step 7: Verify onCategoryChange was called (indicating category list should refresh)
