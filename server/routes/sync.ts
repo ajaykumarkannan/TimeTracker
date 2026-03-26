@@ -14,6 +14,8 @@ interface SSEClient {
   lastEventId: number;
 }
 
+// In serverless environments, SSE is not supported — connections can't be held open.
+// The client map and counter still exist to keep types consistent but won't be used.
 const clients: Map<string, SSEClient> = new Map();
 let eventCounter = 0;
 
@@ -23,7 +25,10 @@ function generateClientId(): string {
 }
 
 // Broadcast sync event to all clients for a specific user
+// No-op in serverless environments — there are no persistent SSE connections
 export function broadcastSyncEvent(userId: number, type: 'time-entries' | 'categories' | 'all') {
+  if (config.serverless) return;
+
   const timestamp = Date.now();
   eventCounter++;
   
@@ -78,7 +83,16 @@ async function sseAuthMiddleware(req: Request, res: Response, next: () => void) 
 }
 
 // SSE endpoint - requires auth via query params
+// Returns 503 in serverless environments since long-lived connections are not supported
 router.get('/', sseAuthMiddleware, (req: Request, res: Response) => {
+  if (config.serverless) {
+    res.status(503).json({
+      error: 'Real-time sync is not available in this deployment',
+      hint: 'SSE requires a persistent server process'
+    });
+    return;
+  }
+
   const userId = (req as AuthRequest).userId as number;
   const clientId = generateClientId();
   
