@@ -7,9 +7,9 @@ const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
 // Track cleanup interval for proper shutdown
 let cleanupInterval: NodeJS.Timeout | null = null;
 
-// Start cleanup interval
+// Start cleanup interval (no-op in serverless — the store is ephemeral anyway)
 function startCleanup(): void {
-  if (cleanupInterval) return;
+  if (config.serverless || cleanupInterval) return;
   
   cleanupInterval = setInterval(() => {
     const now = Date.now();

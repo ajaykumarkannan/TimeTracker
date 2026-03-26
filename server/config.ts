@@ -14,6 +14,7 @@ export const config = {
   // Server
   port: parseInt(process.env.PORT || String(getDefaultPort()), 10),
   nodeEnv: process.env.NODE_ENV || 'development',
+  serverless: process.env.SERVERLESS === 'true',
   
   // Database
   dbDriver: (process.env.DB_DRIVER || 'sqlite') as 'sqlite' | 'mongo',
@@ -76,7 +77,7 @@ export function validateConfig(): void {
   
   if (errors.length > 0) {
     console.error('Configuration errors:', errors);
-    if (config.nodeEnv === 'production') {
+    if (config.nodeEnv === 'production' && !config.serverless) {
       process.exit(1);
     }
   }

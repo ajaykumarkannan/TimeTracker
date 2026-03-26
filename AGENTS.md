@@ -61,8 +61,11 @@ Both modes use the same server-side SQLite database - there is no localStorage-b
 │   ├── routes/       # API route handlers
 │   ├── middleware/   # Auth middleware (flexAuthMiddleware for guest+account)
 │   ├── __tests__/    # Server unit tests
-│   ├── database.ts   # SQLite database setup
+│   ├── app.ts        # Express app setup (shared by server & serverless entry points)
+│   ├── database.ts   # Database setup (SQLite or MongoDB)
 │   └── logger.ts     # Winston logger config
+├── api/              # Serverless entry point (for platforms like Vercel)
+│   └── index.ts      # Exports Express app as serverless handler
 ├── src/              # Frontend React app
 │   ├── components/   # React components with co-located CSS
 │   │   └── __tests__/ # Component tests
@@ -233,6 +236,7 @@ Winston logger configured in `server/logger.ts`:
 | `JWT_SECRET` | (dev default) | JWT signing secret |
 | `NODE_ENV` | development | Environment |
 | `CORS_ORIGIN` | * | Allowed CORS origins |
+| `SERVERLESS` | false | Enable serverless mode (disables SSE, file logging, intervals) |
 
 ### Port Configuration
 
