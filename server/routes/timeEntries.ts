@@ -65,6 +65,25 @@ router.get('/active', async (req: AuthRequest, res: Response) => {
   try {
     const provider = getProvider();
     const entry = await provider.getActiveTimeEntry(req.userId as number);
+
+    // On serverless (Vercel) the server may have been cold when the scheduled
+    // stop time passed, so the entry was never stopped. Process it now so the
+    // client always gets a consistent state on reload.
+    if (entry?.scheduled_end_time && new Date(entry.scheduled_end_time) <= new Date()) {
+      await provider.updateTimeEntry(req.userId as number, entry.id, {
+        end_time: entry.scheduled_end_time,
+        scheduled_end_time: null,
+      });
+      broadcastSyncEvent(req.userId as number, 'time-entries');
+      logger.info('Auto-stopped overdue scheduled entry on reload', {
+        entryId: entry.id,
+        scheduledEndTime: entry.scheduled_end_time,
+        userId: req.userId as number,
+      });
+      res.json(null);
+      return;
+    }
+
     res.json(entry || null);
   } catch (error) {
     logger.error('Error fetching active entry', { error, userId: req.userId as number });

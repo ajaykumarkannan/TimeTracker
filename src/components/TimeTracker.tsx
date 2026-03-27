@@ -220,9 +220,12 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
       if (activeEntry.scheduled_end_time) {
         const remaining = new Date(activeEntry.scheduled_end_time).getTime() - now;
         if (remaining <= 0) {
-          // Time to auto-stop - trigger stop and refresh
-          api.stopEntry(activeEntry.id).then((stopped) => {
-            onEntryChange({ active: null, stopped });
+          // Stop at the scheduled time, not at now, so duration is correct.
+          // scheduleStop with a past time is handled server-side as an immediate stop at that time.
+          api.scheduleStop(activeEntry.id, activeEntry.scheduled_end_time).then((result) => {
+            if (result.end_time) {
+              onEntryChange({ active: null, stopped: result });
+            }
           }).catch(console.error);
           setScheduledRemaining(null);
         } else {

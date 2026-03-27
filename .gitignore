@@ -7,7 +7,7 @@ dist/
 # Database
 *.db
 *.db-journal
-data/
+/data/
 
 # Environment
 .env
