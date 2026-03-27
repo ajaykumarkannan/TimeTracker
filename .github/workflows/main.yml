@@ -97,11 +97,12 @@ jobs:
           GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
           GIST_ID: ${{ vars.COVERAGE_GIST_ID }}
         run: |
-          if   [ "$COVERAGE" -ge 90 ]; then COLOR="brightgreen"
-          elif [ "$COVERAGE" -ge 80 ]; then COLOR="green"
-          elif [ "$COVERAGE" -ge 70 ]; then COLOR="yellowgreen"
-          elif [ "$COVERAGE" -ge 60 ]; then COLOR="yellow"
-          elif [ "$COVERAGE" -ge 50 ]; then COLOR="orange"
+          PCT=$(( ${COVERAGE%.*} ))
+          if (( PCT >= 90 )); then COLOR="brightgreen"
+          elif (( PCT >= 80 )); then COLOR="green"
+          elif (( PCT >= 70 )); then COLOR="yellowgreen"
+          elif (( PCT >= 60 )); then COLOR="yellow"
+          elif (( PCT >= 50 )); then COLOR="orange"
           else COLOR="red"
           fi
           BADGE_JSON="{\"schemaVersion\":1,\"label\":\"coverage\",\"message\":\"${COVERAGE}%\",\"color\":\"${COLOR}\"}"
