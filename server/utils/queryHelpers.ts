@@ -6,12 +6,20 @@
 import { TimeEntry } from '../data/types';
 
 /**
- * Base query for time entries with category information
- * Includes all necessary fields for time entry operations
+ * SQL expression to compute duration_minutes from start_time and end_time.
+ * Returns NULL for active entries (end_time IS NULL), minutes for completed ones.
+ */
+export const SQLITE_DURATION_MINUTES = `CASE WHEN te.end_time IS NOT NULL THEN ROUND((julianday(te.end_time) - julianday(te.start_time)) * 1440) ELSE NULL END`;
+
+/**
+ * Base query for time entries with category information.
+ * duration_minutes is computed from timestamps, not stored.
  */
 export const TIME_ENTRIES_WITH_CATEGORIES_QUERY = `
   SELECT te.id, te.user_id, te.category_id, c.name as category_name, c.color as category_color,
-         te.task_name, te.start_time, te.end_time, te.scheduled_end_time, te.duration_minutes, te.created_at
+         te.task_name, te.start_time, te.end_time, te.scheduled_end_time,
+         ${SQLITE_DURATION_MINUTES} as duration_minutes,
+         te.created_at
   FROM time_entries te
   JOIN categories c ON te.category_id = c.id
 `;
@@ -34,11 +42,4 @@ export function rowToTimeEntry(row: unknown[]): TimeEntry & { category_name: str
     duration_minutes: row[9] as number | null,
     created_at: row[10] as string
   };
-}
-
-/**
- * Calculate duration in minutes between two ISO timestamps
- */
-export function calculateDurationMinutes(startTime: string, endTime: string): number {
-  return Math.round((new Date(endTime).getTime() - new Date(startTime).getTime()) / 60000);
 }

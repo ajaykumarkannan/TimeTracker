@@ -5,6 +5,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { getAdaptiveCategoryColors } from '../hooks/useAdaptiveColors';
 import { useTaskSuggestions } from '../hooks/useTaskSuggestions';
 import { getNextAvailableColor } from '../utils/colorUtils';
+import { formatDateTimeLocal } from '../utils/timeUtils';
 import { InlineCategoryForm } from './InlineCategoryForm';
 import { TaskSuggestionInput } from './TaskSuggestionInput';
 import './TimeTracker.css';
@@ -263,7 +264,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   const handleForgottenSetEndTime = async () => {
     if (!activeEntry || !forgottenEndTime) return;
     try {
-      await api.updateEntry(activeEntry.id, { end_time: forgottenEndTime });
+      await api.updateEntry(activeEntry.id, { end_time: new Date(forgottenEndTime).toISOString() });
       const stopped = await api.stopEntry(activeEntry.id);
       setShowForgottenPrompt(false);
       setForgottenEndTime('');
@@ -618,8 +619,8 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                 value={forgottenEndTime}
                 onChange={(e) => setForgottenEndTime(e.target.value)}
                 className="forgotten-time-input"
-                max={new Date().toISOString().slice(0, 16)}
-                min={activeEntry.start_time ? new Date(activeEntry.start_time).toISOString().slice(0, 16) : undefined}
+                max={formatDateTimeLocal(new Date().toISOString())}
+                min={activeEntry.start_time ? formatDateTimeLocal(activeEntry.start_time) : undefined}
               />
               <button
                 className="btn btn-primary"

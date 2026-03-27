@@ -300,7 +300,14 @@ export function createMongoProvider(): DatabaseProvider {
         {
           $addFields: {
             category_name: { $ifNull: ['$category.name', 'Unknown'] },
-            category_color: { $ifNull: ['$category.color', null] }
+            category_color: { $ifNull: ['$category.color', null] },
+            duration_minutes: {
+              $cond: {
+                if: { $and: [{ $gt: ['$end_time', null] }, { $gt: ['$start_time', null] }] },
+                then: { $round: [{ $divide: [{ $subtract: [{ $toDate: '$end_time' }, { $toDate: '$start_time' }] }, 60000] }] },
+                else: null
+              }
+            }
           }
         },
         { $project: { category: 0 } }
@@ -326,7 +333,14 @@ export function createMongoProvider(): DatabaseProvider {
         {
           $addFields: {
             category_name: { $ifNull: ['$category.name', 'Unknown'] },
-            category_color: { $ifNull: ['$category.color', null] }
+            category_color: { $ifNull: ['$category.color', null] },
+            duration_minutes: {
+              $cond: {
+                if: { $and: [{ $gt: ['$end_time', null] }, { $gt: ['$start_time', null] }] },
+                then: { $round: [{ $divide: [{ $subtract: [{ $toDate: '$end_time' }, { $toDate: '$start_time' }] }, 60000] }] },
+                else: null
+              }
+            }
           }
         },
         { $project: { category: 0 } }
@@ -354,7 +368,14 @@ export function createMongoProvider(): DatabaseProvider {
         {
           $addFields: {
             category_name: { $ifNull: ['$category.name', 'Unknown'] },
-            category_color: { $ifNull: ['$category.color', null] }
+            category_color: { $ifNull: ['$category.color', null] },
+            duration_minutes: {
+              $cond: {
+                if: { $and: [{ $gt: ['$end_time', null] }, { $gt: ['$start_time', null] }] },
+                then: { $round: [{ $divide: [{ $subtract: [{ $toDate: '$end_time' }, { $toDate: '$start_time' }] }, 60000] }] },
+                else: null
+              }
+            }
           }
         },
         { $project: { category: 0 } }
@@ -374,7 +395,7 @@ export function createMongoProvider(): DatabaseProvider {
         start_time: input.start_time,
         end_time: toIso(input.end_time) as string | null,
         scheduled_end_time: toIso(input.scheduled_end_time) as string | null,
-        duration_minutes: input.duration_minutes,
+        duration_minutes: null,
         created_at: new Date().toISOString()
       };
       await collection('time_entries').insertOne(entry);
@@ -387,7 +408,7 @@ export function createMongoProvider(): DatabaseProvider {
       if (input.start_time !== undefined) updateFields.start_time = input.start_time;
       if (input.end_time !== undefined) updateFields.end_time = input.end_time;
       if (input.scheduled_end_time !== undefined) updateFields.scheduled_end_time = input.scheduled_end_time;
-      if (input.duration_minutes !== undefined) updateFields.duration_minutes = input.duration_minutes;
+      // duration_minutes is no longer stored; it is computed from start_time and end_time
       
       if (Object.keys(updateFields).length > 0) {
         await collection('time_entries').updateOne(
@@ -483,7 +504,15 @@ export function createMongoProvider(): DatabaseProvider {
           $group: {
             _id: { task_name: '$task_name', category_id: '$category_id' },
             count: { $sum: 1 },
-            totalMinutes: { $sum: { $ifNull: ['$duration_minutes', 0] } },
+            totalMinutes: {
+              $sum: {
+                $cond: {
+                  if: { $and: [{ $gt: ['$end_time', null] }, { $gt: ['$start_time', null] }] },
+                  then: { $round: [{ $divide: [{ $subtract: [{ $toDate: '$end_time' }, { $toDate: '$start_time' }] }, 60000] }] },
+                  else: 0
+                }
+              }
+            },
             lastUsed: { $max: '$start_time' }
           }
         },
@@ -530,7 +559,15 @@ export function createMongoProvider(): DatabaseProvider {
           $group: {
             _id: { task_name: '$task_name', category_id: '$category_id' },
             count: { $sum: 1 },
-            total_minutes: { $sum: { $ifNull: ['$duration_minutes', 0] } },
+            total_minutes: {
+              $sum: {
+                $cond: {
+                  if: { $and: [{ $gt: ['$end_time', null] }, { $gt: ['$start_time', null] }] },
+                  then: { $round: [{ $divide: [{ $subtract: [{ $toDate: '$end_time' }, { $toDate: '$start_time' }] }, 60000] }] },
+                  else: 0
+                }
+              }
+            },
             last_used: { $max: '$start_time' }
           }
         }
@@ -588,7 +625,15 @@ export function createMongoProvider(): DatabaseProvider {
           $group: {
             _id: '$task_name',
             count: { $sum: 1 },
-            total_minutes: { $sum: { $ifNull: ['$duration_minutes', 0] } }
+            total_minutes: {
+              $sum: {
+                $cond: {
+                  if: { $and: [{ $gt: ['$end_time', null] }, { $gt: ['$start_time', null] }] },
+                  then: { $round: [{ $divide: [{ $subtract: [{ $toDate: '$end_time' }, { $toDate: '$start_time' }] }, 60000] }] },
+                  else: 0
+                }
+              }
+            }
           }
         },
         { $sort: { total_minutes: -1, count: -1 } }
@@ -612,7 +657,15 @@ export function createMongoProvider(): DatabaseProvider {
         {
           $group: {
             _id: null,
-            minutes: { $sum: { $ifNull: ['$duration_minutes', 0] } },
+            minutes: {
+              $sum: {
+                $cond: {
+                  if: { $and: [{ $gt: ['$end_time', null] }, { $gt: ['$start_time', null] }] },
+                  then: { $round: [{ $divide: [{ $subtract: [{ $toDate: '$end_time' }, { $toDate: '$start_time' }] }, 60000] }] },
+                  else: 0
+                }
+              }
+            },
             count: { $sum: 1 }
           }
         }
@@ -639,7 +692,15 @@ export function createMongoProvider(): DatabaseProvider {
         {
           $group: {
             _id: '$category_id',
-            minutes: { $sum: { $ifNull: ['$duration_minutes', 0] } },
+            minutes: {
+              $sum: {
+                $cond: {
+                  if: { $and: [{ $gt: ['$end_time', null] }, { $gt: ['$start_time', null] }] },
+                  then: { $round: [{ $divide: [{ $subtract: [{ $toDate: '$end_time' }, { $toDate: '$start_time' }] }, 60000] }] },
+                  else: 0
+                }
+              }
+            },
             count: { $sum: 1 }
           }
         }
@@ -676,7 +737,15 @@ export function createMongoProvider(): DatabaseProvider {
         {
           $group: {
             _id: { date: '$date', category_id: '$category_id' },
-            minutes: { $sum: { $ifNull: ['$duration_minutes', 0] } }
+            minutes: {
+              $sum: {
+                $cond: {
+                  if: { $and: [{ $gt: ['$end_time', null] }, { $gt: ['$start_time', null] }] },
+                  then: { $round: [{ $divide: [{ $subtract: [{ $toDate: '$end_time' }, { $toDate: '$start_time' }] }, 60000] }] },
+                  else: 0
+                }
+              }
+            }
           }
         },
         {
@@ -724,7 +793,15 @@ export function createMongoProvider(): DatabaseProvider {
           $group: {
             _id: '$task_name',
             count: { $sum: 1 },
-            total_minutes: { $sum: { $ifNull: ['$duration_minutes', 0] } }
+            total_minutes: {
+              $sum: {
+                $cond: {
+                  if: { $and: [{ $gt: ['$end_time', null] }, { $gt: ['$start_time', null] }] },
+                  then: { $round: [{ $divide: [{ $subtract: [{ $toDate: '$end_time' }, { $toDate: '$start_time' }] }, 60000] }] },
+                  else: 0
+                }
+              }
+            }
           }
         },
         { $sort: { count: -1 } },
@@ -756,7 +833,15 @@ export function createMongoProvider(): DatabaseProvider {
         {
           $group: {
             _id: null,
-            total: { $sum: { $ifNull: ['$duration_minutes', 0] } }
+            total: {
+              $sum: {
+                $cond: {
+                  if: { $and: [{ $gt: ['$end_time', null] }, { $gt: ['$start_time', null] }] },
+                  then: { $round: [{ $divide: [{ $subtract: [{ $toDate: '$end_time' }, { $toDate: '$start_time' }] }, 60000] }] },
+                  else: 0
+                }
+              }
+            }
           }
         }
       ]).toArray();
@@ -773,7 +858,15 @@ export function createMongoProvider(): DatabaseProvider {
         {
           $group: {
             _id: '$category_id',
-            minutes: { $sum: { $ifNull: ['$duration_minutes', 0] } },
+            minutes: {
+              $sum: {
+                $cond: {
+                  if: { $and: [{ $gt: ['$end_time', null] }, { $gt: ['$start_time', null] }] },
+                  then: { $round: [{ $divide: [{ $subtract: [{ $toDate: '$end_time' }, { $toDate: '$start_time' }] }, 60000] }] },
+                  else: 0
+                }
+              }
+            },
             count: { $sum: 1 }
           }
         }

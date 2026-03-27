@@ -2,7 +2,6 @@ import { Router, Response } from 'express';
 import { getProvider } from '../database';
 import { logger } from '../logger';
 import { flexAuthMiddleware, AuthRequest } from '../middleware/auth';
-import { calculateDurationMinutes } from '../utils/queryHelpers';
 import {
   validateDateParam,
   validatePositiveInt,
@@ -95,10 +94,8 @@ router.post('/start', async (req: AuthRequest, res: Response) => {
     const active = await provider.findActiveTimeEntry(req.userId as number);
     if (active) {
       const endTime = new Date().toISOString();
-      const duration = calculateDurationMinutes(active.start_time, endTime);
       await provider.updateTimeEntry(req.userId as number, active.id, {
-        end_time: endTime,
-        duration_minutes: duration
+        end_time: endTime
       });
     }
 
@@ -109,8 +106,7 @@ router.post('/start', async (req: AuthRequest, res: Response) => {
       task_name: taskName,
       start_time: startTime,
       end_time: null,
-      scheduled_end_time: null,
-      duration_minutes: null
+      scheduled_end_time: null
     });
     broadcastSyncEvent(req.userId as number, 'time-entries');
     // Build response directly from created entry + category we already looked up
@@ -139,18 +135,15 @@ router.post('/:id/stop', async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ error: 'Active entry not found' });
     }
 
-    const startTime = existing.start_time;
     const endTime = new Date().toISOString();
-    const duration = calculateDurationMinutes(startTime, endTime);
 
     await provider.updateTimeEntry(req.userId as number, Number(id), {
       end_time: endTime,
-      duration_minutes: duration,
       scheduled_end_time: null
     });
     broadcastSyncEvent(req.userId as number, 'time-entries');
     const entry = await provider.findTimeEntryWithCategoryById(req.userId as number, Number(id));
-    logger.info('Time entry stopped', { entryId: id, duration, userId: req.userId as number });
+    logger.info('Time entry stopped', { entryId: id, userId: req.userId as number });
     res.json(entry);
   } catch (error) {
     logger.error('Error stopping time entry', { error, userId: req.userId as number });
@@ -182,15 +175,13 @@ router.post('/:id/schedule-stop', async (req: AuthRequest, res: Response) => {
 
     // If the scheduled time is in the past, stop the entry immediately at that time
     if (scheduledTime <= new Date()) {
-      const duration = calculateDurationMinutes(existing.start_time, scheduled_end_time);
       await provider.updateTimeEntry(req.userId as number, Number(id), {
         end_time: scheduled_end_time,
-        duration_minutes: duration,
         scheduled_end_time: null
       });
       broadcastSyncEvent(req.userId as number, 'time-entries');
       const entry = await provider.findTimeEntryWithCategoryById(req.userId as number, Number(id));
-      logger.info('Time entry stopped at past scheduled time', { entryId: id, endTime: scheduled_end_time, duration, userId: req.userId as number });
+      logger.info('Time entry stopped at past scheduled time', { entryId: id, endTime: scheduled_end_time, userId: req.userId as number });
       return res.json(entry);
     }
 
@@ -244,20 +235,14 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
       }
     }
 
-    // Calculate new duration if times are being updated
-    const currentStart = existing.start_time;
     const currentEnd = existing.end_time;
-    const newStart = start_time || currentStart;
     const newEnd = end_time !== undefined ? end_time : currentEnd;
-    
-    const duration = newEnd ? calculateDurationMinutes(newStart, newEnd) : null;
 
     await provider.updateTimeEntry(req.userId as number, Number(id), {
       category_id,
       task_name,
       start_time: start_time, // Keep undefined if not provided, so provider preserves existing value
-      end_time: newEnd,
-      duration_minutes: duration
+      end_time: newEnd
     });
     broadcastSyncEvent(req.userId as number, 'time-entries');
     const entry = await provider.findTimeEntryWithCategoryById(req.userId as number, Number(id));
@@ -300,10 +285,8 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'Invalid category' });
     }
 
-    // Calculate duration
-    const duration = calculateDurationMinutes(startTime, endTime);
-    
-    if (duration < 0) {
+    const durationMs = new Date(endTime).getTime() - new Date(startTime).getTime();
+    if (durationMs < 0) {
       return res.status(400).json({ error: 'End time must be after start time' });
     }
 
@@ -313,8 +296,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       task_name: taskName,
       start_time: startTime,
       end_time: endTime,
-      scheduled_end_time: null,
-      duration_minutes: duration
+      scheduled_end_time: null
     });
     broadcastSyncEvent(req.userId as number, 'time-entries');
     const entry = await provider.findTimeEntryWithCategoryById(req.userId as number, created.id);

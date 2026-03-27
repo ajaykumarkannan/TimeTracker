@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { 
-  rowToTimeEntry, 
-  calculateDurationMinutes,
+import {
+  rowToTimeEntry,
   TIME_ENTRIES_WITH_CATEGORIES_QUERY
 } from '../utils/queryHelpers';
 
@@ -63,28 +62,5 @@ describe('Query Helpers', () => {
     });
   });
 
-  describe('calculateDurationMinutes', () => {
-    it('calculates duration correctly', () => {
-      const start = '2024-01-15T09:00:00Z';
-      const end = '2024-01-15T11:00:00Z';
-      expect(calculateDurationMinutes(start, end)).toBe(120);
-    });
 
-    it('handles partial minutes', () => {
-      const start = '2024-01-15T09:00:00Z';
-      const end = '2024-01-15T09:30:30Z'; // 30.5 minutes
-      expect(calculateDurationMinutes(start, end)).toBe(31); // Rounded
-    });
-
-    it('returns 0 for same time', () => {
-      const time = '2024-01-15T09:00:00Z';
-      expect(calculateDurationMinutes(time, time)).toBe(0);
-    });
-
-    it('returns negative for reversed times', () => {
-      const start = '2024-01-15T11:00:00Z';
-      const end = '2024-01-15T09:00:00Z';
-      expect(calculateDurationMinutes(start, end)).toBe(-120);
-    });
-  });
 });
