@@ -1194,7 +1194,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
       <div className="card-header">
         <h2 className="card-title">History</h2>
         <div className="header-actions">
-          <button className="btn btn-primary btn-sm" onClick={openManualEntry}>+ Add Entry</button>
+          <button className="btn btn-primary btn-sm" onClick={openManualEntry}>+ <span className="add-entry-label">Add Entry</span></button>
           <button
             className={`btn-icon filter-toggle ${showFilters ? 'active' : ''} ${hasActiveFilters ? 'has-filters' : ''}`}
             onClick={() => setShowFilters(!showFilters)}

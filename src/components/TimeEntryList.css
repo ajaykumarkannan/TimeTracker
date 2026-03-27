@@ -912,6 +912,11 @@
 }
 /* Responsive */
 @media (max-width: 640px) {
+  /* Shorten "+ Add Entry" button to just "+" on mobile */
+  .add-entry-label {
+    display: none;
+  }
+
   /* On mobile, hide category name in suggestions to preserve task name */
   .suggestion-category {
     display: none;
