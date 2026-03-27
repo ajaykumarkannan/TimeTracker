@@ -286,14 +286,61 @@ const migrations: Migration[] = [
       // Check if column already exists
       const tableInfo = db.exec(`PRAGMA table_info(refresh_tokens)`);
       const columns = tableInfo[0]?.values.map(row => row[1] as string) || [];
-      
+
       if (columns.includes('remember_me')) {
         return; // Already migrated
       }
-      
+
       // Add remember_me column (0 = false by default, so existing tokens
       // are treated as standard 7-day tokens which is the safe conservative default)
       db.run(`ALTER TABLE refresh_tokens ADD COLUMN remember_me INTEGER NOT NULL DEFAULT 0`);
+    }
+  },
+  {
+    version: 10,
+    name: 'remove_duration_minutes',
+    up: (db) => {
+      // duration_minutes is now computed on-the-fly from start_time and end_time.
+      // Drop the stored column to eliminate the DRY violation.
+      // Uses table recreation since older SQLite versions don't support DROP COLUMN.
+      const tableInfo = db.exec(`PRAGMA table_info(time_entries)`);
+      const columns = tableInfo[0]?.values.map(row => row[1] as string) || [];
+
+      if (!columns.includes('duration_minutes')) {
+        return; // Already migrated
+      }
+
+      db.run(`
+        CREATE TABLE time_entries_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL,
+          category_id INTEGER NOT NULL,
+          task_name TEXT,
+          start_time DATETIME NOT NULL,
+          end_time DATETIME,
+          scheduled_end_time DATETIME,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+          FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE
+        )
+      `);
+
+      db.run(`
+        INSERT INTO time_entries_new (id, user_id, category_id, task_name, start_time, end_time, scheduled_end_time, created_at)
+        SELECT id, user_id, category_id, task_name, start_time, end_time, scheduled_end_time, created_at
+        FROM time_entries
+      `);
+
+      db.run(`DROP TABLE time_entries`);
+      db.run(`ALTER TABLE time_entries_new RENAME TO time_entries`);
+
+      // Recreate indexes
+      db.run(`CREATE INDEX IF NOT EXISTS idx_time_entries_user ON time_entries(user_id)`);
+      db.run(`CREATE INDEX IF NOT EXISTS idx_time_entries_start ON time_entries(start_time)`);
+      db.run(`CREATE INDEX IF NOT EXISTS idx_time_entries_user_start ON time_entries(user_id, start_time DESC)`);
+      db.run(`CREATE INDEX IF NOT EXISTS idx_time_entries_user_end ON time_entries(user_id, end_time)`);
+      db.run(`CREATE INDEX IF NOT EXISTS idx_time_entries_user_category ON time_entries(user_id, category_id)`);
+      db.run(`CREATE INDEX IF NOT EXISTS idx_time_entries_user_task_name ON time_entries(user_id, task_name)`);
     }
   },
 ];
