@@ -48,6 +48,7 @@ export async function migrateSqliteToMongo(): Promise<void> {
         start_time: entry.start_time,
         end_time: entry.end_time,
         scheduled_end_time: entry.scheduled_end_time,
+        duration_minutes: entry.duration_minutes
       });
     }
 

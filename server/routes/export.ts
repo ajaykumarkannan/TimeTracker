@@ -283,6 +283,12 @@ router.post('/csv', async (req: AuthRequest, res: Response) => {
         categoryMap.set(category.toLowerCase(), { id: categoryId, color: categoryColor });
       }
 
+      // Calculate duration for storage (cached value for analytics performance)
+      let duration: number | null = null;
+      if (endDate) {
+        duration = Math.round((endDate.getTime() - startDate.getTime()) / 60000);
+      }
+
       // Insert time entry
       await provider.createTimeEntry({
         user_id: req.userId as number,
@@ -291,6 +297,7 @@ router.post('/csv', async (req: AuthRequest, res: Response) => {
         start_time: startDate.toISOString(),
         end_time: endDate?.toISOString() || null,
         scheduled_end_time: null,
+        duration_minutes: duration
       });
       imported++;
     }

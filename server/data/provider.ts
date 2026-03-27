@@ -25,6 +25,7 @@ export interface TimeEntryCreateInput {
   start_time: string;
   end_time: string | null;
   scheduled_end_time: string | null;
+  duration_minutes: number | null;
 }
 
 export interface TimeEntryUpdateInput {
@@ -33,6 +34,7 @@ export interface TimeEntryUpdateInput {
   start_time?: string | null;
   end_time?: string | null;
   scheduled_end_time?: string | null;
+  duration_minutes?: number | null;
 }
 
 export interface AnalyticsQueryParams {
