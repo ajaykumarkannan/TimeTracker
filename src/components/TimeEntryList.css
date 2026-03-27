@@ -675,6 +675,15 @@
   color: var(--success);
 }
 
+.entry-duration-btn.duration-negative {
+  color: var(--error, #ef4444);
+}
+
+.duration-warning-icon {
+  margin-right: 0.25rem;
+  font-style: normal;
+}
+
 /* Time button (replacing span for better touch targets) */
 .entry-time-btn {
   font-family: 'JetBrains Mono', monospace;
