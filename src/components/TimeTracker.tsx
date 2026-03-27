@@ -452,7 +452,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
           <div className={`stop-button-group ${activeEntry?.scheduled_end_time ? 'has-schedule' : ''}`}>
             <button className="btn btn-danger stop-main" onClick={handleStop} disabled={!activeEntry || stopping}>
               <span className="stop-icon">■</span>
-              {activeEntry?.scheduled_end_time ? null : (stopping ? 'Stopping…' : 'Stop')}
+              {activeEntry?.scheduled_end_time ? null : (stopping ? <span className="stop-label">Stopping…</span> : <span className="stop-label">Stop</span>)}
             </button>
             {activeEntry?.scheduled_end_time ? (
               <button

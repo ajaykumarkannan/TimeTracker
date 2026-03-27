@@ -151,10 +151,22 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
   // Track if user has manually edited end date (for date defaulting feature)
   const [endDateManuallySet, setEndDateManuallySet] = useState(false);
 
-  // Cleanup suggestions state
+  // Cleanup suggestions state (persisted to localStorage so "Keep"/"Dismiss" survives refresh)
+  const DISMISSED_SHORT_KEY = 'chronoflow:dismissedShortEntries';
+  const DISMISSED_MERGE_KEY = 'chronoflow:dismissedMerges';
   const [showCleanupBanner, setShowCleanupBanner] = useState(true);
-  const [dismissedMerges, setDismissedMerges] = useState<Set<string>>(new Set());
-  const [dismissedShortEntries, setDismissedShortEntries] = useState<Set<number>>(new Set());
+  const [dismissedMerges, setDismissedMerges] = useState<Set<string>>(() => {
+    try {
+      const stored = localStorage.getItem(DISMISSED_MERGE_KEY);
+      return stored ? new Set(JSON.parse(stored) as string[]) : new Set();
+    } catch { return new Set(); }
+  });
+  const [dismissedShortEntries, setDismissedShortEntries] = useState<Set<number>>(() => {
+    try {
+      const stored = localStorage.getItem(DISMISSED_SHORT_KEY);
+      return stored ? new Set(JSON.parse(stored) as number[]) : new Set();
+    } catch { return new Set(); }
+  });
 
   // Task name suggestions for manual entry
   const manualSuggestions = useTaskSuggestions({
@@ -1096,7 +1108,11 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
 
   const handleDismissMerge = (candidate: MergeCandidate) => {
     const key = candidate.entries.map(e => e.id).sort((a, b) => a - b).join('-');
-    setDismissedMerges(prev => new Set([...prev, key]));
+    setDismissedMerges(prev => {
+      const next = new Set([...prev, key]);
+      try { localStorage.setItem(DISMISSED_MERGE_KEY, JSON.stringify([...next])); } catch { /* quota */ }
+      return next;
+    });
   };
 
   const handleDeleteShortEntry = async (entry: TimeEntry) => {
@@ -1109,7 +1125,11 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
   };
 
   const handleDismissShortEntry = (entryId: number) => {
-    setDismissedShortEntries(prev => new Set([...prev, entryId]));
+    setDismissedShortEntries(prev => {
+      const next = new Set([...prev, entryId]);
+      try { localStorage.setItem(DISMISSED_SHORT_KEY, JSON.stringify([...next])); } catch { /* quota */ }
+      return next;
+    });
   };
 
   const handleDeleteDay = async (dateKey: string) => {
@@ -1194,7 +1214,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
       <div className="card-header">
         <h2 className="card-title">History</h2>
         <div className="header-actions">
-          <button className="btn btn-primary btn-sm" onClick={openManualEntry}>+ Add Entry</button>
+          <button className="btn btn-primary btn-sm" onClick={openManualEntry}>+ <span className="add-entry-label">Add Entry</span></button>
           <button
             className={`btn-icon filter-toggle ${showFilters ? 'active' : ''} ${hasActiveFilters ? 'has-filters' : ''}`}
             onClick={() => setShowFilters(!showFilters)}

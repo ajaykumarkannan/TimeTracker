@@ -724,6 +724,10 @@
   }
 
   /* #5: Compact Stop/Schedule buttons */
+  .stop-label {
+    display: none;
+  }
+
   .timer-actions {
     flex-shrink: 0;
   }
@@ -734,7 +738,7 @@
   }
 
   .stop-main {
-    min-width: 70px;
+    min-width: 40px;
     min-height: 40px;
   }
 
