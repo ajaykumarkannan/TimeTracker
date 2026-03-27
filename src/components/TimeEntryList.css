@@ -843,6 +843,7 @@
 .time-edit-modal {
   border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   max-width: 32rem;
+  overflow: hidden;
   animation: slideUpModal 0.2s ease;
 }
 
@@ -869,6 +870,7 @@
 
 .time-edit-input {
   width: 100%;
+  max-width: 100%;
   min-height: 44px;
   padding: 0.5rem 0.75rem;
   font-size: 1rem;
@@ -879,6 +881,8 @@
   outline: none;
   transition: border-color 0.15s ease;
   box-sizing: border-box;
+  -webkit-appearance: none;
+  appearance: none;
 }
 
 .time-edit-input:focus {
