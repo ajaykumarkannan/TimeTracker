@@ -92,16 +92,28 @@ jobs:
       - name: Update coverage badge
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         continue-on-error: true
-        uses: schneegans/dynamic-badges-action@v1.8.0
-        with:
-          auth: ${{ secrets.GIST_TOKEN }}
-          gistID: ${{ vars.COVERAGE_GIST_ID }}
-          filename: chronoflow-coverage-badge.json
-          label: coverage
-          message: ${{ steps.coverage.outputs.percentage }}%
-          valColorRange: ${{ steps.coverage.outputs.percentage }}
-          maxColorRange: 100
-          minColorRange: 0
+        env:
+          GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
+          GIST_ID: ${{ vars.COVERAGE_GIST_ID }}
+          COVERAGE: ${{ steps.coverage.outputs.percentage }}
+        run: |
+          # Compute badge color from coverage percentage (red→yellow→green)
+          PCT=$COVERAGE
+          if [ "$PCT" -ge 90 ]; then COLOR="brightgreen";
+          elif [ "$PCT" -ge 80 ]; then COLOR="green";
+          elif [ "$PCT" -ge 70 ]; then COLOR="yellowgreen";
+          elif [ "$PCT" -ge 60 ]; then COLOR="yellow";
+          elif [ "$PCT" -ge 50 ]; then COLOR="orange";
+          else COLOR="red"; fi
+
+          PAYLOAD=$(jq -n --arg label "coverage" --arg message "${PCT}%" --arg color "$COLOR" \
+            '{schemaVersion: 1, label: $label, message: $message, color: $color}')
+
+          curl -s -X PATCH "https://api.github.com/gists/$GIST_ID" \
+            -H "Authorization: token $GIST_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -d "$(jq -n --arg fn "chronoflow-coverage-badge.json" --arg content "$PAYLOAD" \
+              '{files: {($fn): {content: ($content | tostring)}}}')"
 
   # Build runs in parallel with lint/test for faster wall-clock time
   build:
