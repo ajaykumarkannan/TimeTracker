@@ -14,6 +14,7 @@ export const config = {
   // Server
   port: parseInt(process.env.PORT || String(getDefaultPort()), 10),
   nodeEnv: process.env.NODE_ENV || 'development',
+  serverless: process.env.SERVERLESS === 'true',
   
   // Database
   dbDriver: (process.env.DB_DRIVER || 'sqlite') as 'sqlite' | 'mongo',
@@ -32,7 +33,7 @@ export const config = {
   
   // Rate limiting - higher limit in development for testing
   rateLimitWindowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000', 10), // 1 minute
-  rateLimitMax: parseInt(process.env.RATE_LIMIT_MAX || (process.env.NODE_ENV === 'production' ? '100' : '500'), 10), // requests per window
+  rateLimitMax: parseInt(process.env.RATE_LIMIT_MAX || (process.env.NODE_ENV === 'production' ? '300' : '500'), 10), // requests per window
   
   // Trust proxy (for Cloudflare tunnel, nginx, etc.)
   trustProxy: process.env.TRUST_PROXY === 'true' || process.env.NODE_ENV === 'production',
@@ -76,7 +77,7 @@ export function validateConfig(): void {
   
   if (errors.length > 0) {
     console.error('Configuration errors:', errors);
-    if (config.nodeEnv === 'production') {
+    if (config.nodeEnv === 'production' && !config.serverless) {
       process.exit(1);
     }
   }

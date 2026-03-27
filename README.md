@@ -154,6 +154,28 @@ npm start
 # Visit http://localhost:4849
 ```
 
+### Serverless Deployment
+
+ChronoFlow can run in a degraded-but-functional mode on serverless platforms (Vercel, Netlify, etc.) by setting the `SERVERLESS=true` environment variable. This disables features that require a persistent server process:
+
+- **SSE real-time sync** — returns 503 (cross-tab sync via BroadcastChannel still works)
+- **File-based logging** — console-only output
+- **Interval timers** — rate limit cleanup, DB auto-save are skipped
+- **Static file serving** — the platform handles this instead of Express
+
+The serverless entry point is at `api/index.ts`. Required environment variables:
+
+```
+SERVERLESS=true
+DB_DRIVER=mongo
+MONGO_URI=mongodb+srv://...
+MONGO_DB=chronoflow
+JWT_SECRET=<secure-random-string>
+NODE_ENV=production
+```
+
+**Note:** SQLite is not supported in serverless mode (no persistent filesystem). Use MongoDB Atlas free tier or another MongoDB provider.
+
 ## Configuration
 
 | Variable | Default | Description |
