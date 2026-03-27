@@ -373,7 +373,7 @@ export function createSqliteProvider(): DatabaseProvider {
     },
     async findTimeEntryById(userId: number, id: number) {
       const result = ensureDb().exec(
-        `SELECT id, user_id, category_id, task_name, start_time, end_time, scheduled_end_time, duration_minutes, created_at FROM time_entries WHERE id = ? AND user_id = ?`,
+        `SELECT id, user_id, category_id, task_name, start_time, end_time, scheduled_end_time, CASE WHEN end_time IS NOT NULL THEN ROUND((julianday(end_time) - julianday(start_time)) * 1440) ELSE NULL END as duration_minutes, created_at FROM time_entries WHERE id = ? AND user_id = ?`,
         [id, userId]
       );
       if (result.length === 0 || result[0].values.length === 0) return null;
@@ -400,7 +400,7 @@ export function createSqliteProvider(): DatabaseProvider {
     },
     async findActiveTimeEntry(userId: number) {
       const result = ensureDb().exec(
-        `SELECT id, user_id, category_id, task_name, start_time, end_time, scheduled_end_time, duration_minutes, created_at FROM time_entries WHERE user_id = ? AND end_time IS NULL LIMIT 1`,
+        `SELECT id, user_id, category_id, task_name, start_time, end_time, scheduled_end_time, NULL as duration_minutes, created_at FROM time_entries WHERE user_id = ? AND end_time IS NULL LIMIT 1`,
         [userId]
       );
       if (result.length === 0 || result[0].values.length === 0) return null;
@@ -420,15 +420,14 @@ export function createSqliteProvider(): DatabaseProvider {
     async createTimeEntry(input: TimeEntryCreateInput) {
       const dbRef = ensureDb();
       dbRef.run(
-        `INSERT INTO time_entries (user_id, category_id, task_name, start_time, end_time, scheduled_end_time, duration_minutes) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO time_entries (user_id, category_id, task_name, start_time, end_time, scheduled_end_time) VALUES (?, ?, ?, ?, ?, ?)`,
         [
           input.user_id,
           input.category_id,
           input.task_name,
           input.start_time,
           input.end_time,
-          input.scheduled_end_time,
-          input.duration_minutes
+          input.scheduled_end_time
         ]
       );
       scheduleSave();
@@ -448,8 +447,7 @@ export function createSqliteProvider(): DatabaseProvider {
              task_name = COALESCE(?, task_name),
              start_time = COALESCE(?, start_time),
              end_time = ?,
-             scheduled_end_time = ?,
-             duration_minutes = ?
+             scheduled_end_time = ?
          WHERE id = ? AND user_id = ?`,
         [
           input.category_id ?? null,
@@ -457,7 +455,6 @@ export function createSqliteProvider(): DatabaseProvider {
           input.start_time ?? null,
           input.end_time ?? null,
           input.scheduled_end_time ?? null,
-          input.duration_minutes ?? null,
           id,
           userId
         ]
@@ -587,7 +584,7 @@ export function createSqliteProvider(): DatabaseProvider {
     async listTaskSuggestions(userId: number, categoryId: number | null, query: string, limit: number) {
       const dbRef = ensureDb();
       let sql = `
-        SELECT task_name, category_id, COUNT(*) as count, SUM(duration_minutes) as total_minutes, MAX(start_time) as last_used
+        SELECT task_name, category_id, COUNT(*) as count, SUM(CASE WHEN end_time IS NOT NULL THEN ROUND((julianday(end_time) - julianday(start_time)) * 1440) ELSE 0 END) as total_minutes, MAX(start_time) as last_used
         FROM time_entries
         WHERE user_id = ? AND task_name IS NOT NULL AND task_name != ''
       `;
@@ -649,7 +646,7 @@ export function createSqliteProvider(): DatabaseProvider {
       queryParams.push(params.pageSize, (params.page - 1) * params.pageSize);
 
       const taskNamesResult = dbRef.exec(`
-        SELECT te.task_name, COUNT(*) as count, COALESCE(SUM(te.duration_minutes), 0) as total_minutes, MAX(te.start_time) as last_used,
+        SELECT te.task_name, COUNT(*) as count, COALESCE(SUM(CASE WHEN te.end_time IS NOT NULL THEN ROUND((julianday(te.end_time) - julianday(te.start_time)) * 1440) ELSE 0 END), 0) as total_minutes, MAX(te.start_time) as last_used,
                c.name as category_name, c.color as category_color
         FROM time_entries te
         JOIN categories c ON te.category_id = c.id
@@ -675,7 +672,7 @@ export function createSqliteProvider(): DatabaseProvider {
     async getCategoryDrilldown(params: CategoryDrilldownParams) {
       const dbRef = ensureDb();
       const categoryResult = dbRef.exec(`
-        SELECT c.name, c.color, COALESCE(SUM(te.duration_minutes), 0) as minutes, COUNT(te.id) as count
+        SELECT c.name, c.color, COALESCE(SUM(CASE WHEN te.end_time IS NOT NULL THEN ROUND((julianday(te.end_time) - julianday(te.start_time)) * 1440) ELSE 0 END), 0) as minutes, COUNT(te.id) as count
         FROM categories c
         LEFT JOIN time_entries te ON c.id = te.category_id
           AND te.start_time >= ? AND te.start_time < ?
@@ -707,7 +704,7 @@ export function createSqliteProvider(): DatabaseProvider {
       const totalCount = countResult.length > 0 ? (countResult[0].values[0][0] as number) : 0;
 
       const taskNamesResult = dbRef.exec(`
-        SELECT te.task_name, COUNT(*) as count, COALESCE(SUM(te.duration_minutes), 0) as total_minutes
+        SELECT te.task_name, COUNT(*) as count, COALESCE(SUM(CASE WHEN te.end_time IS NOT NULL THEN ROUND((julianday(te.end_time) - julianday(te.start_time)) * 1440) ELSE 0 END), 0) as total_minutes
         FROM time_entries te
         JOIN categories c ON te.category_id = c.id
         WHERE te.user_id = ? AND te.start_time >= ? AND te.start_time < ?
@@ -735,7 +732,7 @@ export function createSqliteProvider(): DatabaseProvider {
       const dateAdjustment = `datetime(start_time, '${offsetSign}${offsetHours} hours')`;
 
       const categoryResult = dbRef.exec(`
-        SELECT c.name, c.color, COALESCE(SUM(te.duration_minutes), 0) as minutes, COUNT(te.id) as count
+        SELECT c.name, c.color, COALESCE(SUM(CASE WHEN te.end_time IS NOT NULL THEN ROUND((julianday(te.end_time) - julianday(te.start_time)) * 1440) ELSE 0 END), 0) as minutes, COUNT(te.id) as count
         FROM categories c
         LEFT JOIN time_entries te ON c.id = te.category_id
           AND te.start_time >= ? AND te.start_time < ?
@@ -755,7 +752,7 @@ export function createSqliteProvider(): DatabaseProvider {
         : [];
 
       const dailyResult = dbRef.exec(`
-        SELECT DATE(${dateAdjustment}) as date, COALESCE(SUM(duration_minutes), 0) as minutes
+        SELECT DATE(${dateAdjustment}) as date, COALESCE(SUM(CASE WHEN end_time IS NOT NULL THEN ROUND((julianday(end_time) - julianday(start_time)) * 1440) ELSE 0 END), 0) as minutes
         FROM time_entries
         WHERE user_id = ? AND start_time >= ? AND start_time < ?
         GROUP BY DATE(${dateAdjustment})
@@ -763,7 +760,7 @@ export function createSqliteProvider(): DatabaseProvider {
       `, [params.userId, params.start, params.end]);
 
       const dailyByCategoryResult = dbRef.exec(`
-        SELECT DATE(${dateAdjustment}) as date, c.name, COALESCE(SUM(te.duration_minutes), 0) as minutes
+        SELECT DATE(${dateAdjustment}) as date, c.name, COALESCE(SUM(CASE WHEN te.end_time IS NOT NULL THEN ROUND((julianday(te.end_time) - julianday(te.start_time)) * 1440) ELSE 0 END), 0) as minutes
         FROM time_entries te
         JOIN categories c ON te.category_id = c.id
         WHERE te.user_id = ? AND te.start_time >= ? AND te.start_time < ?
@@ -793,7 +790,7 @@ export function createSqliteProvider(): DatabaseProvider {
         : [];
 
       const taskNamesResult = dbRef.exec(`
-        SELECT task_name, COUNT(*) as count, COALESCE(SUM(duration_minutes), 0) as total_minutes
+        SELECT task_name, COUNT(*) as count, COALESCE(SUM(CASE WHEN end_time IS NOT NULL THEN ROUND((julianday(end_time) - julianday(start_time)) * 1440) ELSE 0 END), 0) as total_minutes
         FROM time_entries
         WHERE user_id = ? AND start_time >= ? AND start_time < ? AND task_name IS NOT NULL AND task_name != ''
         GROUP BY task_name
@@ -817,14 +814,14 @@ export function createSqliteProvider(): DatabaseProvider {
       const prevEndIso = params.start;
 
       const prevResult = dbRef.exec(`
-        SELECT COALESCE(SUM(duration_minutes), 0) as total
+        SELECT COALESCE(SUM(CASE WHEN end_time IS NOT NULL THEN ROUND((julianday(end_time) - julianday(start_time)) * 1440) ELSE 0 END), 0) as total
         FROM time_entries
         WHERE user_id = ? AND start_time >= ? AND start_time < ?
       `, [params.userId, prevStartIso, prevEndIso]);
       const previousTotal = prevResult.length > 0 ? (prevResult[0].values[0][0] as number) : 0;
 
       const prevCategoryResult = dbRef.exec(`
-        SELECT c.name, c.color, COALESCE(SUM(te.duration_minutes), 0) as minutes, COUNT(te.id) as count
+        SELECT c.name, c.color, COALESCE(SUM(CASE WHEN te.end_time IS NOT NULL THEN ROUND((julianday(te.end_time) - julianday(te.start_time)) * 1440) ELSE 0 END), 0) as minutes, COUNT(te.id) as count
         FROM categories c
         LEFT JOIN time_entries te ON c.id = te.category_id
           AND te.start_time >= ? AND te.start_time < ?
@@ -920,7 +917,7 @@ export function createSqliteProvider(): DatabaseProvider {
     },
     async listTimeEntriesForMigration(userId: number) {
       const result = ensureDb().exec(
-        `SELECT id, user_id, category_id, task_name, start_time, end_time, scheduled_end_time, duration_minutes, created_at FROM time_entries WHERE user_id = ?`,
+        `SELECT id, user_id, category_id, task_name, start_time, end_time, scheduled_end_time, CASE WHEN end_time IS NOT NULL THEN ROUND((julianday(end_time) - julianday(start_time)) * 1440) ELSE NULL END as duration_minutes, created_at FROM time_entries WHERE user_id = ?`,
         [userId]
       );
       if (result.length === 0 || result[0].values.length === 0) return [];
