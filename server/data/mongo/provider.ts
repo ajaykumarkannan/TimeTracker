@@ -1,6 +1,7 @@
 import { MongoClient } from 'mongodb';
 import { config } from '../../config';
 import { logger } from '../../logger';
+import { runMongoMigrations } from './migrations';
 import type {
   Category,
   CategorySummary,
@@ -93,6 +94,7 @@ export function createMongoProvider(): DatabaseProvider {
       await client.connect();
       dbName = config.mongoDbName;
       await ensureIndexes();
+      await runMongoMigrations(client.db(dbName));
       logger.info('MongoDB ready');
     },
     async shutdown() {
