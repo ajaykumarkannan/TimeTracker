@@ -85,6 +85,9 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
   const cancelledRef = useRef(false);
   // Flag to suppress blur-save when Enter already triggered a save
   const enterSavingRef = useRef(false);
+  // Refs that mirror editStartTimeOnly/editEndTimeOnly for synchronous reads in handleKeyDown/handleSave
+  const editStartTimeOnlyRef = useRef<string>('');
+  const editEndTimeOnlyRef = useRef<string>('');
 
   // Swipe-to-reveal state for mobile entry actions
   const [swipedEntryId, setSwipedEntryId] = useState<number | null>(null);
@@ -460,14 +463,17 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
     editFieldRef.current = field;
     setEditCategory(entry.category_id ?? categories[0]?.id ?? 0);
     setEditDescription(entry.task_name || '');
-    // Split date/time for time-first editing
+    // Split date/time for time-first editing; also initialize refs for synchronous reads
     setEditStartDate(formatDateOnly(entry.start_time));
+    editStartTimeOnlyRef.current = formatTimeOnly(entry.start_time);
     setEditStartTimeOnly(formatTimeOnly(entry.start_time));
     if (entry.end_time) {
       setEditEndDate(formatDateOnly(entry.end_time));
+      editEndTimeOnlyRef.current = formatTimeOnly(entry.end_time);
       setEditEndTimeOnly(formatTimeOnly(entry.end_time));
     } else {
       setEditEndDate('');
+      editEndTimeOnlyRef.current = '';
       setEditEndTimeOnly('');
     }
     setEditTimeError(null);
@@ -578,6 +584,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
   // Inline/modal edit: handlers for split time/date with midnight crossing
   const handleEditStartTimeOnlyChange = (newTime: string) => {
     const adjusted = adjustDateForMidnightCrossing(editStartTimeOnly, newTime, editStartDate);
+    editStartTimeOnlyRef.current = newTime;
     setEditStartTimeOnly(newTime);
     if (adjusted !== editStartDate) setEditStartDate(adjusted);
     setEditTimeError(null);
@@ -588,6 +595,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
   };
   const handleEditEndTimeOnlyChange = (newTime: string) => {
     const adjusted = adjustDateForMidnightCrossing(editEndTimeOnly, newTime, editEndDate);
+    editEndTimeOnlyRef.current = newTime;
     setEditEndTimeOnly(newTime);
     if (adjusted !== editEndDate) setEditEndDate(adjusted);
     setEditTimeError(null);
@@ -647,12 +655,13 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
     const entry = entries.find(e => e.id === entryId);
     if (!entry) return;
 
-    // Reconstruct datetimes from split date/time state
+    // Reconstruct datetimes from split date/time state; use refs for time values to get
+    // the most recent value even if onChange hasn't fired yet (e.g. Enter before blur)
     const newStart = editField === 'startTime'
-      ? combineDateAndTime(editStartDate, editStartTimeOnly).toISOString()
+      ? combineDateAndTime(editStartDate, editStartTimeOnlyRef.current).toISOString()
       : entry.start_time;
     const newEnd = editField === 'endTime'
-      ? (editEndDate && editEndTimeOnly ? combineDateAndTime(editEndDate, editEndTimeOnly).toISOString() : null)
+      ? (editEndDate && editEndTimeOnlyRef.current ? combineDateAndTime(editEndDate, editEndTimeOnlyRef.current).toISOString() : null)
       : entry.end_time;
 
     // Validate time range only when editing time fields — not for description/category edits
@@ -821,6 +830,18 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
     if (e.key === 'Enter') {
       e.preventDefault();
       e.stopPropagation();
+      // Sync DOM value to refs before handleSave reads them, since onChange may not
+      // have fired yet for the current time input segment (e.g. user typed one digit of MM)
+      const target = e.target as HTMLInputElement;
+      if (target.type === 'time') {
+        if (editField === 'startTime') {
+          editStartTimeOnlyRef.current = target.value;
+          setEditStartTimeOnly(target.value);
+        } else if (editField === 'endTime') {
+          editEndTimeOnlyRef.current = target.value;
+          setEditEndTimeOnly(target.value);
+        }
+      }
       enterSavingRef.current = true;
       handleSave(entryId);
     } else if (e.key === 'Escape') {
@@ -1700,10 +1721,13 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                           )}
                           </span>
                           <button
-                            className={`entry-duration-btn ${!entry.end_time ? 'active' : ''}`}
+                            className={`entry-duration-btn ${!entry.end_time ? 'active' : ''}${entry.duration_minutes !== null && entry.duration_minutes !== undefined && entry.duration_minutes < 0 ? ' duration-negative' : ''}`}
                             onClick={(e) => { e.stopPropagation(); startEdit(entry, 'startTime'); }}
-                            title="Tap to edit times"
+                            title={entry.duration_minutes !== null && entry.duration_minutes !== undefined && entry.duration_minutes < 0 ? 'Warning: negative duration — start/end times may be incorrect' : 'Tap to edit times'}
                           >
+                            {entry.duration_minutes !== null && entry.duration_minutes !== undefined && entry.duration_minutes < 0 && (
+                              <span className="duration-warning-icon" aria-label="Warning">⚠</span>
+                            )}
                             {formatDuration(entry.duration_minutes)}
                           </button>
                         </div>
