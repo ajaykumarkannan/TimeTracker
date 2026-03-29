@@ -20,6 +20,7 @@ env:
 permissions:
   contents: write
   packages: write
+  pull-requests: write
 
 jobs:
   # ============================================================================
@@ -315,13 +316,17 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: 'npm'
       - name: Create version tag
         id: tag
         run: |
           # Get version from package.json (should already be bumped by PR)
           VERSION=$(node -p 'require("./package.json").version')
           IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
-          
+
           # Always ensure we use the next available version
           # This handles: tag conflicts, PRs that didn't bump, direct pushes to main
           if git rev-parse "v${VERSION}" >/dev/null 2>&1; then
@@ -330,27 +335,36 @@ jobs:
           else
             NEXT_PATCH=$PATCH
           fi
-          
+
           while git rev-parse "v${MAJOR}.${MINOR}.${NEXT_PATCH}" >/dev/null 2>&1; do
             NEXT_PATCH=$((NEXT_PATCH + 1))
           done
-          
+
           NEW_VERSION="${MAJOR}.${MINOR}.${NEXT_PATCH}"
-          
-          # Update package.json if version changed
+
+          # Create and push tag on current commit
+          git tag -a "v${NEW_VERSION}" -m "Release ${NEW_VERSION}"
+          git push origin "v${NEW_VERSION}"
+          echo "version=${NEW_VERSION}" >> $GITHUB_OUTPUT
+
+          # If package.json version doesn't match the tag, create a PR to sync it
           if [ "$VERSION" != "$NEW_VERSION" ]; then
-            echo "Bumping version from ${VERSION} to ${NEW_VERSION}"
+            echo "Package.json version (${VERSION}) doesn't match tag (${NEW_VERSION}), creating PR to sync..."
+            BRANCH="chore/sync-version-v${NEW_VERSION}"
+            git checkout -b "${BRANCH}"
             npm version "${NEW_VERSION}" --no-git-tag-version
             git add package.json package-lock.json
             git commit -m "chore: bump version to ${NEW_VERSION}"
-            git push
-            VERSION="$NEW_VERSION"
+            git push origin "${BRANCH}"
+            gh pr create \
+              --title "chore: bump version to ${NEW_VERSION}" \
+              --body "Automated version sync to match tag v${NEW_VERSION}." \
+              --base main \
+              --head "${BRANCH}"
+            gh pr merge "${BRANCH}" --auto --squash
           fi
-          
-          # Create and push tag
-          git tag -a "v${VERSION}" -m "Release ${VERSION}"
-          git push origin "v${VERSION}"
-          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   docker-build:
     name: Docker (${{ matrix.arch }})
