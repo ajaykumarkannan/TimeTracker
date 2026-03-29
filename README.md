@@ -42,12 +42,11 @@ A simple, beautiful time tracking app to understand where your hours go.
 
 ## Installation
 
-### Docker (Recommended)
+### Quick Start with Docker (Recommended)
 
-The easiest way to run ChronoFlow is with Docker:
+Pre-built images are available on GitHub Container Registry. Just pull and run:
 
 ```bash
-# Quick start (development/testing)
 docker run -d \
   -p 4849:4849 \
   -v chronoflow-data:/app/data \
@@ -58,10 +57,10 @@ docker run -d \
 # Visit http://localhost:4849
 ```
 
-Or use docker-compose for a more complete setup:
+Or use docker-compose:
 
 ```bash
-# Clone the repo (or just download docker-compose.yml)
+# Download the compose file (no need to clone the repo)
 curl -O https://raw.githubusercontent.com/ajaykumarkannan/TimeTracker/main/docker-compose.yml
 
 # Start
@@ -69,6 +68,8 @@ docker-compose up -d
 
 # Visit http://localhost:4849
 ```
+
+Images are tagged with semver versions (e.g. `ghcr.io/ajaykumarkannan/timetracker:1.5.0`) and `:latest`. Pin to a specific version for stability, or use `:latest` to always get the newest release.
 
 ### Production Deployment
 
@@ -121,26 +122,28 @@ The production setup includes:
 - **Cloudflare Tunnel** for secure access without exposed ports
 - Resource limits suitable for Raspberry Pi
 
-### GitHub Container Registry (GHCR)
+### Building Your Own Image
 
-Images are published to GHCR at `ghcr.io/ajaykumarkannan/timetracker` (repo name is lowercased by GHCR). Version bumps (including patch versions like `v1.0.1`) publish semver tags plus `:latest`. If you fork the repo, set `GITHUB_REPO` to your owner/repo in lowercase (e.g. `youruser/timetracker`). The first publish may create the package as private; if so, open the package on GitHub → Package settings → Change visibility to **Public** so `docker pull` works without login.
+If you want to fork the repo and deploy your own image:
 
-### Manual Minor/Major Releases
+1. Fork the repository and update `GITHUB_REPO` in your CI to your `owner/repo` in lowercase (e.g. `youruser/timetracker`).
+2. The GitHub Actions CI will publish images to GHCR at `ghcr.io/youruser/timetracker`. The first publish may create the package as private — go to Package settings → Change visibility to **Public** so `docker pull` works without login.
+3. For private images, authenticate first:
+   ```bash
+   echo "$GITHUB_TOKEN" | docker login ghcr.io -u YOUR_GITHUB_USERNAME --password-stdin
+   ```
+
+#### Manual Minor/Major Releases
 
 Use the `manual-version-bump` GitHub Actions workflow and select `minor` or `major`:
 - Minor bumps reset patch to `0` (e.g., `1.4.2` → `1.5.0`).
 - Major bumps reset minor and patch to `0` (e.g., `1.4.2` → `2.0.0`).
 
-For private images, authenticate first:
-```bash
-echo "$GITHUB_TOKEN" | docker login ghcr.io -u YOUR_GITHUB_USERNAME --password-stdin
-```
-
 ### npm (Without Docker)
 
 ```bash
 # Clone and install
-git clone https://github.com/YOUR-USERNAME/TimeTracker.git
+git clone https://github.com/ajaykumarkannan/TimeTracker.git
 cd TimeTracker
 npm install
 
