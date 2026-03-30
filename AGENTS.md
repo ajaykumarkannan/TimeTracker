@@ -301,8 +301,8 @@ When making changes to the database schema, follow these guidelines:
 Version bumping happens in PRs, not on main. This keeps the git history clean:
 
 1. **PR CI**: After tests pass, CI automatically bumps the patch version and commits to the PR branch (if needed)
-2. **Main merge**: When merged to main, CI creates a version tag and publishes the Docker image
-3. **Conflict resolution**: If multiple PRs target the same version, main CI resolves conflicts automatically
+2. **Main merge**: When merged to main, CI creates a git tag from the version in `package.json` and publishes the Docker image
+3. **Tag conflict handling**: If the tag already exists (e.g., two PRs raced), CI opens a sync PR to bump the version instead of pushing directly to main. Docker/release jobs are skipped until the sync PR merges and re-triggers the pipeline. **The `version-tag` job never pushes commits to main.**
 
 ### Manual Minor/Major Releases
 When bumping a minor or major version, use the manual workflow so the tag is created on `main`:
