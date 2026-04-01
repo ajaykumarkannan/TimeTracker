@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { api } from '../api';
 import { AnalyticsData, Period, DailyTotal, TimeEntry, CategoryDrilldown, Category, TopTask } from '../types';
 import { downloadFile } from '../utils/downloadUtils';
+import { formatDuration } from '../utils/timeUtils';
 import { useClickOutside } from '../hooks/useClickOutside';
 import { InlineCategoryForm } from './InlineCategoryForm';
 import './Analytics.css';
@@ -808,27 +809,6 @@ export function Analytics({ refreshKey }: AnalyticsProps = {}) {
     if (!data) return new Map<string, string>();
     return new Map(data.byCategory.map(c => [c.name, c.color]));
   }, [data]);
-
-  const formatDuration = (minutes: number) => {
-    if (minutes === 0) return '0m';
-    const h = Math.floor(minutes / 60);
-    const m = minutes % 60;
-    if (h < 10) {
-      if (h === 0) return `${m}m`;
-      if (m === 0) return `${h}h`;
-      return `${h}h ${m}m`;
-    }
-    if (h >= 24) {
-      const d = Math.floor(h / 24);
-      const remH = h % 24;
-      if (remH === 0) return `${d}d`;
-      return `${d}d ${remH}h`;
-    }
-    const decimal = minutes / 60;
-    const rounded = Math.round(decimal * 10) / 10;
-    if (rounded === Math.floor(rounded)) return `${Math.floor(rounded)}h`;
-    return `${rounded}h`;
-  };
 
   const formatElapsed = (seconds: number) => {
     const h = Math.floor(seconds / 3600);

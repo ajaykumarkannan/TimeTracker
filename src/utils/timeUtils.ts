@@ -75,7 +75,7 @@ export function formatDuration(minutes: number | null): string {
   if (h < 10) {
     if (h === 0) return `${m}m`;
     if (m === 0) return `${h}h`;
-    return `${h}h${m}m`;
+    return `${h}h ${m}m`;
   }
   // 24+ hours: days and hours
   if (h >= 24) {

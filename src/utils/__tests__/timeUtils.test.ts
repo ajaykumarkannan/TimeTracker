@@ -143,9 +143,9 @@ describe('timeUtils', () => {
 
     it('formats hours and minutes under 10h', () => {
       expect(formatDuration(60)).toBe('1h');
-      expect(formatDuration(75)).toBe('1h15m');
+      expect(formatDuration(75)).toBe('1h 15m');
       expect(formatDuration(120)).toBe('2h');
-      expect(formatDuration(9 * 60 + 45)).toBe('9h45m');
+      expect(formatDuration(9 * 60 + 45)).toBe('9h 45m');
     });
 
     it('uses decimal hours for 10-23h', () => {
