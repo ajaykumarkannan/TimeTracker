@@ -113,16 +113,33 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
   const [showNewCategory, setShowNewCategory] = useState(false);
 
   // Filter state
-  const [searchQuery, setSearchQuery] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState<number | 'all'>('all');
-  const [showFilters, setShowFilters] = useState(false);
-  const [activePreset, setActivePreset] = useState<'today' | 'week' | 'month' | 'all' | null>('week');
+  const FILTER_STORAGE_KEY = 'chronoflow:historyFilters';
+  const getStoredFilters = (): {
+    searchQuery?: string;
+    categoryFilter?: number | 'all';
+    showFilters?: boolean;
+    activePreset?: 'today' | 'week' | 'month' | 'all' | null;
+    dateFrom?: string;
+    dateTo?: string;
+  } => {
+    try {
+      const raw = localStorage.getItem(FILTER_STORAGE_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch { return {}; }
+  };
+
+  const stored = getStoredFilters();
+  const [searchQuery, setSearchQuery] = useState(stored.searchQuery ?? '');
+  const [categoryFilter, setCategoryFilter] = useState<number | 'all'>(stored.categoryFilter ?? 'all');
+  const [showFilters, setShowFilters] = useState(stored.showFilters ?? false);
+  const [activePreset, setActivePreset] = useState<'today' | 'week' | 'month' | 'all' | null>(stored.activePreset ?? 'week');
 
   // Debounce search query to avoid excessive API calls while typing
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
-  // Initialize date filters to "This Week" on mount
+  // Initialize date filters - restore from storage or default to "This Week"
   const [dateFrom, setDateFrom] = useState(() => {
+    if (stored.dateFrom !== undefined) return stored.dateFrom;
     const today = new Date();
     const dayOfWeek = today.getDay();
     const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
@@ -130,9 +147,19 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
     return `${fromDate.getFullYear()}-${String(fromDate.getMonth() + 1).padStart(2, '0')}-${String(fromDate.getDate()).padStart(2, '0')}`;
   });
   const [dateTo, setDateTo] = useState(() => {
+    if (stored.dateTo !== undefined) return stored.dateTo;
     const today = new Date();
     return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
   });
+
+  // Persist filter state to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify({
+        searchQuery, categoryFilter, showFilters, activePreset, dateFrom, dateTo
+      }));
+    } catch { /* ignore storage errors */ }
+  }, [searchQuery, categoryFilter, showFilters, activePreset, dateFrom, dateTo]);
 
   // Manual entry form state
   const [showManualEntry, setShowManualEntry] = useState(false);
@@ -1486,15 +1513,20 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
             <div key={dateKey} className="date-group">
               <div className="date-header">
                 <span>{formatDate(dateEntries[0].start_time)}</span>
-                <button
-                  className="btn-icon delete-day-btn"
-                  onClick={() => handleDeleteDay(dateKey)}
-                  title="Delete all entries for this day"
-                >
-                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                    <path d="M2 4h12M5.333 4V2.667a1.333 1.333 0 011.334-1.334h2.666a1.333 1.333 0 011.334 1.334V4M12.667 4v9.333a1.333 1.333 0 01-1.334 1.334H4.667a1.333 1.333 0 01-1.334-1.334V4h9.334z" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </button>
+                <div className="date-header-actions">
+                  <span className="day-total-badge">
+                    {formatDuration(dateEntries.reduce((sum, e) => sum + (e.duration_minutes || 0), 0))}
+                  </span>
+                  <button
+                    className="btn-icon delete-day-btn"
+                    onClick={() => handleDeleteDay(dateKey)}
+                    title="Delete all entries for this day"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <path d="M2 4h12M5.333 4V2.667a1.333 1.333 0 011.334-1.334h2.666a1.333 1.333 0 011.334 1.334V4M12.667 4v9.333a1.333 1.333 0 01-1.334 1.334H4.667a1.333 1.333 0 01-1.334-1.334V4h9.334z" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </button>
+                </div>
               </div>
               <div className="entries">
                 {dateEntries.map((entry, index) => {

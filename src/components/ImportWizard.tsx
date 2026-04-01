@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { api } from '../api';
 import { ColumnMapping, ImportEntry } from '../types';
+import { formatDuration } from '../utils/timeUtils';
 import './ImportWizard.css';
 
 interface Props {
@@ -159,28 +160,7 @@ export function ImportWizard({ csv, onClose, onSuccess }: Props) {
     } catch {
       return iso;
     }
-  };
-
-  const formatDuration = (minutes: number | null) => {
-    if (minutes === null) return '—';
-    const h = Math.floor(minutes / 60);
-    const m = minutes % 60;
-    if (h < 10) {
-      if (h === 0) return `${m}m`;
-      if (m === 0) return `${h}h`;
-      return `${h}h ${m}m`;
-    }
-    if (h >= 24) {
-      const d = Math.floor(h / 24);
-      const remH = h % 24;
-      if (remH === 0) return `${d}d`;
-      return `${d}d ${remH}h`;
-    }
-    const decimal = minutes / 60;
-    const rounded = Math.round(decimal * 10) / 10;
-    if (rounded === Math.floor(rounded)) return `${Math.floor(rounded)}h`;
-    return `${rounded}h`;
-  };
+   };
 
   if (loading && step === 'mapping') {
     return (
