@@ -533,6 +533,15 @@ export function createSqliteProvider(): DatabaseProvider {
       ensureDb().run(`DELETE FROM time_entries WHERE id = ? AND user_id = ?`, [id, userId]);
       scheduleSave();
     },
+    async deleteTimeEntriesByIds(userId: number, ids: number[]) {
+      if (ids.length === 0) return 0;
+      const dbRef = ensureDb();
+      const placeholders = ids.map(() => '?').join(',');
+      dbRef.run(`DELETE FROM time_entries WHERE user_id = ? AND id IN (${placeholders})`, [userId, ...ids]);
+      const countResult = dbRef.exec(`SELECT changes() as count`);
+      scheduleSave();
+      return countResult.length > 0 ? (countResult[0].values[0][0] as number) : 0;
+    },
     async deleteTimeEntriesForUser(userId: number) {
       const dbRef = ensureDb();
       dbRef.run(`DELETE FROM time_entries WHERE user_id = ?`, [userId]);

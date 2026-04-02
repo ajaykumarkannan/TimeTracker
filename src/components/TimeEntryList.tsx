@@ -41,7 +41,7 @@ function formatBreakDuration(minutes: number): string {
 interface Props {
   categories: Category[];
   activeEntry: TimeEntry | null;
-  onEntryChange: (optimistic?: { active?: TimeEntry | null; stopped?: TimeEntry }) => void;
+  onEntryChange: (optimistic?: { active?: TimeEntry | null; stopped?: TimeEntry }, options?: { skipListRefresh?: boolean }) => void;
   onCategoryChange: () => void;
   refreshKey?: number;
   lastOptimistic?: { active?: TimeEntry | null; stopped?: TimeEntry } | null;
@@ -58,6 +58,13 @@ interface MergeCandidate {
 interface ShortEntry {
   entry: TimeEntry;
   durationSeconds: number;
+}
+
+/** User-friendly error message for save failures */
+function saveErrorMessage(error: unknown): string {
+  return error instanceof Error && error.name === 'RateLimitError'
+    ? 'Rate limited — try again in a moment'
+    : 'Failed to save — please try again';
 }
 
 export function TimeEntryList({ categories, activeEntry, onEntryChange, onCategoryChange, refreshKey, lastOptimistic }: Props) {
@@ -279,7 +286,8 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
   // Reload entries when onEntryChange is triggered externally
   const handleEntryChangeInternal = useCallback(async () => {
     await loadEntries();
-    onEntryChange();
+    // Skip the entryRefreshKey bump in App since we already refreshed the list above
+    onEntryChange(undefined, { skipListRefresh: true });
   }, [loadEntries, onEntryChange]);
 
   // Detect back-to-back entries that can be merged (same category + note, consecutive)
@@ -752,6 +760,8 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
       }
     } catch (error) {
       console.error('Failed to update entry:', error);
+      // Show error inline so the user knows the save failed (don't close the editor)
+      setEditTimeError(saveErrorMessage(error));
     }
   };
 
@@ -849,6 +859,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
       }
     } catch (error) {
       console.error('Failed to update entry:', error);
+      setEditTimeError(saveErrorMessage(error));
     }
   };
 
@@ -904,11 +915,22 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
 
   const handleDelete = async (id: number) => {
     if (!confirm('Delete this time entry?')) return;
+    const wasActive = activeEntry?.id === id;
+    // Optimistic: remove from local list immediately
+    setEntries(prev => prev.filter(e => e.id !== id));
     try {
       await api.deleteEntry(id);
-      handleEntryChangeInternal();
+      // Notify parent with optimistic removal so it doesn't do a full refetch
+      if (wasActive) {
+        onEntryChange({ active: null });
+      } else {
+        // Tell App to refresh its recent entries list (lightweight: 2 requests instead of 4-5)
+        onEntryChange(undefined, { skipListRefresh: true });
+      }
     } catch (error) {
       console.error('Failed to delete entry:', error);
+      // Rollback: reload entries on failure
+      loadEntries();
     }
   };
 
@@ -1112,27 +1134,28 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
     };
   }, [swipedEntryId]);
 
-  const handleMergeEntries = async (candidate: MergeCandidate) => {
+  // Build the batch-merge payload for a single merge candidate
+  const buildMergeGroup = (candidate: MergeCandidate) => {
     const sorted = [...candidate.entries].sort((a, b) =>
       new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
     );
     const first = sorted[0];
     const last = sorted[sorted.length - 1];
-
-    try {
-      // Update the first entry to span the entire range
-      await api.updateEntry(first.id, {
+    return {
+      keepId: first.id,
+      deleteIds: sorted.slice(1).map(e => e.id),
+      update: {
         category_id: first.category_id,
         task_name: first.task_name,
         start_time: first.start_time,
         end_time: last.end_time
-      });
-
-      // Delete the other entries
-      for (let i = 1; i < sorted.length; i++) {
-        await api.deleteEntry(sorted[i].id);
       }
+    };
+  };
 
+  const handleMergeEntries = async (candidate: MergeCandidate) => {
+    try {
+      await api.batchMergeEntries([buildMergeGroup(candidate)]);
       handleEntryChangeInternal();
     } catch (error) {
       console.error('Failed to merge entries:', error);
@@ -1195,19 +1218,20 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
   };
 
   const handleApplyAll = async () => {
-    // Merge all candidates first
-    for (const candidate of mergeCandidates) {
-      await handleMergeEntries(candidate);
-    }
-    // Then delete all short entries
-    for (const { entry } of shortEntries) {
-      try {
-        await api.deleteEntry(entry.id);
-      } catch (error) {
-        console.error('Failed to delete entry:', error);
+    try {
+      // Batch merge all candidates (1 API call instead of N sequential calls per group)
+      if (mergeCandidates.length > 0) {
+        await api.batchMergeEntries(mergeCandidates.map(buildMergeGroup));
       }
+      // Batch delete all short entries (1 API call instead of N sequential calls)
+      if (shortEntries.length > 0) {
+        await api.batchDeleteEntries(shortEntries.map(({ entry }) => entry.id));
+      }
+      handleEntryChangeInternal();
+    } catch (error) {
+      console.error('Failed to apply all:', error);
+      handleEntryChangeInternal();
     }
-    handleEntryChangeInternal();
   };
 
   const getTotalMinutes = () => {

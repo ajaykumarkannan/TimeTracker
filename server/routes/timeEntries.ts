@@ -348,6 +348,84 @@ router.delete('/:id', async (req: AuthRequest, res: Response) => {
   }
 });
 
+// Batch delete entries (reduces N individual DELETE requests to 1)
+router.post('/batch-delete', async (req: AuthRequest, res: Response) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: 'ids must be a non-empty array of entry IDs' });
+    }
+    if (ids.length > 100) {
+      return res.status(400).json({ error: 'Cannot delete more than 100 entries at once' });
+    }
+    const numericIds = ids.map(Number).filter(id => Number.isFinite(id) && id > 0);
+    if (numericIds.length === 0) {
+      return res.status(400).json({ error: 'ids must contain valid positive integers' });
+    }
+
+    const provider = getProvider();
+    const deleted = await provider.deleteTimeEntriesByIds(req.userId as number, numericIds);
+    broadcastSyncEvent(req.userId as number, 'time-entries');
+
+    logger.info('Batch deleted time entries', { count: deleted, userId: req.userId as number });
+    res.json({ deleted });
+  } catch (error) {
+    logger.error('Error batch deleting time entries', { error, userId: req.userId as number });
+    res.status(500).json({ error: 'Failed to batch delete time entries' });
+  }
+});
+
+// Batch merge entries (update keeper + delete others in one request)
+// Each group: extend the "keep" entry's time range and delete the rest.
+router.post('/batch-merge', async (req: AuthRequest, res: Response) => {
+  try {
+    const { groups } = req.body;
+    if (!Array.isArray(groups) || groups.length === 0) {
+      return res.status(400).json({ error: 'groups must be a non-empty array' });
+    }
+    if (groups.length > 50) {
+      return res.status(400).json({ error: 'Cannot merge more than 50 groups at once' });
+    }
+
+    const provider = getProvider();
+    const userId = req.userId as number;
+    let totalUpdated = 0;
+    let totalDeleted = 0;
+
+    for (const group of groups) {
+      const { keepId, deleteIds, update } = group;
+      if (!keepId || !Array.isArray(deleteIds) || !update) {
+        return res.status(400).json({ error: 'Each group must have keepId, deleteIds, and update' });
+      }
+
+      // Verify the keep entry belongs to this user
+      const existing = await provider.findTimeEntryById(userId, Number(keepId));
+      if (!existing) {
+        return res.status(404).json({ error: `Entry ${keepId} not found` });
+      }
+
+      // Update the keeper entry with the merged time range
+      await provider.updateTimeEntry(userId, Number(keepId), update);
+      totalUpdated++;
+
+      // Delete the other entries in the group
+      const numericDeleteIds = deleteIds.map(Number).filter((id: number) => Number.isFinite(id) && id > 0);
+      if (numericDeleteIds.length > 0) {
+        const deleted = await provider.deleteTimeEntriesByIds(userId, numericDeleteIds);
+        totalDeleted += deleted;
+      }
+    }
+
+    broadcastSyncEvent(userId, 'time-entries');
+
+    logger.info('Batch merged time entries', { groups: groups.length, updated: totalUpdated, deleted: totalDeleted, userId });
+    res.json({ updated: totalUpdated, deleted: totalDeleted });
+  } catch (error) {
+    logger.error('Error batch merging time entries', { error, userId: req.userId as number });
+    res.status(500).json({ error: 'Failed to batch merge time entries' });
+  }
+});
+
 // Get task name suggestions based on history
 router.get('/suggestions', async (req: AuthRequest, res: Response) => {
   try {
