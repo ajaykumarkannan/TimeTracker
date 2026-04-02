@@ -5,6 +5,11 @@ const API_BASE = '/api';
 // Request timeout configuration (30 seconds default)
 const DEFAULT_TIMEOUT_MS = 30000;
 
+// Rate limit retry configuration
+const MAX_RATE_LIMIT_RETRIES = 2;
+const MIN_RETRY_DELAY_MS = 1000;
+const MAX_RETRY_DELAY_MS = 10000;
+
 // Proactive refresh threshold - refresh token when less than this time remains (5 minutes)
 const PROACTIVE_REFRESH_THRESHOLD_MS = 5 * 60 * 1000;
 
@@ -226,18 +231,31 @@ async function apiFetch(url: string, options: RequestInit = {}, { skipProactiveR
 
   let res = await fetchWithTimeout(url, { ...options, headers });
 
-  // Handle rate limiting - don't treat as auth failure
+  // Handle rate limiting with automatic retry
+  // Instead of immediately failing, wait for the rate limit window to reset and retry.
+  // This makes transient rate limits invisible to the user during normal editing.
   if (res.status === 429) {
-    const retryAfter = parseInt(res.headers.get('X-RateLimit-Reset') || '0', 10);
-    const waitSec = retryAfter ? Math.max(1, retryAfter - Math.floor(Date.now() / 1000)) : 60;
-    const message = `Too many requests — please wait ${waitSec}s and try again.`;
-    // Notify UI listeners so a banner/toast can be shown
-    apiErrorListeners.forEach(cb => {
-      try { cb({ type: 'rate_limit', message, retryAfterSec: waitSec }); } catch { /* ignore */ }
-    });
-    const err = new Error(message);
-    err.name = 'RateLimitError';
-    throw err;
+    for (let attempt = 0; attempt < MAX_RATE_LIMIT_RETRIES; attempt++) {
+      const retryAfter = parseInt(res.headers.get('X-RateLimit-Reset') || '0', 10);
+      const waitMs = retryAfter
+        ? Math.min(MAX_RETRY_DELAY_MS, Math.max(MIN_RETRY_DELAY_MS, (retryAfter - Math.floor(Date.now() / 1000)) * 1000))
+        : MIN_RETRY_DELAY_MS * (attempt + 1);
+      await new Promise(resolve => setTimeout(resolve, waitMs));
+      res = await fetchWithTimeout(url, { ...options, headers });
+      if (res.status !== 429) break;
+    }
+    // If still rate-limited after retries, notify UI and throw
+    if (res.status === 429) {
+      const retryAfter = parseInt(res.headers.get('X-RateLimit-Reset') || '0', 10);
+      const waitSec = retryAfter ? Math.max(1, retryAfter - Math.floor(Date.now() / 1000)) : 60;
+      const message = `Too many requests — please wait ${waitSec}s and try again.`;
+      apiErrorListeners.forEach(cb => {
+        try { cb({ type: 'rate_limit', message, retryAfterSec: waitSec }); } catch { /* ignore */ }
+      });
+      const err = new Error(message);
+      err.name = 'RateLimitError';
+      throw err;
+    }
   }
 
   // If unauthorized and we have a refresh token, try to refresh
@@ -384,6 +402,9 @@ export const api = {
   clearScheduledStop: (id: number) => apiMutate<TimeEntry>(`${API_BASE}/time-entries/${id}/schedule-stop`, 'DELETE', undefined, 'Failed to clear scheduled stop'),
   updateEntry: (id: number, data: Partial<TimeEntry>) => apiMutate<TimeEntry>(`${API_BASE}/time-entries/${id}`, 'PUT', data, 'Failed to update entry'),
   deleteEntry: (id: number) => apiVoid(`${API_BASE}/time-entries/${id}`, 'DELETE', undefined, 'Failed to delete entry'),
+  batchDeleteEntries: (ids: number[]) => apiMutate<{ deleted: number }>(`${API_BASE}/time-entries/batch-delete`, 'POST', { ids }, 'Failed to batch delete entries'),
+  batchMergeEntries: (groups: { keepId: number; deleteIds: number[]; update: Partial<TimeEntry> }[]) =>
+    apiMutate<{ updated: number; deleted: number }>(`${API_BASE}/time-entries/batch-merge`, 'POST', { groups }, 'Failed to batch merge entries'),
   deleteEntriesByDate: (date: string) => apiMutate<{ deleted: number }>(`${API_BASE}/time-entries/by-date/${date}`, 'DELETE', undefined, 'Failed to delete entries'),
   createManualEntry: (category_id: number, start_time: string, end_time: string, task_name?: string) =>
     apiMutate<TimeEntry>(`${API_BASE}/time-entries`, 'POST', { category_id, start_time, end_time, task_name }, 'Failed to create entry'),

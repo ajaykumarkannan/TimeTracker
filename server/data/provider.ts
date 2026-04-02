@@ -134,6 +134,7 @@ export interface DatabaseProvider {
   countTimeEntriesByTaskNames(userId: number, taskNames: string[]): Promise<number>;
   countTimeEntriesByTaskNameAndCategory(userId: number, taskName: string, categoryId: number): Promise<number>;
   deleteTimeEntry(userId: number, id: number): Promise<void>;
+  deleteTimeEntriesByIds(userId: number, ids: number[]): Promise<number>;
   deleteTimeEntriesForUser(userId: number): Promise<number>;
   deleteTimeEntriesByCategory(userId: number, categoryId: number): Promise<number>;
   deleteCategoriesForUser(userId: number): Promise<number>;

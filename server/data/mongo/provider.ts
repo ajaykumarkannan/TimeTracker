@@ -463,6 +463,11 @@ export function createMongoProvider(): DatabaseProvider {
     async deleteTimeEntry(userId: number, id: number) {
       await collection('time_entries').deleteOne({ user_id: userId, id });
     },
+    async deleteTimeEntriesByIds(userId: number, ids: number[]) {
+      if (ids.length === 0) return 0;
+      const result = await collection('time_entries').deleteMany({ user_id: userId, id: { $in: ids } });
+      return result.deletedCount || 0;
+    },
     async deleteTimeEntriesForUser(userId: number) {
       const result = await collection('time_entries').deleteMany({ user_id: userId });
       return result.deletedCount || 0;

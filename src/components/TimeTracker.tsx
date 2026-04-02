@@ -28,7 +28,7 @@ interface Props {
   categories: Category[];
   activeEntry: TimeEntry | null;
   entries: TimeEntry[];
-  onEntryChange: (optimistic?: { active?: TimeEntry | null; stopped?: TimeEntry }) => void;
+  onEntryChange: (optimistic?: { active?: TimeEntry | null; stopped?: TimeEntry }, options?: { skipListRefresh?: boolean }) => void;
   onCategoryChange: () => void;
 }
 

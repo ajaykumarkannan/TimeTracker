@@ -333,7 +333,7 @@ export function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLogge
     broadcastChange('categories');
   };
 
-  const handleEntryChange = async (optimistic?: { active?: TimeEntry | null; stopped?: TimeEntry }) => {
+  const handleEntryChange = async (optimistic?: { active?: TimeEntry | null; stopped?: TimeEntry }, options?: { skipListRefresh?: boolean }) => {
     if (optimistic) {
       // Apply optimistic update from the API response — no refetch needed
       if (optimistic.active !== undefined) {
@@ -374,7 +374,11 @@ export function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLogge
       setEntries(recentEnts);
       setActiveEntry(active);
     }
-    setEntryRefreshKey(k => k + 1);
+    // Only bump the refresh key if the caller hasn't already refreshed the list
+    // (e.g., handleEntryChangeInternal already called loadEntries() before this)
+    if (!options?.skipListRefresh) {
+      setEntryRefreshKey(k => k + 1);
+    }
     broadcastChange('time-entries');
   };
 
