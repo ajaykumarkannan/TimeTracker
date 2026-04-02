@@ -118,9 +118,6 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
     searchQuery?: string;
     categoryFilter?: number | 'all';
     showFilters?: boolean;
-    activePreset?: 'today' | 'week' | 'month' | 'all' | null;
-    dateFrom?: string;
-    dateTo?: string;
   } => {
     try {
       const raw = localStorage.getItem(FILTER_STORAGE_KEY);
@@ -132,14 +129,13 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
   const [searchQuery, setSearchQuery] = useState(stored.searchQuery ?? '');
   const [categoryFilter, setCategoryFilter] = useState<number | 'all'>(stored.categoryFilter ?? 'all');
   const [showFilters, setShowFilters] = useState(stored.showFilters ?? false);
-  const [activePreset, setActivePreset] = useState<'today' | 'week' | 'month' | 'all' | null>(stored.activePreset ?? 'week');
+  const [activePreset, setActivePreset] = useState<'today' | 'week' | 'month' | 'all' | null>('week');
 
   // Debounce search query to avoid excessive API calls while typing
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
-  // Initialize date filters - restore from storage or default to "This Week"
+  // Initialize date filters - default to "This Week" (Monday to Friday)
   const [dateFrom, setDateFrom] = useState(() => {
-    if (stored.dateFrom !== undefined) return stored.dateFrom;
     const today = new Date();
     const dayOfWeek = today.getDay();
     const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
@@ -147,19 +143,23 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
     return `${fromDate.getFullYear()}-${String(fromDate.getMonth() + 1).padStart(2, '0')}-${String(fromDate.getDate()).padStart(2, '0')}`;
   });
   const [dateTo, setDateTo] = useState(() => {
-    if (stored.dateTo !== undefined) return stored.dateTo;
     const today = new Date();
-    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const dayOfWeek = today.getDay();
+    const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    const monday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - diff);
+    const friday = new Date(monday);
+    friday.setDate(monday.getDate() + 4); // Monday + 4 = Friday
+    return `${friday.getFullYear()}-${String(friday.getMonth() + 1).padStart(2, '0')}-${String(friday.getDate()).padStart(2, '0')}`;
   });
 
-  // Persist filter state to localStorage
+  // Persist filter state to localStorage (date filters always reset to "This Week" on refresh)
   useEffect(() => {
     try {
       localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify({
-        searchQuery, categoryFilter, showFilters, activePreset, dateFrom, dateTo
+        searchQuery, categoryFilter, showFilters
       }));
     } catch { /* ignore storage errors */ }
-  }, [searchQuery, categoryFilter, showFilters, activePreset, dateFrom, dateTo]);
+  }, [searchQuery, categoryFilter, showFilters]);
 
   // Manual entry form state
   const [showManualEntry, setShowManualEntry] = useState(false);
@@ -467,6 +467,12 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
       const dayOfWeek = today.getDay();
       const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Monday as start of week
       fromDate = new Date(today.getFullYear(), today.getMonth(), today.getDate() - diff);
+      const fridayDate = new Date(fromDate);
+      fridayDate.setDate(fridayDate.getDate() + 4); // Monday + 4 = Friday
+      setDateFrom(formatDateLocal(fromDate));
+      setDateTo(formatDateLocal(fridayDate));
+      setActivePreset(preset);
+      return;
     } else { // month
       fromDate = new Date(today.getFullYear(), today.getMonth(), 1);
     }
