@@ -1,5 +1,6 @@
 .landing {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   background: var(--bg-gradient-hero);
@@ -127,6 +128,7 @@
   transition: all 0.25s ease;
   position: relative;
   overflow: hidden;
+  isolation: isolate;
 }
 
 .feature-card::before {
