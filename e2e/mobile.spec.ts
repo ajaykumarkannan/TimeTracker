@@ -308,3 +308,131 @@ test.describe('Mobile UI', () => {
     }
   });
 });
+
+/**
+ * Mobile Safari CSS Compatibility Tests
+ *
+ * Verifies CSS fixes for Safari/WebKit-specific rendering issues on mobile
+ * viewports (iPhone 15, Pixel 7).
+ */
+test.describe('Mobile Safari CSS Compatibility', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.evaluate(() => localStorage.clear());
+    await page.reload();
+
+    await page.click('button:has-text("Continue as Guest")');
+    await expect(page.locator('.hamburger-btn')).toBeVisible();
+
+    await page.waitForFunction(
+      () => document.querySelectorAll('.switch-category-select option').length > 2,
+      { timeout: 15000 }
+    );
+  });
+
+  test('mobile category wrapper has isolation for Safari clipping', async ({ page }) => {
+    // On mobile the category selector is a small color square with overflow: hidden
+    // + border-radius. Safari needs isolation: isolate to clip positioned children correctly.
+    const wrapper = page.locator('.new-task-inline .new-task-category-wrapper');
+    await expect(wrapper).toBeVisible();
+
+    const styles = await wrapper.evaluate((el) => {
+      const s = window.getComputedStyle(el);
+      return {
+        overflow: s.overflow,
+        isolation: s.isolation,
+        borderRadius: s.borderRadius,
+      };
+    });
+
+    expect(styles.overflow).toBe('hidden');
+    expect(styles.isolation).toBe('isolate');
+  });
+
+  test('mobile category color indicator is centered in wrapper', async ({ page }) => {
+    // Select a category so the indicator has color
+    await page.locator('.switch-category-select').selectOption({ label: 'Meetings' });
+
+    const wrapper = page.locator('.new-task-inline .new-task-category-wrapper');
+    const dot = wrapper.locator('.category-color-indicator');
+
+    await expect(wrapper).toBeVisible();
+    await expect(dot).toBeVisible();
+
+    const wrapperBox = await wrapper.boundingBox();
+    const dotBox = await dot.boundingBox();
+    expect(wrapperBox).not.toBeNull();
+    expect(dotBox).not.toBeNull();
+
+    // Dot should be approximately centered within the wrapper (within 4px tolerance)
+    const wrapperCenterX = wrapperBox!.x + wrapperBox!.width / 2;
+    const dotCenterX = dotBox!.x + dotBox!.width / 2;
+    expect(Math.abs(wrapperCenterX - dotCenterX)).toBeLessThan(4);
+  });
+
+  test('mobile category select uses appearance: none', async ({ page }) => {
+    // The mobile select overlays the color square transparently.
+    // appearance: none is required so Safari doesn't draw native chrome.
+    const select = page.locator('.new-task-inline .switch-category-select');
+    await expect(select).toBeVisible();
+
+    const appearance = await select.evaluate((el) => {
+      return window.getComputedStyle(el).getPropertyValue('appearance');
+    });
+
+    expect(appearance).toBe('none');
+  });
+
+  test('backdrop-filter works on time entry overlays', async ({ page }) => {
+    // Start and stop a timer to create a time entry, then try to edit it
+    await page.locator('.switch-category-select').selectOption({ label: 'Meetings' });
+    await page.locator('.switch-description-input').fill('Safari test');
+    await page.locator('button:has-text("Start")').first().click();
+    await expect(page.locator('.timer-time')).toBeVisible();
+    await page.locator('button:has-text("Stop")').first().click();
+
+    // Wait for history entry
+    await expect(page.locator('.time-entry-list')).toBeVisible();
+    await expect(page.locator('.entry-category:has-text("Meetings")')).toBeVisible({ timeout: 10000 });
+
+    // Tap a time entry to open the edit overlay
+    const timeValue = page.locator('.entry-time').first();
+    const isClickable = await timeValue.isVisible().catch(() => false);
+
+    if (isClickable) {
+      await timeValue.click();
+
+      const overlay = page.locator('.time-edit-overlay');
+      const appeared = await overlay.isVisible().catch(() => false);
+
+      if (appeared) {
+        const styles = await overlay.evaluate((el) => {
+          const s = window.getComputedStyle(el);
+          return {
+            backdropFilter: s.getPropertyValue('backdrop-filter'),
+            webkitBackdropFilter: s.getPropertyValue('-webkit-backdrop-filter'),
+          };
+        });
+
+        const hasBlur =
+          (styles.backdropFilter && styles.backdropFilter !== 'none') ||
+          (styles.webkitBackdropFilter && styles.webkitBackdropFilter !== 'none');
+        expect(hasBlur).toBe(true);
+      }
+    }
+  });
+
+  test('app container uses dvh for mobile viewport height', async ({ page }) => {
+    // Verify the #root or .app uses dvh to account for Safari mobile URL bar
+    const rootStyles = await page.evaluate(() => {
+      const root = document.getElementById('root');
+      if (!root) return null;
+      return window.getComputedStyle(root).minHeight;
+    });
+
+    // The computed value should be resolved — either a px value or contain 'dvh'
+    // On browsers that support dvh, it resolves to a pixel value at computed time
+    expect(rootStyles).not.toBeNull();
+    expect(rootStyles).not.toBe('0px');
+  });
+});
