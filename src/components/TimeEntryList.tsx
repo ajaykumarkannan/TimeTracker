@@ -1,12 +1,13 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { TimeEntry, Category } from '../types';
 import { api } from '../api';
-import { formatTime, formatTimeCompact, formatDuration, formatDate, formatDateOnly, formatTimeOnly, combineDateAndTime, adjustDateForMidnightCrossing } from '../utils/timeUtils';
+import { formatTime, formatTimeCompact, formatDuration, formatDate } from '../utils/timeUtils';
 import { useTheme } from '../contexts/ThemeContext';
 import { getAdaptiveCategoryColors } from '../hooks/useAdaptiveColors';
 import { useTaskSuggestions } from '../hooks/useTaskSuggestions';
 import { useSwipeGesture } from '../hooks/useSwipeGesture';
 import { useEntryEditor } from '../hooks/useEntryEditor';
+import { useManualEntry } from '../hooks/useManualEntry';
 import { InlineCategoryForm } from './InlineCategoryForm';
 import { TaskSuggestionInput } from './TaskSuggestionInput';
 import './TimeEntryList.css';
@@ -132,23 +133,6 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
     } catch { /* ignore storage errors */ }
   }, [searchQuery, categoryFilter, showFilters]);
 
-  // Manual entry form state
-  const [showManualEntry, setShowManualEntry] = useState(false);
-  const [manualCategory, setManualCategory] = useState<number | ''>('');
-  const [manualDescription, setManualDescription] = useState('');
-  const [manualStartDate, setManualStartDate] = useState('');
-  const [manualStartTime, setManualStartTime] = useState('');
-  const [manualEndDate, setManualEndDate] = useState('');
-  const [manualEndTime, setManualEndTime] = useState('');
-  const [manualError, setManualError] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // State for inline category creation in Add Entry modal
-  const [showManualNewCategory, setShowManualNewCategory] = useState(false);
-
-  // Track if user has manually edited end date (for date defaulting feature)
-  const [endDateManuallySet, setEndDateManuallySet] = useState(false);
-
   // Cleanup suggestions state (persisted to localStorage so "Keep"/"Dismiss" survives refresh)
   const DISMISSED_SHORT_KEY = 'chronoflow:dismissedShortEntries';
   const DISMISSED_MERGE_KEY = 'chronoflow:dismissedMerges';
@@ -164,14 +148,6 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
       const stored = localStorage.getItem(DISMISSED_SHORT_KEY);
       return stored ? new Set(JSON.parse(stored) as number[]) : new Set();
     } catch { return new Set(); }
-  });
-
-  // Task name suggestions for manual entry
-  const manualSuggestions = useTaskSuggestions({
-    value: manualDescription,
-    entryCount: entries.length,
-    tiebreaker: 'count',
-    autoOpen: false,
   });
 
   // Inline entry editor hook (editing state, handlers for category/description/time edits)
@@ -194,6 +170,12 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
     tiebreaker: 'recency',
     autoOpen: false,
   });
+
+  const handleInlineSuggestionSelect = (suggestion: { task_name: string; categoryId: number }) => {
+    editor.setEditDescription(suggestion.task_name);
+    editor.setEditCategory(suggestion.categoryId);
+    inlineSuggestions.completeSelection();
+  };
 
   // Load entries based on date filter
   const loadEntries = useCallback(async (background = false) => {
@@ -265,6 +247,13 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
     // Skip the entryRefreshKey bump in App since we already refreshed the list above
     onEntryChange(undefined, { skipListRefresh: true });
   }, [loadEntries, onEntryChange]);
+
+  // Manual entry form (extracted hook)
+  const manualEntry = useManualEntry({
+    categories,
+    onEntryChange: handleEntryChangeInternal,
+    entryCount: entries.length,
+  });
 
   // Detect back-to-back entries that can be merged (same category + note, consecutive)
   const mergeCandidates = useMemo((): MergeCandidate[] => {
@@ -483,125 +472,6 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
     setSelected(id);
   };
 
-  const openManualEntry = () => {
-    const now = new Date();
-    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
-    setManualStartDate(formatDateOnly(oneHourAgo.toISOString()));
-    setManualStartTime(formatTimeOnly(oneHourAgo.toISOString()));
-    setManualEndDate(formatDateOnly(now.toISOString()));
-    setManualEndTime(formatTimeOnly(now.toISOString()));
-    setManualCategory('');
-    setManualDescription('');
-    setManualError('');
-    manualSuggestions.close();
-    setEndDateManuallySet(false);
-    setShowManualEntry(true);
-  };
-
-  // Open manual entry with pre-filled break time range
-  const openBreakEntry = (breakStart: string, breakEnd: string) => {
-    setManualStartDate(formatDateOnly(breakStart));
-    setManualStartTime(formatTimeOnly(breakStart));
-    setManualEndDate(formatDateOnly(breakEnd));
-    setManualEndTime(formatTimeOnly(breakEnd));
-    setManualCategory('');
-    setManualDescription('');
-    setManualError('');
-    manualSuggestions.close();
-    setEndDateManuallySet(true); // Prevent auto-sync since we're setting both
-    setShowManualEntry(true);
-  };
-
-  const closeManualEntry = () => {
-    setShowManualEntry(false);
-    setManualError('');
-    manualSuggestions.close();
-    setShowManualNewCategory(false);
-  };
-
-  // Handler for start date change - auto-syncs end date if not manually edited
-  const handleStartDateChange = (newStartDate: string) => {
-    setManualStartDate(newStartDate);
-
-    // Auto-set end date if not manually edited (preserves end time value)
-    if (!endDateManuallySet) {
-      setManualEndDate(newStartDate);
-    }
-  };
-
-  // Handler for end date change - marks as manually set
-  const handleEndDateChange = (newEndDate: string) => {
-    setManualEndDate(newEndDate);
-    setEndDateManuallySet(true);
-  };
-
-  // Adjust date when time crosses the midnight boundary (manual entry forms).
-  // Handler for start time change - auto-adjusts date on midnight crossing
-  const handleStartTimeChange = (newTime: string) => {
-    const newStartDate = adjustDateForMidnightCrossing(manualStartTime, newTime, manualStartDate);
-    setManualStartTime(newTime);
-    if (newStartDate !== manualStartDate) {
-      setManualStartDate(newStartDate);
-      // Also sync end date if it hasn't been manually set
-      if (!endDateManuallySet) {
-        setManualEndDate(newStartDate);
-      }
-    }
-  };
-
-  // Handler for end time change - auto-adjusts date on midnight crossing
-  const handleEndTimeChange = (newTime: string) => {
-    const newEndDate = adjustDateForMidnightCrossing(manualEndTime, newTime, manualEndDate);
-    setManualEndTime(newTime);
-    if (newEndDate !== manualEndDate) {
-      setManualEndDate(newEndDate);
-    }
-  };
-
-  const handleManualSuggestionSelect = (suggestion: { task_name: string; categoryId: number }) => {
-    setManualDescription(suggestion.task_name);
-    // Auto-select category based on suggestion's past history
-    if (!manualCategory || manualCategory !== suggestion.categoryId) {
-      setManualCategory(suggestion.categoryId);
-    }
-    manualSuggestions.completeSelection();
-  };
-
-  const handleInlineSuggestionSelect = (suggestion: { task_name: string; categoryId: number }) => {
-    editor.setEditDescription(suggestion.task_name);
-    editor.setEditCategory(suggestion.categoryId);
-    inlineSuggestions.completeSelection();
-  };
-
-  const handleManualSubmit = async () => {
-    if (!manualCategory) {
-      setManualError('Please select a category');
-      return;
-    }
-    if (!manualStartDate || !manualStartTime || !manualEndDate || !manualEndTime) {
-      setManualError('Please set start and end date/time');
-      return;
-    }
-    const start = combineDateAndTime(manualStartDate, manualStartTime);
-    const end = combineDateAndTime(manualEndDate, manualEndTime);
-    if (end <= start) {
-      setManualError('End time must be after start time');
-      return;
-    }
-    setIsSubmitting(true);
-    setManualError('');
-    try {
-      await api.createManualEntry(manualCategory as number, start.toISOString(), end.toISOString(), manualDescription || undefined);
-      closeManualEntry();
-      handleEntryChangeInternal();
-    } catch (error) {
-      setManualError('Failed to create entry. Please try again.');
-      console.error('Failed to create manual entry:', error);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   const handleDelete = async (id: number) => {
     if (!confirm('Delete this time entry?')) return;
     const wasActive = activeEntry?.id === id;
@@ -780,7 +650,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
       <div className="card-header">
         <h2 className="card-title">History</h2>
         <div className="header-actions">
-          <button className="btn btn-primary btn-sm" onClick={openManualEntry}>+ <span className="add-entry-label">Add Entry</span></button>
+          <button className="btn btn-primary btn-sm" onClick={manualEntry.openManualEntry}>+ <span className="add-entry-label">Add Entry</span></button>
           <button
             className={`btn-icon filter-toggle ${showFilters ? 'active' : ''} ${hasActiveFilters ? 'has-filters' : ''}`}
             onClick={() => setShowFilters(!showFilters)}
@@ -800,25 +670,25 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
         </div>
       </div>
 
-      {showManualEntry && (
-        <div className="manual-entry-overlay" onClick={closeManualEntry}>
+      {manualEntry.showManualEntry && (
+        <div className="manual-entry-overlay" onClick={manualEntry.closeManualEntry}>
           <div className="manual-entry-modal" onClick={e => e.stopPropagation()}>
             <div className="manual-entry-header">
               <h3>Add Past Entry</h3>
-              <button className="btn-icon" onClick={closeManualEntry}>×</button>
+              <button className="btn-icon" onClick={manualEntry.closeManualEntry}>×</button>
             </div>
             <div className="manual-entry-form">
               <div className="form-group">
                 <label>Category</label>
                 <select
-                  value={manualCategory}
+                  value={manualEntry.manualCategory}
                   onChange={(e) => {
                     const val = e.target.value;
                     if (val === 'new') {
-                      setShowManualNewCategory(true);
+                      manualEntry.setShowManualNewCategory(true);
                     } else {
-                      setManualCategory(val ? Number(val) : '');
-                      setShowManualNewCategory(false);
+                      manualEntry.setManualCategory(val ? Number(val) : '');
+                      manualEntry.setShowManualNewCategory(false);
                     }
                   }}
                 >
@@ -829,36 +699,36 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
               </div>
 
               {/* Inline category creation form */}
-              {showManualNewCategory && (
+              {manualEntry.showManualNewCategory && (
                 <div className="new-category-form animate-slide-in">
                   <InlineCategoryForm
                     variant="labeled"
                     onCreated={(category) => {
-                      setManualCategory(category.id);
-                      setShowManualNewCategory(false);
+                      manualEntry.setManualCategory(category.id);
+                      manualEntry.setShowManualNewCategory(false);
                       onCategoryChange();
                     }}
-                    onCancel={() => setShowManualNewCategory(false)}
+                    onCancel={() => manualEntry.setShowManualNewCategory(false)}
                   />
                 </div>
               )}
               <div className="form-group">
                 <label>Task <span className="optional">(optional)</span></label>
                 <TaskSuggestionInput
-                  value={manualDescription}
-                  onChange={setManualDescription}
-                  onFocus={manualSuggestions.handleFocus}
+                  value={manualEntry.manualDescription}
+                  onChange={manualEntry.setManualDescription}
+                  onFocus={manualEntry.manualSuggestions.handleFocus}
                   onKeyDown={(e) => {
-                    const selected = manualSuggestions.handleKeyDown(e);
-                    if (selected) handleManualSuggestionSelect(selected);
+                    const selected = manualEntry.manualSuggestions.handleKeyDown(e);
+                    if (selected) manualEntry.handleManualSuggestionSelect(selected);
                   }}
-                  inputRef={manualSuggestions.inputRef}
-                  listRef={manualSuggestions.listRef}
-                  suggestions={manualSuggestions.suggestions}
-                  show={manualSuggestions.showSuggestions}
-                  selectedIndex={manualSuggestions.selectedIndex}
-                  onSelect={handleManualSuggestionSelect}
-                  onHover={manualSuggestions.setSelectedIndex}
+                  inputRef={manualEntry.manualSuggestions.inputRef}
+                  listRef={manualEntry.manualSuggestions.listRef}
+                  suggestions={manualEntry.manualSuggestions.suggestions}
+                  show={manualEntry.manualSuggestions.showSuggestions}
+                  selectedIndex={manualEntry.manualSuggestions.selectedIndex}
+                  onSelect={manualEntry.handleManualSuggestionSelect}
+                  onHover={manualEntry.manualSuggestions.setSelectedIndex}
                   categories={categories}
                   isDarkMode={isDarkMode}
                 />
@@ -866,28 +736,28 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
               <div className="form-row-datetime">
                 <div className="form-group">
                   <label>Start Time</label>
-                  <input type="time" value={manualStartTime} onChange={(e) => handleStartTimeChange(e.target.value)} />
+                  <input type="time" value={manualEntry.manualStartTime} onChange={(e) => manualEntry.handleStartTimeChange(e.target.value)} />
                 </div>
                 <div className="form-group">
                   <label>Start Date</label>
-                  <input type="date" value={manualStartDate} onChange={(e) => handleStartDateChange(e.target.value)} />
+                  <input type="date" value={manualEntry.manualStartDate} onChange={(e) => manualEntry.handleStartDateChange(e.target.value)} />
                 </div>
               </div>
               <div className="form-row-datetime">
                 <div className="form-group">
                   <label>End Time</label>
-                  <input type="time" value={manualEndTime} onChange={(e) => handleEndTimeChange(e.target.value)} />
+                  <input type="time" value={manualEntry.manualEndTime} onChange={(e) => manualEntry.handleEndTimeChange(e.target.value)} />
                 </div>
                 <div className="form-group">
                   <label>End Date</label>
-                  <input type="date" value={manualEndDate} onChange={(e) => handleEndDateChange(e.target.value)} />
+                  <input type="date" value={manualEntry.manualEndDate} onChange={(e) => manualEntry.handleEndDateChange(e.target.value)} />
                 </div>
               </div>
-              {manualError && <div className="manual-entry-error">{manualError}</div>}
+              {manualEntry.manualError && <div className="manual-entry-error">{manualEntry.manualError}</div>}
               <div className="manual-entry-actions">
-                <button className="btn btn-ghost" onClick={closeManualEntry}>Cancel</button>
-                <button className="btn btn-primary" onClick={handleManualSubmit} disabled={isSubmitting}>
-                  {isSubmitting ? 'Adding...' : 'Add Entry'}
+                <button className="btn btn-ghost" onClick={manualEntry.closeManualEntry}>Cancel</button>
+                <button className="btn btn-primary" onClick={manualEntry.handleManualSubmit} disabled={manualEntry.isSubmitting}>
+                  {manualEntry.isSubmitting ? 'Adding...' : 'Add Entry'}
                 </button>
               </div>
             </div>
@@ -1094,7 +964,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                       {showBreak && (
                         <button
                           className="break-indicator"
-                          onClick={() => openBreakEntry(breakStartTime, breakEndTime)}
+                          onClick={() => manualEntry.openBreakEntry(breakStartTime, breakEndTime)}
                           title="Click to add entry for this break"
                         >
                           <span className="break-line" />
