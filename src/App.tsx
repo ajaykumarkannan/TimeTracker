@@ -140,29 +140,34 @@ export function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLogge
     return null;
   }, []);
 
+  // Shared helper: fetch recent entries + active entry, then auto-resume if needed
+  const fetchAndResolveEntries = useCallback(async () => {
+    const [recentEnts, active] = await Promise.all([
+      api.getRecentEntries(20),
+      api.getActiveEntry()
+    ]);
+    const resolvedActive = await autoResumeFutureEntry(recentEnts, active);
+    if (resolvedActive && !active) {
+      const updatedEntries = await api.getRecentEntries(20);
+      setEntries(updatedEntries);
+      setActiveEntry(resolvedActive);
+    } else {
+      setEntries(recentEnts);
+      setActiveEntry(active);
+    }
+  }, [autoResumeFutureEntry]);
+
   // Handle sync events from other tabs/devices
   const handleSyncEvent = useCallback((event: { type: string; source: string }) => {
     if (event.type === 'time-entries' || event.type === 'all') {
-      Promise.all([
-        api.getRecentEntries(20),
-        api.getActiveEntry()
-      ]).then(async ([recentEnts, active]) => {
-        const resolvedActive = await autoResumeFutureEntry(recentEnts, active);
-        if (resolvedActive && !active) {
-          const updatedEntries = await api.getRecentEntries(20);
-          setEntries(updatedEntries);
-          setActiveEntry(resolvedActive);
-        } else {
-          setEntries(recentEnts);
-          setActiveEntry(active);
-        }
+      fetchAndResolveEntries().then(() => {
         setEntryRefreshKey(k => k + 1);
       }).catch(console.error);
     }
     if (event.type === 'categories' || event.type === 'all') {
       api.getCategories().then(setCategories).catch(console.error);
     }
-  }, [autoResumeFutureEntry]);
+  }, [fetchAndResolveEntries]);
 
   // Set up real-time sync
   const { broadcastChange } = useSync({
@@ -209,46 +214,21 @@ export function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLogge
     if (isRefreshingRef.current) return;
     isRefreshingRef.current = true;
     try {
-      const [recentEnts, active] = await Promise.all([
-        api.getRecentEntries(20),
-        api.getActiveEntry()
-      ]);
-      // Check for future end_time entries to auto-resume
-      const resolvedActive = await autoResumeFutureEntry(recentEnts, active);
-      if (resolvedActive && !active) {
-        // Re-fetch entries since one was modified
-        const updatedEntries = await api.getRecentEntries(20);
-        setEntries(updatedEntries);
-        setActiveEntry(resolvedActive);
-      } else {
-        setEntries(recentEnts);
-        setActiveEntry(active);
-      }
+      await fetchAndResolveEntries();
     } catch (error) {
       console.error('Failed to refresh tracker data:', error);
     } finally {
       isRefreshingRef.current = false;
     }
-  }, []);
+  }, [fetchAndResolveEntries]);
 
   const loadData = async () => {
     try {
-      const [cats, recentEnts, active] = await Promise.all([
+      const [cats] = await Promise.all([
         api.getCategories(),
-        api.getRecentEntries(20),
-        api.getActiveEntry()
+        fetchAndResolveEntries()
       ]);
       setCategories(cats);
-      // Check for future end_time entries to auto-resume
-      const resolvedActive = await autoResumeFutureEntry(recentEnts, active);
-      if (resolvedActive && !active) {
-        const updatedEntries = await api.getRecentEntries(20);
-        setEntries(updatedEntries);
-        setActiveEntry(resolvedActive);
-      } else {
-        setEntries(recentEnts);
-        setActiveEntry(active);
-      }
     } catch (error) {
       console.error('Failed to load data:', error);
     }
@@ -359,21 +339,7 @@ export function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLogge
       return;
     }
     // Fallback: full refetch for operations without optimistic data (delete, bulk, etc.)
-    const [recentEnts, active] = await Promise.all([
-      api.getRecentEntries(20),
-      api.getActiveEntry()
-    ]);
-    // Check for future end_time entries to auto-resume (e.g., user edited end_time to future)
-    const resolvedActive = await autoResumeFutureEntry(recentEnts, active);
-    if (resolvedActive && !active) {
-      // Re-fetch entries since one was modified
-      const updatedEntries = await api.getRecentEntries(20);
-      setEntries(updatedEntries);
-      setActiveEntry(resolvedActive);
-    } else {
-      setEntries(recentEnts);
-      setActiveEntry(active);
-    }
+    await fetchAndResolveEntries();
     // Only bump the refresh key if the caller hasn't already refreshed the list
     // (e.g., handleEntryChangeInternal already called loadEntries() before this)
     if (!options?.skipListRefresh) {
