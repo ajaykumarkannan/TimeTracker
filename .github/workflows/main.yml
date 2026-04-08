@@ -126,6 +126,7 @@ jobs:
       - run: npm ci
       - run: npm run build:client
       - run: npm run build:server
+      - run: npm run build:fixcjs
       - uses: actions/upload-artifact@v7
         with:
           name: dist
