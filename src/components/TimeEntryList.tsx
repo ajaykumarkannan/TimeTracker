@@ -8,6 +8,7 @@ import { useTaskSuggestions } from '../hooks/useTaskSuggestions';
 import { useSwipeGesture } from '../hooks/useSwipeGesture';
 import { useEntryEditor } from '../hooks/useEntryEditor';
 import { useManualEntry } from '../hooks/useManualEntry';
+import { useCleanupSuggestions } from '../hooks/useCleanupSuggestions';
 import { InlineCategoryForm } from './InlineCategoryForm';
 import { TaskSuggestionInput } from './TaskSuggestionInput';
 import './TimeEntryList.css';
@@ -37,17 +38,6 @@ interface Props {
   onCategoryChange: () => void;
   refreshKey?: number;
   lastOptimistic?: { active?: TimeEntry | null; stopped?: TimeEntry } | null;
-}
-
-interface MergeCandidate {
-  entries: TimeEntry[];
-  categoryName: string;
-  description: string | null;
-}
-
-interface ShortEntry {
-  entry: TimeEntry;
-  durationSeconds: number;
 }
 
 export function TimeEntryList({ categories, activeEntry, onEntryChange, onCategoryChange, refreshKey, lastOptimistic }: Props) {
@@ -118,23 +108,6 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
       }));
     } catch { /* ignore storage errors */ }
   }, [searchQuery, categoryFilter, showFilters]);
-
-  // Cleanup suggestions state (persisted to localStorage so "Keep"/"Dismiss" survives refresh)
-  const DISMISSED_SHORT_KEY = 'chronoflow:dismissedShortEntries';
-  const DISMISSED_MERGE_KEY = 'chronoflow:dismissedMerges';
-  const [showCleanupBanner, setShowCleanupBanner] = useState(true);
-  const [dismissedMerges, setDismissedMerges] = useState<Set<string>>(() => {
-    try {
-      const stored = localStorage.getItem(DISMISSED_MERGE_KEY);
-      return stored ? new Set(JSON.parse(stored) as string[]) : new Set();
-    } catch { return new Set(); }
-  });
-  const [dismissedShortEntries, setDismissedShortEntries] = useState<Set<number>>(() => {
-    try {
-      const stored = localStorage.getItem(DISMISSED_SHORT_KEY);
-      return stored ? new Set(JSON.parse(stored) as number[]) : new Set();
-    } catch { return new Set(); }
-  });
 
   // Inline entry editor hook (editing state, handlers for category/description/time edits)
   const editor = useEntryEditor({
@@ -241,76 +214,14 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
     entryCount: entries.length,
   });
 
-  // Detect back-to-back entries that can be merged (same category + note, consecutive)
-  const mergeCandidates = useMemo((): MergeCandidate[] => {
-    const candidates: MergeCandidate[] = [];
-    // Sort by start time ascending to find consecutive entries
-    // Type guard ensures end_time is defined for all entries in sorted array
-    const sorted = [...entries]
-      .filter((e): e is TimeEntry & { end_time: string } => e.end_time !== null)
-      .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
-
-    let i = 0;
-    while (i < sorted.length) {
-      const current = sorted[i];
-      const group: (TimeEntry & { end_time: string })[] = [current];
-
-      // Look for consecutive entries with same category and task name
-      let j = i + 1;
-      while (j < sorted.length) {
-        const next = sorted[j];
-        const prev = group[group.length - 1];
-
-        // Check if same category and task_name
-        if (next.category_id !== current.category_id || next.task_name !== current.task_name) break;
-
-        // Check if back-to-back (within 1 minute gap)
-        const prevEnd = new Date(prev.end_time).getTime();
-        const nextStart = new Date(next.start_time).getTime();
-        const gapMs = nextStart - prevEnd;
-
-        if (gapMs < 0 || gapMs > 60000) break; // More than 1 minute gap
-
-        group.push(next);
-        j++;
-      }
-
-      if (group.length > 1) {
-        const key = group.map(e => e.id).sort((a, b) => a - b).join('-');
-        if (!dismissedMerges.has(key)) {
-          candidates.push({
-            entries: group,
-            categoryName: current.category_name,
-            description: current.task_name
-          });
-        }
-      }
-
-      i = j > i + 1 ? j : i + 1;
-    }
-
-    return candidates;
-  }, [entries, dismissedMerges]);
-
-  // Detect entries less than 1 minute
-  const shortEntries = useMemo((): ShortEntry[] => {
-    return entries
-      .filter(e => {
-        if (!e.end_time || dismissedShortEntries.has(e.id)) return false;
-        const start = new Date(e.start_time).getTime();
-        const end = new Date(e.end_time).getTime();
-        const durationMs = end - start;
-        return durationMs < 60000 && durationMs >= 0;
-      })
-      .map(e => ({
-        entry: e,
-        durationSeconds: e.end_time
-          ? Math.round((new Date(e.end_time).getTime() - new Date(e.start_time).getTime()) / 1000)
-          : 0
-      }));
-  }, [entries, dismissedShortEntries]);
-
-  const hasCleanupSuggestions = mergeCandidates.length > 0 || shortEntries.length > 0;
+  // Cleanup suggestions (extracted hook)
+  const cleanup = useCleanupSuggestions({
+    entries,
+    categories,
+    activeEntry,
+    onEntryChange: handleEntryChangeInternal,
+    loadEntries,
+  });
 
   // Check for overlaps with other entries (with 1-minute tolerance for back-to-back meetings)
   const checkOverlap = (entryId: number, start: Date, end: Date | null): TimeEntry | null => {
@@ -499,60 +410,6 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
     }
   };
 
-  // Build the batch-merge payload for a single merge candidate
-  const buildMergeGroup = (candidate: MergeCandidate) => {
-    const sorted = [...candidate.entries].sort((a, b) =>
-      new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
-    );
-    const first = sorted[0];
-    const last = sorted[sorted.length - 1];
-    return {
-      keepId: first.id,
-      deleteIds: sorted.slice(1).map(e => e.id),
-      update: {
-        category_id: first.category_id,
-        task_name: first.task_name,
-        start_time: first.start_time,
-        end_time: last.end_time
-      }
-    };
-  };
-
-  const handleMergeEntries = async (candidate: MergeCandidate) => {
-    try {
-      await api.batchMergeEntries([buildMergeGroup(candidate)]);
-      handleEntryChangeInternal();
-    } catch (error) {
-      console.error('Failed to merge entries:', error);
-    }
-  };
-
-  const handleDismissMerge = (candidate: MergeCandidate) => {
-    const key = candidate.entries.map(e => e.id).sort((a, b) => a - b).join('-');
-    setDismissedMerges(prev => {
-      const next = new Set([...prev, key]);
-      try { localStorage.setItem(DISMISSED_MERGE_KEY, JSON.stringify([...next])); } catch { /* quota */ }
-      return next;
-    });
-  };
-
-  const handleDeleteShortEntry = async (entry: TimeEntry) => {
-    try {
-      await api.deleteEntry(entry.id);
-      handleEntryChangeInternal();
-    } catch (error) {
-      console.error('Failed to delete entry:', error);
-    }
-  };
-
-  const handleDismissShortEntry = (entryId: number) => {
-    setDismissedShortEntries(prev => {
-      const next = new Set([...prev, entryId]);
-      try { localStorage.setItem(DISMISSED_SHORT_KEY, JSON.stringify([...next])); } catch { /* quota */ }
-      return next;
-    });
-  };
-
   const handleDeleteDay = async (dateKey: string) => {
     const date = new Date(dateKey);
     const dateStr = date.toISOString().split('T')[0];
@@ -579,23 +436,6 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
     } catch (error) {
       console.error('Failed to delete entries:', error);
       alert('Failed to delete entries. Please try again.');
-    }
-  };
-
-  const handleApplyAll = async () => {
-    try {
-      // Batch merge all candidates (1 API call instead of N sequential calls per group)
-      if (mergeCandidates.length > 0) {
-        await api.batchMergeEntries(mergeCandidates.map(buildMergeGroup));
-      }
-      // Batch delete all short entries (1 API call instead of N sequential calls)
-      if (shortEntries.length > 0) {
-        await api.batchDeleteEntries(shortEntries.map(({ entry }) => entry.id));
-      }
-      handleEntryChangeInternal();
-    } catch (error) {
-      console.error('Failed to apply all:', error);
-      handleEntryChangeInternal();
     }
   };
 
@@ -906,18 +746,18 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
       )}
 
       {/* Cleanup suggestions banner */}
-      {showCleanupBanner && hasCleanupSuggestions && (
+      {cleanup.showCleanupBanner && cleanup.hasCleanupSuggestions && (
         <div className="cleanup-banner">
           <div className="cleanup-header">
             <span className="cleanup-icon">🧹</span>
             <span className="cleanup-title">Cleanup Suggestions</span>
-            <button className="btn btn-sm btn-primary cleanup-apply-all" onClick={handleApplyAll}>
+            <button className="btn btn-sm btn-primary cleanup-apply-all" onClick={cleanup.handleApplyAll}>
               Apply All
             </button>
-            <button className="btn-icon cleanup-close" onClick={() => setShowCleanupBanner(false)}>×</button>
+            <button className="btn-icon cleanup-close" onClick={() => cleanup.setShowCleanupBanner(false)}>×</button>
           </div>
 
-          {mergeCandidates.map((candidate, idx) => {
+          {cleanup.mergeCandidates.map((candidate, idx) => {
             const totalMinutes = candidate.entries.reduce((sum, e) => sum + (e.duration_minutes || 0), 0);
             return (
               <div key={idx} className="cleanup-item">
@@ -930,14 +770,14 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                   </span>
                 </div>
                 <div className="cleanup-item-actions">
-                  <button className="btn btn-sm btn-primary" onClick={() => handleMergeEntries(candidate)}>Merge</button>
-                  <button className="btn btn-sm btn-ghost" onClick={() => handleDismissMerge(candidate)}>Dismiss</button>
+                  <button className="btn btn-sm btn-primary" onClick={() => cleanup.handleMergeEntries(candidate)}>Merge</button>
+                  <button className="btn btn-sm btn-ghost" onClick={() => cleanup.handleDismissMerge(candidate)}>Dismiss</button>
                 </div>
               </div>
             );
           })}
 
-          {shortEntries.map(({ entry, durationSeconds }) => (
+          {cleanup.shortEntries.map(({ entry, durationSeconds }) => (
             <div key={entry.id} className="cleanup-item">
               <div className="cleanup-item-info">
                 <span className="cleanup-item-icon">⏱️</span>
@@ -948,8 +788,8 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                 </span>
               </div>
               <div className="cleanup-item-actions">
-                <button className="btn btn-sm btn-danger" onClick={() => handleDeleteShortEntry(entry)}>Delete</button>
-                <button className="btn btn-sm btn-ghost" onClick={() => handleDismissShortEntry(entry.id)}>Keep</button>
+                <button className="btn btn-sm btn-danger" onClick={() => cleanup.handleDeleteShortEntry(entry)}>Delete</button>
+                <button className="btn btn-sm btn-ghost" onClick={() => cleanup.handleDismissShortEntry(entry.id)}>Keep</button>
               </div>
             </div>
           ))}
