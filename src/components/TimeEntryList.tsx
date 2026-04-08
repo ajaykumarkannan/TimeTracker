@@ -29,17 +29,6 @@ function useDebounce<T>(value: T, delay: number): T {
   return debouncedValue;
 }
 
-function formatBreakDuration(minutes: number): string {
-  if (minutes < 60) return `${minutes}m`;
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  if (h < 24) return m > 0 ? `${h}h ${m}m` : `${h}h`;
-  const d = Math.floor(h / 24);
-  const rh = h % 24;
-  if (rh === 0 && m === 0) return `${d}d`;
-  if (m === 0) return `${d}d ${rh}h`;
-  return `${d}d ${rh}h ${m}m`;
-}
 
 interface Props {
   categories: Category[];
@@ -107,22 +96,19 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
   // Initialize date filters - default to "This Week" (Monday to Friday)
-  const [dateFrom, setDateFrom] = useState(() => {
-    const today = new Date();
-    const dayOfWeek = today.getDay();
-    const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-    const fromDate = new Date(today.getFullYear(), today.getMonth(), today.getDate() - diff);
-    return `${fromDate.getFullYear()}-${String(fromDate.getMonth() + 1).padStart(2, '0')}-${String(fromDate.getDate()).padStart(2, '0')}`;
-  });
-  const [dateTo, setDateTo] = useState(() => {
+  const getWeekRange = () => {
     const today = new Date();
     const dayOfWeek = today.getDay();
     const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
     const monday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - diff);
     const friday = new Date(monday);
-    friday.setDate(monday.getDate() + 4); // Monday + 4 = Friday
-    return `${friday.getFullYear()}-${String(friday.getMonth() + 1).padStart(2, '0')}-${String(friday.getDate()).padStart(2, '0')}`;
-  });
+    friday.setDate(monday.getDate() + 4);
+    const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    return { from: fmt(monday), to: fmt(friday) };
+  };
+  const weekRange = getWeekRange();
+  const [dateFrom, setDateFrom] = useState(weekRange.from);
+  const [dateTo, setDateTo] = useState(weekRange.to);
 
   // Persist filter state to localStorage (date filters always reset to "This Week" on refresh)
   useEffect(() => {
@@ -645,6 +631,78 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
   const grouped = groupByDate();
   const totalMinutes = getTotalMinutes();
 
+  const renderTimeEditForm = (field: 'startTime' | 'endTime', entry: TimeEntry) => (
+    <form
+      className="inline-edit-time-form"
+      onSubmit={(e) => editor.handleTimeInputSubmit(e, entry.id)}
+      onKeyDown={(e) => editor.handleKeyDown(e, entry.id)}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <input
+        type="time"
+        className="inline-edit-time inline-edit-time-only"
+        value={field === 'startTime' ? editor.editStartTimeOnly : editor.editEndTimeOnly}
+        onChange={(e) => (field === 'startTime' ? editor.handleEditStartTimeOnlyChange : editor.handleEditEndTimeOnlyChange)(e.target.value)}
+        onBlur={(e) => editor.handleTimeBlur(entry.id, field, e)}
+        autoFocus
+      />
+      <input
+        type="date"
+        className="inline-edit-time inline-edit-date"
+        value={field === 'startTime' ? editor.editStartDate : editor.editEndDate}
+        onChange={(e) => (field === 'startTime' ? editor.handleEditStartDateChange : editor.handleEditEndDateChange)(e.target.value)}
+        onBlur={(e) => editor.handleTimeBlur(entry.id, field, e)}
+      />
+      <button type="submit" className="inline-edit-save-btn" title="Save">✓</button>
+      <button type="button" className="inline-edit-cancel-btn" onClick={editor.handleCancel} title="Cancel">✕</button>
+      {editor.editTimeError && <span className="inline-edit-time-error">{editor.editTimeError}</span>}
+    </form>
+  );
+
+  const renderActionButtons = (variant: 'desktop' | 'mobile', entry: TimeEntry) => {
+    const isResumable = entry.id === mostRecentCompletedId && !activeEntry && isMostRecentFresh;
+    const dismiss = variant === 'mobile' ? () => setSwipedEntryId(null) : undefined;
+    const stop = (e: React.MouseEvent) => e.stopPropagation();
+
+    if (!entry.end_time) {
+      return variant === 'desktop' ? (
+        <div className="entry-actions">
+          <span className="btn-icon" style={{ visibility: 'hidden' }}>↻</span>
+          <button className="btn-icon delete-btn" onClick={(e) => { stop(e); handleDelete(entry.id); }} title="Delete">×</button>
+        </div>
+      ) : (
+        <button className="swipe-action-btn delete" onClick={(e) => { stop(e); dismiss?.(); handleDelete(entry.id); }}>×</button>
+      );
+    }
+
+    if (variant === 'desktop') {
+      return (
+        <div className="entry-actions">
+          {isResumable ? (
+            <button className="btn-icon resume-btn" onClick={(e) => { stop(e); handleResume(entry); }} title="Resume">▶</button>
+          ) : (
+            <button className="btn-icon restart-btn" onClick={(e) => { stop(e); handleRestart(entry); }} title="Start new">↻</button>
+          )}
+          <button className="btn-icon delete-btn" onClick={(e) => { stop(e); handleDelete(entry.id); }} title="Delete">×</button>
+        </div>
+      );
+    }
+
+    return (
+      <>
+        {isResumable ? (
+          <>
+            <button className="swipe-action-btn resume" onClick={(e) => { stop(e); dismiss?.(); handleResume(entry); }}>▶</button>
+            <button className="swipe-action-btn restart" onClick={(e) => { stop(e); dismiss?.(); handleRestart(entry); }}>↻</button>
+          </>
+        ) : (
+          <button className="swipe-action-btn restart" onClick={(e) => { stop(e); dismiss?.(); handleRestart(entry); }}>↻</button>
+        )}
+        <button className="swipe-action-btn delete" onClick={(e) => { stop(e); dismiss?.(); handleDelete(entry.id); }}>×</button>
+      </>
+    );
+  };
+
   return (
     <div className="time-entry-list card">
       <div className="card-header">
@@ -968,7 +1026,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                           title="Click to add entry for this break"
                         >
                           <span className="break-line" />
-                          <span className="break-text">{formatBreakDuration(breakMinutes)} break</span>
+                          <span className="break-text">{formatDuration(breakMinutes)} break</span>
                           <span className="break-line" />
                         </button>
                       )}
@@ -1097,31 +1155,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                             </span>
                           )}
                           {isEditing && editor.editField === 'startTime' && !editor.showTimeEditModal ? (
-                            <form
-                              className="inline-edit-time-form"
-                              onSubmit={(e) => editor.handleTimeInputSubmit(e, entry.id)}
-                              onKeyDown={(e) => editor.handleKeyDown(e, entry.id)}
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <input
-                                type="time"
-                                className="inline-edit-time inline-edit-time-only"
-                                value={editor.editStartTimeOnly}
-                                onChange={(e) => editor.handleEditStartTimeOnlyChange(e.target.value)}
-                                onBlur={(e) => editor.handleTimeBlur(entry.id, 'startTime', e)}
-                                autoFocus
-                              />
-                              <input
-                                type="date"
-                                className="inline-edit-time inline-edit-date"
-                                value={editor.editStartDate}
-                                onChange={(e) => editor.handleEditStartDateChange(e.target.value)}
-                                onBlur={(e) => editor.handleTimeBlur(entry.id, 'startTime', e)}
-                              />
-                              <button type="submit" className="inline-edit-save-btn" title="Save">✓</button>
-                              <button type="button" className="inline-edit-cancel-btn" onClick={editor.handleCancel} title="Cancel">✕</button>
-                              {editor.editTimeError && <span className="inline-edit-time-error">{editor.editTimeError}</span>}
-                            </form>
+                            renderTimeEditForm('startTime', entry)
                           ) : (
                              <button
                               className="entry-time-btn editable"
@@ -1135,31 +1169,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                           <span className="end-time-group">
                             <span className="time-separator">&nbsp;–&nbsp;</span>
                             {isEditing && editor.editField === 'endTime' && !editor.showTimeEditModal ? (
-                              <form
-                                className="inline-edit-time-form"
-                                onSubmit={(e) => editor.handleTimeInputSubmit(e, entry.id)}
-                                onKeyDown={(e) => editor.handleKeyDown(e, entry.id)}
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <input
-                                  type="time"
-                                  className="inline-edit-time inline-edit-time-only"
-                                  value={editor.editEndTimeOnly}
-                                  onChange={(e) => editor.handleEditEndTimeOnlyChange(e.target.value)}
-                                  onBlur={(e) => editor.handleTimeBlur(entry.id, 'endTime', e)}
-                                  autoFocus
-                                />
-                                <input
-                                  type="date"
-                                  className="inline-edit-time inline-edit-date"
-                                  value={editor.editEndDate}
-                                  onChange={(e) => editor.handleEditEndDateChange(e.target.value)}
-                                  onBlur={(e) => editor.handleTimeBlur(entry.id, 'endTime', e)}
-                                />
-                                <button type="submit" className="inline-edit-save-btn" title="Save">✓</button>
-                                <button type="button" className="inline-edit-cancel-btn" onClick={editor.handleCancel} title="Cancel">✕</button>
-                                {editor.editTimeError && <span className="inline-edit-time-error">{editor.editTimeError}</span>}
-                              </form>
+                              renderTimeEditForm('endTime', entry)
                             ) : (
                               <button
                                 className={`entry-time-btn editable ${!entry.end_time ? 'active-time' : ''}`}
@@ -1182,11 +1192,11 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                           )}
                           </span>
                           <button
-                            className={`entry-duration-btn ${!entry.end_time ? 'active' : ''}${entry.duration_minutes !== null && entry.duration_minutes !== undefined && entry.duration_minutes < 0 ? ' duration-negative' : ''}`}
+                            className={`entry-duration-btn ${!entry.end_time ? 'active' : ''}${entry.duration_minutes != null && entry.duration_minutes < 0 ? ' duration-negative' : ''}`}
                             onClick={(e) => { e.stopPropagation(); editor.startEdit(entry, 'startTime'); }}
-                            title={entry.duration_minutes !== null && entry.duration_minutes !== undefined && entry.duration_minutes < 0 ? 'Warning: negative duration — start/end times may be incorrect' : 'Tap to edit times'}
+                            title={entry.duration_minutes != null && entry.duration_minutes < 0 ? 'Warning: negative duration — start/end times may be incorrect' : 'Tap to edit times'}
                           >
-                            {entry.duration_minutes !== null && entry.duration_minutes !== undefined && entry.duration_minutes < 0 && (
+                            {entry.duration_minutes != null && entry.duration_minutes < 0 && (
                               <span className="duration-warning-icon" aria-label="Warning">⚠</span>
                             )}
                             {formatDuration(entry.duration_minutes)}
@@ -1194,79 +1204,10 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                         </div>
                       </div>
                       {/* Desktop hover actions */}
-                      {entry.end_time && (
-                        <div className="entry-actions">
-                          {entry.id === mostRecentCompletedId && !activeEntry && isMostRecentFresh ? (
-                            <button
-                              className="btn-icon resume-btn"
-                              onClick={(e) => { e.stopPropagation(); handleResume(entry); }}
-                              title="Resume"
-                            >
-                              ▶
-                            </button>
-                          ) : (
-                            <button
-                              className="btn-icon restart-btn"
-                              onClick={(e) => { e.stopPropagation(); handleRestart(entry); }}
-                              title="Start new"
-                            >
-                              ↻
-                            </button>
-                          )}
-                          <button
-                            className="btn-icon delete-btn"
-                            onClick={(e) => { e.stopPropagation(); handleDelete(entry.id); }}
-                            title="Delete"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      )}
-                      {!entry.end_time && (
-                        <div className="entry-actions">
-                          <span className="btn-icon" style={{ visibility: 'hidden' }}>↻</span>
-                          <button
-                            className="btn-icon delete-btn"
-                            onClick={(e) => { e.stopPropagation(); handleDelete(entry.id); }}
-                            title="Delete"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      )}
+                      {renderActionButtons('desktop', entry)}
                       {/* Mobile swipe actions */}
                       <div className="swipe-actions">
-                        {entry.end_time && (
-                          entry.id === mostRecentCompletedId && !activeEntry && isMostRecentFresh ? (
-                            <>
-                              <button
-                                className="swipe-action-btn resume"
-                                onClick={(e) => { e.stopPropagation(); setSwipedEntryId(null); handleResume(entry); }}
-                              >
-                                ▶
-                              </button>
-                              <button
-                                className="swipe-action-btn restart"
-                                onClick={(e) => { e.stopPropagation(); setSwipedEntryId(null); handleRestart(entry); }}
-                              >
-                                ↻
-                              </button>
-                            </>
-                          ) : (
-                            <button
-                              className="swipe-action-btn restart"
-                              onClick={(e) => { e.stopPropagation(); setSwipedEntryId(null); handleRestart(entry); }}
-                            >
-                              ↻
-                            </button>
-                          )
-                        )}
-                        <button
-                          className="swipe-action-btn delete"
-                          onClick={(e) => { e.stopPropagation(); setSwipedEntryId(null); handleDelete(entry.id); }}
-                        >
-                          ×
-                        </button>
+                        {renderActionButtons('mobile', entry)}
                       </div>
                       </div>
                     </div>
