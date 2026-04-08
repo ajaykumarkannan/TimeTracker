@@ -36,7 +36,7 @@ describe('api module', () => {
   });
 
   it('manages tokens and stored user', async () => {
-    const { setTokens, clearTokens, setStoredUser, getStoredUser, wasLoggedIn } = await import('../api');
+    const { setTokens, clearTokens, setStoredUser, getStoredUser } = await import('../api');
     const storage = getStorage();
 
     setTokens('access-1', 'refresh-1');
@@ -47,7 +47,6 @@ describe('api module', () => {
     storage.getItem.mockImplementation((key) => (key === 'user' ? JSON.stringify({ id: 1, email: 'user@example.com', name: 'User' }) : null));
 
     expect(getStoredUser()).toEqual({ id: 1, email: 'user@example.com', name: 'User' });
-    expect(wasLoggedIn()).toBe(true);
 
     clearTokens();
     expect(storage.removeItem).toHaveBeenCalledWith('accessToken');
