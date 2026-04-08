@@ -45,13 +45,6 @@ export function onAuthStateChange(callback: AuthStateChangeCallback): () => void
   return () => authStateChangeListeners.delete(callback);
 }
 
-/**
- * Check if the user was previously logged in (had tokens stored)
- */
-export function wasLoggedIn(): boolean {
-  return localStorage.getItem('user') !== null;
-}
-
 function notifyAuthStateChange(reason: 'session_expired' | 'refresh_failed') {
   authStateChangeListeners.forEach(callback => {
     try {
@@ -93,10 +86,6 @@ export function getStoredUser(): User | null {
 
 export function setStoredUser(user: User) {
   localStorage.setItem('user', JSON.stringify(user));
-}
-
-export function isLoggedIn(): boolean {
-  return !!accessToken;
 }
 
 /**
@@ -312,39 +301,28 @@ async function apiVoid(url: string, method: string, body?: unknown, errorMsg = '
   }
 }
 
+/** Raw POST without apiFetch (no auth headers / token refresh) */
+async function rawPost<T>(url: string, body: unknown, errorMsg: string): Promise<T> {
+  const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  if (!res.ok) { const error = await res.json().catch(() => ({})); throw new Error((error as Record<string, string>).error || errorMsg); }
+  return res.json();
+}
+
+/** rawPost that also persists the returned auth tokens & user */
+async function rawPostAuth(url: string, body: unknown, errorMsg: string): Promise<AuthResponse> {
+  const data = await rawPost<AuthResponse>(url, body, errorMsg);
+  setTokens(data.accessToken, data.refreshToken);
+  setStoredUser(data.user);
+  return data;
+}
+
 export const api = {
   // Auth - these have side effects (token management) so they use raw fetch
-  async register(email: string, name: string, password: string): Promise<AuthResponse> {
-    const res = await fetch(`${API_BASE}/auth/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, name, password })
-    });
-    if (!res.ok) {
-      const error = await res.json();
-      throw new Error(error.error || 'Registration failed');
-    }
-    const data: AuthResponse = await res.json();
-    setTokens(data.accessToken, data.refreshToken);
-    setStoredUser(data.user);
-    return data;
-  },
+  register: (email: string, name: string, password: string) =>
+    rawPostAuth(`${API_BASE}/auth/register`, { email, name, password }, 'Registration failed'),
 
-  async login(email: string, password: string, rememberMe?: boolean): Promise<AuthResponse> {
-    const res = await fetch(`${API_BASE}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password, rememberMe })
-    });
-    if (!res.ok) {
-      const error = await res.json();
-      throw new Error(error.error || 'Login failed');
-    }
-    const data: AuthResponse = await res.json();
-    setTokens(data.accessToken, data.refreshToken);
-    setStoredUser(data.user);
-    return data;
-  },
+  login: (email: string, password: string, rememberMe?: boolean) =>
+    rawPostAuth(`${API_BASE}/auth/login`, { email, password, rememberMe }, 'Login failed'),
 
   async logout(): Promise<void> {
     if (accessToken) {
@@ -391,9 +369,6 @@ export const api = {
 
   mergeTaskNames: (sourceTaskNames: string[], targetTaskName: string, targetCategoryName?: string) =>
     apiMutate<{ merged: number; entriesUpdated: number; targetTaskName: string }>(`${API_BASE}/time-entries/merge-task-names`, 'POST', { sourceTaskNames, targetTaskName, targetCategoryName }, 'Failed to merge task names'),
-
-  updateTaskNameBulk: (oldTaskName: string, oldCategoryName: string, newTaskName?: string, newCategoryName?: string) =>
-    apiMutate<{ entriesUpdated: number }>(`${API_BASE}/time-entries/update-task-name-bulk`, 'POST', { oldTaskName, oldCategoryName, newTaskName, newCategoryName }, 'Failed to update task names'),
 
   getActiveEntry: () => apiGet<TimeEntry | null>(`${API_BASE}/time-entries/active`, 'Failed to fetch active entry'),
   startEntry: (category_id: number, task_name?: string) => apiMutate<TimeEntry>(`${API_BASE}/time-entries/start`, 'POST', { category_id, task_name }, 'Failed to start entry'),
@@ -451,16 +426,10 @@ export const api = {
     const currentSessionId = getSessionId();
     const res = await fetch(`${API_BASE}/auth/convert`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Session-ID': currentSessionId
-      },
+      headers: { 'Content-Type': 'application/json', 'X-Session-ID': currentSessionId },
       body: JSON.stringify({ email, name, password })
     });
-    if (!res.ok) {
-      const error = await res.json();
-      throw new Error(error.error || 'Conversion failed');
-    }
+    if (!res.ok) { const error = await res.json().catch(() => ({})); throw new Error((error as Record<string, string>).error || 'Conversion failed'); }
     const data: AuthResponse = await res.json();
     setTokens(data.accessToken, data.refreshToken);
     setStoredUser(data.user);
@@ -482,28 +451,10 @@ export const api = {
     clearTokens();
   },
 
-  async forgotPassword(email: string): Promise<{ message: string; resetToken?: string }> {
-    const res = await fetch(`${API_BASE}/auth/forgot-password`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email })
-    });
-    if (!res.ok) {
-      const error = await res.json();
-      throw new Error(error.error || 'Failed to request password reset');
-    }
-    return res.json();
-  },
+  forgotPassword: (email: string) =>
+    rawPost<{ message: string; resetToken?: string }>(`${API_BASE}/auth/forgot-password`, { email }, 'Failed to request password reset'),
 
   async resetPassword(token: string, newPassword: string): Promise<void> {
-    const res = await fetch(`${API_BASE}/auth/reset-password`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token, newPassword })
-    });
-    if (!res.ok) {
-      const error = await res.json();
-      throw new Error(error.error || 'Failed to reset password');
-    }
+    await rawPost<void>(`${API_BASE}/auth/reset-password`, { token, newPassword }, 'Failed to reset password');
   }
 };

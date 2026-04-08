@@ -209,7 +209,6 @@ export function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLogge
     setShowMobileNav(false);
   };
 
-  // Auto-resume an entry whose end_time is in the future (user edited it forward)
   const refreshTrackerData = useCallback(async () => {
     if (isRefreshingRef.current) return;
     isRefreshingRef.current = true;
@@ -356,6 +355,18 @@ export function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLogge
 
   const autoHideHeader = isMobile && isShortViewport && !headerRevealed;
   const headerIsHidden = (headerHidden && isMobile) || autoHideHeader;
+
+  const renderModal = (title: string, onClose: () => void, children: React.ReactNode) => (
+    <div className="settings-modal-overlay" onClick={onClose}>
+      <div className="settings-modal" onClick={e => e.stopPropagation()}>
+        <div className="settings-modal-header">
+          <h2>{title}</h2>
+          <button className="settings-modal-close" onClick={onClose} aria-label={`Close ${title.toLowerCase()}`}>×</button>
+        </div>
+        <div className="settings-modal-content">{children}</div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="app">
@@ -570,45 +581,13 @@ export function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLogge
       </main>
 
       {/* Settings Modal */}
-      {showSettingsModal && (
-        <div className="settings-modal-overlay" onClick={() => setShowSettingsModal(false)}>
-          <div className="settings-modal" onClick={e => e.stopPropagation()}>
-            <div className="settings-modal-header">
-              <h2>Settings</h2>
-              <button 
-                className="settings-modal-close"
-                onClick={() => setShowSettingsModal(false)}
-                aria-label="Close settings"
-              >
-                ×
-              </button>
-            </div>
-            <div className="settings-modal-content">
-              <Settings onLogout={onLogout} onConvertSuccess={onConvertSuccess} />
-            </div>
-          </div>
-        </div>
+      {showSettingsModal && renderModal('Settings', () => setShowSettingsModal(false),
+        <Settings onLogout={onLogout} onConvertSuccess={onConvertSuccess} />
       )}
 
       {/* Help Modal */}
-      {showHelpModal && (
-        <div className="settings-modal-overlay" onClick={() => setShowHelpModal(false)}>
-          <div className="settings-modal" onClick={e => e.stopPropagation()}>
-            <div className="settings-modal-header">
-              <h2>Help</h2>
-              <button 
-                className="settings-modal-close"
-                onClick={() => setShowHelpModal(false)}
-                aria-label="Close help"
-              >
-                ×
-              </button>
-            </div>
-            <div className="settings-modal-content">
-              <Help />
-            </div>
-          </div>
-        </div>
+      {showHelpModal && renderModal('Help', () => setShowHelpModal(false),
+        <Help />
       )}
     </div>
   );
