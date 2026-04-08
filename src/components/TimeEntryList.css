@@ -674,7 +674,7 @@
   font-size: 0.8125rem;
   font-weight: 500;
   color: var(--text-primary);
-  min-width: 3.5rem;
+  min-width: 5rem;
   text-align: right;
   background: none;
   border: none;
@@ -1090,7 +1090,7 @@
   /* Tappable duration on mobile */
   .entry-duration-btn {
     font-size: 0.75rem;
-    min-width: 3.5rem;
+    min-width: 4.5rem;
     padding: 0.25rem 0.25rem;
     text-align: right;
   }
