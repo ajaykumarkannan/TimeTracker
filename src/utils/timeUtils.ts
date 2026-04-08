@@ -140,3 +140,29 @@ export function formatTimeOnly(dateStr: string): string {
 export function combineDateAndTime(dateStr: string, timeStr: string): Date {
   return new Date(`${dateStr}T${timeStr}`);
 }
+
+/**
+ * Adjust date when time crosses the midnight boundary.
+ * Detects when the user scrolls/changes time across midnight:
+ *   e.g. 11:55 PM (23:55) -> 12:05 AM (00:05) means next day
+ *   e.g. 12:05 AM (00:05) -> 11:55 PM (23:55) means previous day
+ * Uses local date arithmetic to avoid UTC conversion bugs across timezones.
+ */
+export function adjustDateForMidnightCrossing(oldTime: string, newTime: string, currentDate: string): string {
+  if (!oldTime || !newTime || !currentDate) return currentDate;
+  const oldHour = parseInt(oldTime.split(':')[0], 10);
+  const newHour = parseInt(newTime.split(':')[0], 10);
+  const hourDiff = newHour - oldHour;
+  const [year, month, day] = currentDate.split('-').map(Number);
+  // Large backward jump (e.g. 23->0, 22->1) means crossed midnight forward
+  if (hourDiff < -12) {
+    const d = new Date(year, month - 1, day + 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+  // Large forward jump (e.g. 0->23, 1->22) means crossed midnight backward
+  if (hourDiff > 12) {
+    const d = new Date(year, month - 1, day - 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+  return currentDate;
+}
