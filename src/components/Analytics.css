@@ -15,10 +15,6 @@
   margin: 0 auto 0.75rem;
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
 /* Chart hint action text */
 .chart-hint-action {
   color: var(--primary);

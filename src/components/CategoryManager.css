@@ -225,7 +225,6 @@
 }
 
 .btn-danger {
-  background: var(--error);
   color: var(--text-on-primary);
   border: none;
 }
