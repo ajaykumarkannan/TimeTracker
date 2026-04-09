@@ -5,6 +5,7 @@ import { downloadFile } from '../utils/downloadUtils';
 import { formatDuration } from '../utils/timeUtils';
 import { useClickOutside } from '../hooks/useClickOutside';
 import { InlineCategoryForm } from './InlineCategoryForm';
+import { Modal } from './Modal';
 import './Analytics.css';
 
 type AggregatedTotal = {
@@ -1583,9 +1584,7 @@ export function Analytics({ refreshKey }: AnalyticsProps = {}) {
         }
         
         return (
-          <div className="modal-overlay" onClick={() => setShowMergeModal(false)}>
-            <div className="merge-modal" onClick={e => e.stopPropagation()}>
-              <h3>Merge Tasks</h3>
+          <Modal title="Merge Tasks" onClose={() => setShowMergeModal(false)} className="merge-modal">
               <p className="merge-info">
                 Select which task name to keep. All {selectedTaskNames.size} items will be merged into the selected one.
               </p>
@@ -1648,8 +1647,7 @@ export function Analytics({ refreshKey }: AnalyticsProps = {}) {
                   {merging ? 'Merging...' : 'Merge'}
                 </button>
               </div>
-            </div>
-          </div>
+          </Modal>
         );
       })()}
 

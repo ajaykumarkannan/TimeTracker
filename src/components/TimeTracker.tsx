@@ -8,6 +8,7 @@ import { getNextAvailableColor } from '../utils/colorUtils';
 import { formatDateTimeLocal } from '../utils/timeUtils';
 import { InlineCategoryForm } from './InlineCategoryForm';
 import { TaskSuggestionInput } from './TaskSuggestionInput';
+import { Modal } from './Modal';
 import './TimeTracker.css';
 
 // Format remaining time for scheduled stop display
@@ -485,12 +486,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
 
       {/* Schedule stop modal */}
       {showScheduleStopModal && (
-            <div className="task-prompt-overlay" onClick={() => setShowScheduleStopModal(false)}>
-              <div className="task-prompt-modal schedule-stop-modal" onClick={e => e.stopPropagation()}>
-                <div className="task-prompt-header">
-                  <span className="task-prompt-title">Set Stop Time</span>
-                </div>
-
+            <Modal title="Set Stop Time" onClose={() => setShowScheduleStopModal(false)} className="schedule-stop-modal">
                 <div className="schedule-mode-tabs">
                   <button
                     className={`schedule-mode-tab ${scheduleMode === 'duration' ? 'active' : ''}`}
@@ -601,8 +597,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                     Set Stop Time
                   </button>
                 </div>
-              </div>
-            </div>
+            </Modal>
           )}
 
           {/* Forgotten timer prompt (8+ hours) */}
@@ -736,11 +731,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
 
       {/* New category modal (shared by start form and switch task inline) */}
       {showNewCategory && (
-        <div className="task-prompt-overlay" onClick={() => setShowNewCategory(false)}>
-          <div className="task-prompt-modal" onClick={e => e.stopPropagation()}>
-            <div className="task-prompt-header">
-              <span className="task-prompt-title">New Category</span>
-            </div>
+        <Modal title="New Category" onClose={() => setShowNewCategory(false)} className="task-prompt-modal">
             <div className="new-category-modal-form">
               <div className="new-category-input-row">
                 <InlineCategoryForm
@@ -755,8 +746,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                 />
               </div>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
 
     </div>

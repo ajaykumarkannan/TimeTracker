@@ -8,64 +8,26 @@
   gap: 0.5rem;
 }
 
-/* Shared modal overlay */
-.manual-entry-overlay,
-.time-edit-overlay {
-  position: fixed;
-  inset: 0;
-  background: var(--overlay-bg);
-  -webkit-backdrop-filter: blur(4px);
-  backdrop-filter: blur(4px);
-  display: flex;
-  justify-content: center;
-  z-index: 1000;
-  animation: fadeIn 0.15s ease;
+/* Manual entry modal size override */
+.manual-entry-modal.modal-container {
+  max-width: 28rem;
 }
 
-.manual-entry-overlay {
-  align-items: center;
-  padding: 1rem;
+/* Time edit modal size/position overrides */
+.time-edit-modal.modal-container {
+  max-width: 32rem;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  animation: slideUpModal 0.2s ease;
 }
 
-.time-edit-overlay {
+.time-edit-modal .modal-overlay {
   align-items: flex-end;
   padding: 0;
 }
 
-/* Shared modal container */
-.manual-entry-modal,
-.time-edit-modal {
-  background: var(--card-bg);
-  border: 1px solid var(--border);
-  width: 100%;
-  box-sizing: border-box;
-  box-shadow: var(--shadow-xl);
-}
-
-.manual-entry-modal {
-  border-radius: var(--radius-xl);
-  max-width: 28rem;
-  animation: scaleIn 0.2s ease;
-}
-
-/* Shared modal header */
-.manual-entry-header,
-.time-edit-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: 1px solid var(--border);
-}
-
-.manual-entry-header { padding: 1.25rem 1.5rem; }
-.time-edit-header { padding: 1rem 1.25rem; }
-
-.manual-entry-header h3,
-.time-edit-header h3 {
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0;
+@keyframes slideUpModal {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
 }
 
 .manual-entry-form {
@@ -866,19 +828,7 @@
 .resume-btn:hover { color: var(--success); }
 .restart-btn:hover { color: var(--primary); }
 
-/* Mobile time-edit modal */
-.time-edit-modal {
-  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
-  max-width: 32rem;
-  overflow: hidden;
-  animation: slideUpModal 0.2s ease;
-}
-
-@keyframes slideUpModal {
-  from { transform: translateY(100%); }
-  to { transform: translateY(0); }
-}
-
+/* Mobile time-edit modal body */
 .time-edit-body {
   padding: 1.25rem;
   display: flex;
@@ -1145,15 +1095,15 @@
   }
 
   /* Manual entry modal improvements */
-  .manual-entry-modal {
+  .manual-entry-modal.modal-container {
     max-width: calc(100vw - 2rem);
     max-height: 90vh;
     overflow-x: hidden;
     overflow-y: auto;
   }
 
-  .manual-entry-header { padding: 1rem 1.25rem; }
-  .manual-entry-form { padding: 1.25rem; }
+  .manual-entry-modal .modal-header { padding: 1rem 1.25rem; }
+  .manual-entry-modal .manual-entry-form { padding: 1.25rem; }
 
   .manual-entry-form select,
   .manual-entry-form input[type="text"],

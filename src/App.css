@@ -477,71 +477,6 @@ body {
   background: var(--card-bg);
 }
 
-/* Settings Modal */
-.settings-modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: 1rem;
-}
-
-.settings-modal {
-  background: var(--card-bg);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-xl);
-  width: 100%;
-  max-width: 600px;
-  max-height: 90vh;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.settings-modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1rem 1.25rem;
-  border-bottom: 1px solid var(--border);
-}
-
-.settings-modal-header h2 {
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0;
-}
-
-.settings-modal-close {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: none;
-  background: transparent;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  color: var(--text-muted);
-  font-size: 1.5rem;
-  line-height: 1;
-  transition: all 0.15s ease;
-}
-
-.settings-modal-close:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-}
-
-.settings-modal-content {
-  padding: 1.25rem;
-  overflow-y: auto;
-}
-
 /* Navigation */
 .app-nav {
   display: flex;
@@ -867,23 +802,6 @@ body {
   .logo-icon {
     width: 24px;
     height: 24px;
-  }
-
-  /* Settings modal full screen on mobile */
-  .settings-modal {
-    max-width: 100%;
-    max-height: 100vh;
-    max-height: 100dvh;
-    border-radius: 0;
-    height: 100%;
-  }
-
-  .settings-modal-overlay {
-    padding: 0;
-  }
-
-  .settings-modal-content {
-    padding: 1rem;
   }
 }
 

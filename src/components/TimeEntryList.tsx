@@ -11,6 +11,7 @@ import { useManualEntry } from '../hooks/useManualEntry';
 import { useCleanupSuggestions } from '../hooks/useCleanupSuggestions';
 import { InlineCategoryForm } from './InlineCategoryForm';
 import { TaskSuggestionInput } from './TaskSuggestionInput';
+import { Modal } from './Modal';
 import './TimeEntryList.css';
 
 // Debounce hook for search input
@@ -569,12 +570,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
       </div>
 
       {manualEntry.showManualEntry && (
-        <div className="manual-entry-overlay" onClick={manualEntry.closeManualEntry}>
-          <div className="manual-entry-modal" onClick={e => e.stopPropagation()}>
-            <div className="manual-entry-header">
-              <h3>Add Past Entry</h3>
-              <button className="btn-icon" onClick={manualEntry.closeManualEntry}>×</button>
-            </div>
+        <Modal title="Add Past Entry" onClose={manualEntry.closeManualEntry} className="manual-entry-modal">
             <div className="manual-entry-form">
               <div className="form-group">
                 <label>Category</label>
@@ -659,8 +655,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
                 </button>
               </div>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
 
       {showFilters && (
@@ -1061,12 +1056,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
 
       {/* Mobile time-edit modal */}
       {editor.showTimeEditModal && editor.editingId && (
-        <div className="time-edit-overlay" onClick={editor.handleTimeModalClose}>
-          <div className="time-edit-modal" onClick={e => e.stopPropagation()}>
-            <div className="time-edit-header">
-              <h3>Edit Time</h3>
-              <button className="btn-icon" onClick={editor.handleTimeModalClose} title="Close">✕</button>
-            </div>
+        <Modal title="Edit Time" onClose={editor.handleTimeModalClose} className="time-edit-modal">
             <div className="time-edit-body">
               <label className="time-edit-label">
                 Start Time
@@ -1124,8 +1114,7 @@ export function TimeEntryList({ categories, activeEntry, onEntryChange, onCatego
               <button className="btn btn-secondary" onClick={editor.handleTimeModalClose}>Cancel</button>
               <button className="btn btn-primary" onClick={editor.handleTimeModalSave}>Save</button>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

@@ -632,7 +632,7 @@ describe('TimeEntryList - Category Creation in Add Entry Modal', () => {
       });
 
       // Close modal by clicking the close button
-      const closeBtn = document.querySelector('.manual-entry-header .btn-icon');
+      const closeBtn = document.querySelector('.modal-close-btn');
       await act(async () => {
         fireEvent.click(closeBtn!);
       });
@@ -678,7 +678,7 @@ describe('TimeEntryList - Category Creation in Add Entry Modal', () => {
       });
 
       // Close modal by clicking overlay
-      const overlay = document.querySelector('.manual-entry-overlay');
+      const overlay = document.querySelector('.modal-overlay');
       await act(async () => {
         fireEvent.click(overlay!);
       });

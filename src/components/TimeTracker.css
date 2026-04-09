@@ -498,39 +498,15 @@
   box-shadow: 0 0 0 3px var(--primary-alpha);
 }
 
-/* Task name prompt modal */
-.task-prompt-overlay {
-  position: fixed;
-  inset: 0;
-  background: var(--overlay-bg);
-  -webkit-backdrop-filter: blur(4px);
-  backdrop-filter: blur(4px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: 1rem;
-  animation: fadeIn 0.15s ease;
+/* Task prompt modal size override */
+.task-prompt-modal.modal-container {
+  max-width: 400px;
 }
 
-.task-prompt-modal {
-  background: var(--card-bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
-  padding: 1.5rem;
-  width: 100%;
-  max-width: 400px;
+.task-prompt-modal .modal-body {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
-  box-shadow: var(--shadow-xl);
-  animation: scaleIn 0.2s ease;
-}
-
-.task-prompt-header {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
 }
 
 .task-prompt-actions {
@@ -878,7 +854,11 @@
   }
 
   /* Task prompt modal mobile */
-  .task-prompt-modal {
+  .task-prompt-modal.modal-container {
+    max-width: calc(100vw - 2rem);
+  }
+
+  .task-prompt-modal .modal-body {
     padding: 1.25rem;
   }
 

@@ -12,6 +12,7 @@ import { Settings } from './components/Settings';
 import { Help } from './components/Help';
 import { ThemeToggle } from './components/ThemeToggle';
 import { LogoIcon } from './components/LogoIcon';
+import { Modal } from './components/Modal';
 import { SettingsIcon, LogoutIcon, HelpIcon, ClockIcon, TagIcon, ChartIcon } from './components/Icons';
 import { api, onApiError } from './api';
 import { useSync } from './hooks/useSync';
@@ -356,18 +357,6 @@ export function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLogge
   const autoHideHeader = isMobile && isShortViewport && !headerRevealed;
   const headerIsHidden = (headerHidden && isMobile) || autoHideHeader;
 
-  const renderModal = (title: string, onClose: () => void, children: React.ReactNode) => (
-    <div className="settings-modal-overlay" onClick={onClose}>
-      <div className="settings-modal" onClick={e => e.stopPropagation()}>
-        <div className="settings-modal-header">
-          <h2>{title}</h2>
-          <button className="settings-modal-close" onClick={onClose} aria-label={`Close ${title.toLowerCase()}`}>×</button>
-        </div>
-        <div className="settings-modal-content">{children}</div>
-      </div>
-    </div>
-  );
-
   return (
     <div className="app">
       {/* Reveal zone: invisible touch target at top of screen to bring header back when auto-hidden */}
@@ -581,13 +570,17 @@ export function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLogge
       </main>
 
       {/* Settings Modal */}
-      {showSettingsModal && renderModal('Settings', () => setShowSettingsModal(false),
-        <Settings onLogout={onLogout} onConvertSuccess={onConvertSuccess} />
+      {showSettingsModal && (
+        <Modal title="Settings" onClose={() => setShowSettingsModal(false)}>
+          <Settings onLogout={onLogout} onConvertSuccess={onConvertSuccess} />
+        </Modal>
       )}
 
       {/* Help Modal */}
-      {showHelpModal && renderModal('Help', () => setShowHelpModal(false),
-        <Help />
+      {showHelpModal && (
+        <Modal title="Help" onClose={() => setShowHelpModal(false)}>
+          <Help />
+        </Modal>
       )}
     </div>
   );

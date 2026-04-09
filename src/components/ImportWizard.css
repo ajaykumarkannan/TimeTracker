@@ -1,43 +1,13 @@
-.import-wizard-overlay {
-  position: fixed;
-  inset: 0;
-  background: var(--overlay-bg);
-  -webkit-backdrop-filter: blur(4px);
-  backdrop-filter: blur(4px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: 1rem;
-  animation: fadeIn 0.15s ease;
-}
-
-.import-wizard {
-  background: var(--card-bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
-  width: 100%;
+/* Import wizard size/layout overrides */
+.import-wizard.modal-container {
   max-width: 56rem;
   max-height: 90vh;
+}
+
+.import-wizard .modal-body {
+  padding: 0;
   display: flex;
   flex-direction: column;
-  box-shadow: var(--shadow-xl);
-  animation: scaleIn 0.2s ease;
-}
-
-.import-wizard-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1.25rem 1.5rem;
-  border-bottom: 1px solid var(--border);
-}
-
-.import-wizard-header h2 {
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0;
 }
 
 .import-wizard-progress {
@@ -393,7 +363,7 @@
 }
 
 @media (max-width: 640px) {
-  .import-wizard {
+  .import-wizard.modal-container {
     max-height: 100vh;
     max-height: 100dvh;
     border-radius: 0;
