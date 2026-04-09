@@ -4,12 +4,6 @@
   gap: 1rem;
 }
 
-.analytics-loading,
-.analytics-error {
-  text-align: center;
-  padding: 3rem;
-  color: var(--text-secondary);
-}
 
 .loading-spinner {
   width: 1.5rem;
@@ -379,17 +373,13 @@
   overflow-x: auto;
   overflow-y: hidden;
   scroll-behavior: smooth;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) var(--bg-secondary);
 }
 
 /* Taller chart when using vertical labels to accommodate fixed label height */
 .daily-chart.vertical-labels {
   height: 12rem;
-}
-
-/* Scrollbar styling — thin scrollbar everywhere, webkit overrides only for non-Safari */
-.daily-chart {
-  scrollbar-width: thin;
-  scrollbar-color: var(--border) var(--bg-secondary);
 }
 
 @supports not (-webkit-touch-callout: none) {
@@ -1332,7 +1322,7 @@
 .merge-option-text {
   font-size: 0.8125rem;
   color: var(--text-primary);
-  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .merge-option-category {

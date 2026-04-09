@@ -986,6 +986,7 @@
     align-self: center;
     min-width: 0;
     flex-wrap: nowrap;
+    transition: transform 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   }
 
   /* When editing time inline, the form takes full width so it doesn't
@@ -1202,10 +1203,6 @@
   /* Wider swipe panel for 3-button entries (Resume + Start New + Delete) */
   .entry-item.swiped.swiped-wide .entry-content {
     transform: translateX(-9rem);
-  }
-
-  .entry-content {
-    transition: transform 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   }
 
   .swipe-action-btn {
