@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../api';
 import { LogoIcon } from './LogoIcon';
+import { Banner } from './Banner';
 import './Login.css';
 
 interface Props {
@@ -135,18 +136,10 @@ export function Login({ onBack, onSuccess, sessionExpired }: Props) {
           <>
             <h2>{mode === 'register' ? 'Create Account' : 'Welcome Back'}</h2>
             {showSessionExpiredMessage && (
-              <div className="session-expired-message">
+              <Banner variant="danger" onDismiss={() => setShowSessionExpiredMessage(false)}>
                 <strong>Session expired</strong>
                 <p>Your session has expired. Please sign in again to continue.</p>
-                <button 
-                  type="button" 
-                  className="dismiss-btn"
-                  onClick={() => setShowSessionExpiredMessage(false)}
-                  aria-label="Dismiss"
-                >
-                  ×
-                </button>
-              </div>
+              </Banner>
             )}
             {error && <div className="error-message">{error}</div>}
             {success && <div className="success-message">{success}</div>}

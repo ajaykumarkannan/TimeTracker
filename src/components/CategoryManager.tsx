@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { Category } from '../types';
 import { api } from '../api';
 import { DEFAULT_CATEGORY_COLOR, getNextAvailableColor } from '../utils/colorUtils';
+import { Modal } from './Modal';
 import './CategoryManager.css';
 
 interface Props {
@@ -191,9 +192,7 @@ export function CategoryManager({ categories, onCategoryChange }: Props) {
       </div>
 
       {deletingCategory && (
-        <div className="modal-overlay" onClick={handleDeleteCancel}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
-            <h3>Delete Category</h3>
+        <Modal title="Delete Category" onClose={handleDeleteCancel} className="delete-category-modal">
             <p>
               Deleting "<strong>{deletingCategory.name}</strong>" will reassign all its time entries to another category.
             </p>
@@ -223,8 +222,7 @@ export function CategoryManager({ categories, onCategoryChange }: Props) {
                 Delete
               </button>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

@@ -2701,7 +2701,7 @@ describe('Modal suggestion mouse interactions', () => {
       const allSetStopTime = screen.getAllByText('Set Stop Time');
       expect(allSetStopTime.length).toBeGreaterThanOrEqual(2); // title + button
       // Verify the modal title specifically
-      const title = document.querySelector('.task-prompt-title');
+      const title = document.querySelector('.modal-header h3');
       expect(title?.textContent).toBe('Set Stop Time');
     });
 
@@ -2757,7 +2757,8 @@ describe('Modal suggestion mouse interactions', () => {
       });
 
       // Click "Set Stop Time" button
-      const submitBtn = screen.getByRole('button', { name: /Set Stop Time/i });
+      const submitBtn = screen.getAllByRole('button', { name: /Set Stop Time/i })
+        .find(btn => btn.classList.contains('btn-primary'))!;
       await act(async () => {
         fireEvent.click(submitBtn);
       });
@@ -2828,7 +2829,8 @@ describe('Modal suggestion mouse interactions', () => {
       });
 
       // Click "Set Stop Time" button
-      const submitBtn = screen.getByRole('button', { name: /Set Stop Time/i });
+      const submitBtn = screen.getAllByRole('button', { name: /Set Stop Time/i })
+        .find(btn => btn.classList.contains('btn-primary'))!;
       await act(async () => {
         fireEvent.click(submitBtn);
       });

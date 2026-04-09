@@ -1225,26 +1225,13 @@
   border-radius: var(--radius-sm, 0.25rem);
 }
 
-/* Merge modal */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: var(--overlay-bg);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: 1rem;
+/* Merge modal size override */
+.merge-modal.modal-container {
+  max-width: 26rem;
 }
 
-.merge-modal {
-  background: var(--bg-primary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg, 0.75rem);
+.merge-modal .modal-body {
   padding: 1.25rem 1.5rem 1.5rem;
-  max-width: 26rem;
-  width: 100%;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 10px 10px -5px rgba(0, 0, 0, 0.08);
 }
 
 .merge-modal h3 {

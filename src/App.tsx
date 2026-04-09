@@ -12,6 +12,8 @@ import { Settings } from './components/Settings';
 import { Help } from './components/Help';
 import { ThemeToggle } from './components/ThemeToggle';
 import { LogoIcon } from './components/LogoIcon';
+import { Modal } from './components/Modal';
+import { Banner } from './components/Banner';
 import { SettingsIcon, LogoutIcon, HelpIcon, ClockIcon, TagIcon, ChartIcon } from './components/Icons';
 import { api, onApiError } from './api';
 import { useSync } from './hooks/useSync';
@@ -356,18 +358,6 @@ export function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLogge
   const autoHideHeader = isMobile && isShortViewport && !headerRevealed;
   const headerIsHidden = (headerHidden && isMobile) || autoHideHeader;
 
-  const renderModal = (title: string, onClose: () => void, children: React.ReactNode) => (
-    <div className="settings-modal-overlay" onClick={onClose}>
-      <div className="settings-modal" onClick={e => e.stopPropagation()}>
-        <div className="settings-modal-header">
-          <h2>{title}</h2>
-          <button className="settings-modal-close" onClick={onClose} aria-label={`Close ${title.toLowerCase()}`}>×</button>
-        </div>
-        <div className="settings-modal-content">{children}</div>
-      </div>
-    </div>
-  );
-
   return (
     <div className="app">
       {/* Reveal zone: invisible touch target at top of screen to bring header back when auto-hidden */}
@@ -489,50 +479,45 @@ export function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLogge
 
       {/* Timezone change prompt */}
       {showTimezonePrompt && detectedTimezone && (
-        <div className="timezone-prompt">
-          <span>
-            Your timezone appears to have changed to <strong>{detectedTimezone.replace(/_/g, ' ')}</strong>. 
-            Currently using <strong>{timezone.replace(/_/g, ' ')}</strong>.
-          </span>
-          <div className="timezone-prompt-actions">
-            <button className="btn-small btn-primary" onClick={acceptDetectedTimezone}>
-              Update
-            </button>
-            <button className="btn-small btn-ghost" onClick={dismissTimezonePrompt}>
-              Dismiss
-            </button>
-          </div>
-        </div>
+        <Banner variant="info" actions={<>
+          <button className="btn-small btn-primary" onClick={acceptDetectedTimezone}>
+            Update
+          </button>
+          <button className="btn-small btn-ghost" onClick={dismissTimezonePrompt}>
+            Dismiss
+          </button>
+        </>}>
+          Your timezone appears to have changed to <strong>{detectedTimezone.replace(/_/g, ' ')}</strong>.{' '}
+          Currently using <strong>{timezone.replace(/_/g, ' ')}</strong>.
+        </Banner>
       )}
 
       {/* Update available banner */}
       {updateAvailable && (
-        <div className="timezone-prompt">
-          <span>A new version of ChronoFlow is available.</span>
-          <div className="timezone-prompt-actions">
-            <button className="btn-small btn-primary" onClick={() => window.location.reload()}>
-              Refresh
-            </button>
-            <button className="btn-small btn-ghost" onClick={() => {
-              dismissedVersionRef.current = serverVersionRef.current;
-              setUpdateAvailable(false);
-            }}>
-              Later
-            </button>
-          </div>
-        </div>
+        <Banner variant="info" actions={<>
+          <button className="btn-small btn-primary" onClick={() => window.location.reload()}>
+            Refresh
+          </button>
+          <button className="btn-small btn-ghost" onClick={() => {
+            dismissedVersionRef.current = serverVersionRef.current;
+            setUpdateAvailable(false);
+          }}>
+            Later
+          </button>
+        </>}>
+          A new version of ChronoFlow is available.
+        </Banner>
       )}
 
       {/* Rate limit warning banner */}
       {rateLimitMsg && (
-        <div className="timezone-prompt" role="alert">
-          <span>{rateLimitMsg}</span>
-          <div className="timezone-prompt-actions">
-            <button className="btn-small btn-ghost" onClick={() => setRateLimitMsg(null)}>
-              Dismiss
-            </button>
-          </div>
-        </div>
+        <Banner variant="info" role="alert" actions={<>
+          <button className="btn-small btn-ghost" onClick={() => setRateLimitMsg(null)}>
+            Dismiss
+          </button>
+        </>}>
+          {rateLimitMsg}
+        </Banner>
       )}
 
       {/* Desktop navigation */}
@@ -581,13 +566,17 @@ export function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLogge
       </main>
 
       {/* Settings Modal */}
-      {showSettingsModal && renderModal('Settings', () => setShowSettingsModal(false),
-        <Settings onLogout={onLogout} onConvertSuccess={onConvertSuccess} />
+      {showSettingsModal && (
+        <Modal title="Settings" onClose={() => setShowSettingsModal(false)}>
+          <Settings onLogout={onLogout} onConvertSuccess={onConvertSuccess} />
+        </Modal>
       )}
 
       {/* Help Modal */}
-      {showHelpModal && renderModal('Help', () => setShowHelpModal(false),
-        <Help />
+      {showHelpModal && (
+        <Modal title="Help" onClose={() => setShowHelpModal(false)}>
+          <Help />
+        </Modal>
       )}
     </div>
   );

@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { api } from '../api';
 import { ColumnMapping, ImportEntry } from '../types';
 import { formatDuration } from '../utils/timeUtils';
+import { Modal } from './Modal';
 import './ImportWizard.css';
 
 interface Props {
@@ -164,24 +165,17 @@ export function ImportWizard({ csv, onClose, onSuccess }: Props) {
 
   if (loading && step === 'mapping') {
     return (
-      <div className="import-wizard-overlay" onClick={onClose}>
-        <div className="import-wizard" onClick={e => e.stopPropagation()}>
+      <Modal title="Import Time Entries" onClose={onClose} className="import-wizard">
           <div className="import-wizard-loading">
             <div className="loading-spinner" />
             <p>Parsing CSV...</p>
           </div>
-        </div>
-      </div>
+      </Modal>
     );
   }
 
   return (
-    <div className="import-wizard-overlay" onClick={onClose}>
-      <div className="import-wizard" onClick={e => e.stopPropagation()}>
-        <div className="import-wizard-header">
-          <h2>Import Time Entries</h2>
-          <button className="btn-icon" onClick={onClose}>×</button>
-        </div>
+    <Modal title="Import Time Entries" onClose={onClose} className="import-wizard">
 
         {/* Progress indicator */}
         <div className="import-wizard-progress">
@@ -431,7 +425,6 @@ export function ImportWizard({ csv, onClose, onSuccess }: Props) {
             </div>
           </div>
         )}
-      </div>
-    </div>
+    </Modal>
   );
 }

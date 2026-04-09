@@ -14,101 +14,6 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* Modal overlay - shared across 6+ components */
-.modal-overlay-base {
-  position: fixed;
-  inset: 0;
-  background: var(--overlay-bg);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: 1rem;
-}
-
-.modal-overlay-blur {
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-  animation: fadeIn 0.15s ease;
-}
-
-/* Modal container - shared base */
-.modal-container-base {
-  background: var(--card-bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-xl);
-  animation: scaleIn 0.2s ease;
-}
-
-/* Modal header - shared base */
-.modal-header-base {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1.25rem 1.5rem;
-  border-bottom: 1px solid var(--border);
-}
-
-.modal-header-base h2 {
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0;
-}
-
-/* Icon button - 34x34 transparent button for toolbar icons */
-.icon-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  padding: 0;
-  border: none;
-  background: transparent;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  color: var(--text-secondary);
-  transition: all var(--transition-fast);
-}
-
-.icon-btn:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-}
-
-.icon-btn svg {
-  width: 18px;
-  height: 18px;
-}
-
-/* Icon button danger variant - for delete/logout actions */
-.icon-btn-danger:hover {
-  background: var(--error-bg);
-  color: var(--error);
-}
-
-/* Text utilities */
-.text-truncate {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.font-mono {
-  font-family: 'JetBrains Mono', monospace;
-}
-
-/* Uppercase label pattern used across forms */
-.label-uppercase {
-  font-size: 0.6875rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
 /* Task suggestion dropdown — shared by TaskSuggestionInput */
 .description-input-wrapper {
   position: relative;
@@ -189,11 +94,4 @@
 .suggestion-count {
   opacity: 0.6;
   font-family: 'JetBrains Mono', monospace;
-}
-
-/* Focus ring utility */
-.focus-ring:focus {
-  outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px var(--primary-alpha);
 }
