@@ -9,6 +9,7 @@ import { formatDateTimeLocal } from '../utils/timeUtils';
 import { InlineCategoryForm } from './InlineCategoryForm';
 import { TaskSuggestionInput } from './TaskSuggestionInput';
 import { Modal } from './Modal';
+import { Banner } from './Banner';
 import './TimeTracker.css';
 
 // Format remaining time for scheduled stop display
@@ -602,12 +603,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
 
           {/* Forgotten timer prompt (8+ hours) */}
       {showForgottenPrompt && activeEntry && (
-        <div className="forgotten-timer-banner">
-          <div className="forgotten-timer-message">
-            <span className="forgotten-timer-icon">⏰</span>
-            <span>This timer has been running for over 8 hours. Did you forget to stop it?</span>
-          </div>
-          <div className="forgotten-timer-actions">
+        <Banner variant="warning" icon={<span>⏰</span>} actions={<>
             <button className="btn btn-ghost" onClick={handleForgottenKeep}>
               Keep all time
             </button>
@@ -628,8 +624,9 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
                 Set end time
               </button>
             </div>
-          </div>
-        </div>
+        </>}>
+          This timer has been running for over 8 hours. Did you forget to stop it?
+        </Banner>
       )}
 
       {/* Row 2: Switch to — recent task buttons */}

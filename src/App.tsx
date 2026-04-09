@@ -13,6 +13,7 @@ import { Help } from './components/Help';
 import { ThemeToggle } from './components/ThemeToggle';
 import { LogoIcon } from './components/LogoIcon';
 import { Modal } from './components/Modal';
+import { Banner } from './components/Banner';
 import { SettingsIcon, LogoutIcon, HelpIcon, ClockIcon, TagIcon, ChartIcon } from './components/Icons';
 import { api, onApiError } from './api';
 import { useSync } from './hooks/useSync';
@@ -478,50 +479,45 @@ export function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLogge
 
       {/* Timezone change prompt */}
       {showTimezonePrompt && detectedTimezone && (
-        <div className="timezone-prompt">
-          <span>
-            Your timezone appears to have changed to <strong>{detectedTimezone.replace(/_/g, ' ')}</strong>. 
-            Currently using <strong>{timezone.replace(/_/g, ' ')}</strong>.
-          </span>
-          <div className="timezone-prompt-actions">
-            <button className="btn-small btn-primary" onClick={acceptDetectedTimezone}>
-              Update
-            </button>
-            <button className="btn-small btn-ghost" onClick={dismissTimezonePrompt}>
-              Dismiss
-            </button>
-          </div>
-        </div>
+        <Banner variant="info" actions={<>
+          <button className="btn-small btn-primary" onClick={acceptDetectedTimezone}>
+            Update
+          </button>
+          <button className="btn-small btn-ghost" onClick={dismissTimezonePrompt}>
+            Dismiss
+          </button>
+        </>}>
+          Your timezone appears to have changed to <strong>{detectedTimezone.replace(/_/g, ' ')}</strong>.{' '}
+          Currently using <strong>{timezone.replace(/_/g, ' ')}</strong>.
+        </Banner>
       )}
 
       {/* Update available banner */}
       {updateAvailable && (
-        <div className="timezone-prompt">
-          <span>A new version of ChronoFlow is available.</span>
-          <div className="timezone-prompt-actions">
-            <button className="btn-small btn-primary" onClick={() => window.location.reload()}>
-              Refresh
-            </button>
-            <button className="btn-small btn-ghost" onClick={() => {
-              dismissedVersionRef.current = serverVersionRef.current;
-              setUpdateAvailable(false);
-            }}>
-              Later
-            </button>
-          </div>
-        </div>
+        <Banner variant="info" actions={<>
+          <button className="btn-small btn-primary" onClick={() => window.location.reload()}>
+            Refresh
+          </button>
+          <button className="btn-small btn-ghost" onClick={() => {
+            dismissedVersionRef.current = serverVersionRef.current;
+            setUpdateAvailable(false);
+          }}>
+            Later
+          </button>
+        </>}>
+          A new version of ChronoFlow is available.
+        </Banner>
       )}
 
       {/* Rate limit warning banner */}
       {rateLimitMsg && (
-        <div className="timezone-prompt" role="alert">
-          <span>{rateLimitMsg}</span>
-          <div className="timezone-prompt-actions">
-            <button className="btn-small btn-ghost" onClick={() => setRateLimitMsg(null)}>
-              Dismiss
-            </button>
-          </div>
-        </div>
+        <Banner variant="info" role="alert" actions={<>
+          <button className="btn-small btn-ghost" onClick={() => setRateLimitMsg(null)}>
+            Dismiss
+          </button>
+        </>}>
+          {rateLimitMsg}
+        </Banner>
       )}
 
       {/* Desktop navigation */}

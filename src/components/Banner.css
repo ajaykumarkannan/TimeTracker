@@ -1,0 +1,72 @@
+/* Banner — shared notification bar */
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem 1rem;
+  border-radius: var(--radius-md);
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  flex-wrap: wrap;
+}
+
+.banner strong {
+  color: var(--text-primary);
+}
+
+/* Variants */
+.banner--info {
+  background: var(--info-bg);
+}
+
+.banner--warning {
+  background: var(--warning-muted);
+  border: 1px solid var(--warning-bg);
+}
+
+.banner--danger {
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid var(--error);
+}
+
+/* Layout slots */
+.banner__icon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.banner__content {
+  flex: 1;
+  min-width: 0;
+}
+
+.banner__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.banner__dismiss {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 1.25rem;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.banner__dismiss:hover {
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+}
