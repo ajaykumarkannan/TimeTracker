@@ -4,6 +4,8 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
 }
 
 :root {
@@ -112,11 +114,6 @@ input::placeholder, textarea::placeholder {
 /* Scrollbar styling — use standard properties so Safari keeps its native
    auto-hiding overlay scrollbar.  The -webkit overrides are scoped to
    non-Safari browsers via @supports to avoid breaking overlay behaviour. */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: var(--border) transparent;
-}
-
 /* Chrome / Edge (non-Safari) — safe to customise the track/thumb */
 @supports not (-webkit-touch-callout: none) {
   ::-webkit-scrollbar {
