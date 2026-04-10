@@ -106,6 +106,13 @@
   max-width: 420px;
 }
 
+.schedule-stop-modal .modal-body {
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
 .schedule-mode-tabs {
   display: flex;
   gap: 0.5rem;
