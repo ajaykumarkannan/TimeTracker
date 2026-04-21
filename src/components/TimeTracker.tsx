@@ -39,8 +39,6 @@ interface RecentTask {
   categoryId: number;
   categoryName: string;
   categoryColor: string | null;
-  count: number;
-  dayOfWeekCount: number; // Count for current day of week
 }
 
 export function TimeTracker({ categories, activeEntry, entries, onEntryChange, onCategoryChange }: Props) {
@@ -90,47 +88,26 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
     taskSuggestions.completeSelection();
   };
 
-  // Get recent tasks from entries (unique task_name + category combinations)
-  // Prioritizes tasks commonly done on the current day of the week
+  // Get the last N unique tasks (by category + task_name), most recent first
   const recentTasks = useMemo((): RecentTask[] => {
-    const taskMap = new Map<string, RecentTask>();
-    const currentDayOfWeek = new Date().getDay(); // 0 = Sunday, 6 = Saturday
+    const seen = new Set<string>();
+    const result: RecentTask[] = [];
 
-    entries
-      .filter((e): e is TimeEntry & { task_name: string } => Boolean(e.task_name && e.task_name.trim()))
-      .forEach(entry => {
-        const key = `${entry.category_id}:${entry.task_name}`;
-        const entryDayOfWeek = new Date(entry.start_time).getDay();
-        const isCurrentDayOfWeek = entryDayOfWeek === currentDayOfWeek;
-
-        const existing = taskMap.get(key);
-        if (existing) {
-          existing.count++;
-          if (isCurrentDayOfWeek) {
-            existing.dayOfWeekCount++;
-          }
-        } else {
-          taskMap.set(key, {
-            task_name: entry.task_name,
-            categoryId: entry.category_id,
-            categoryName: entry.category_name,
-            categoryColor: entry.category_color,
-            count: 1,
-            dayOfWeekCount: isCurrentDayOfWeek ? 1 : 0
-          });
-        }
+    for (const entry of entries) {
+      if (!entry.task_name?.trim()) continue;
+      const key = `${entry.category_id}:${entry.task_name}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      result.push({
+        task_name: entry.task_name,
+        categoryId: entry.category_id,
+        categoryName: entry.category_name,
+        categoryColor: entry.category_color,
       });
+      if (result.length >= 8) break;
+    }
 
-    // Sort by: day-of-week relevance (weighted heavily), then total count
-    // This prioritizes recurring meetings/tasks for the current day
-    return Array.from(taskMap.values())
-      .sort((a, b) => {
-        // Weight day-of-week count heavily (multiply by 5) to prioritize recurring tasks
-        const aScore = a.dayOfWeekCount * 5 + a.count;
-        const bScore = b.dayOfWeekCount * 5 + b.count;
-        return bScore - aScore;
-      })
-      .slice(0, 8);
+    return result;
   }, [entries]);
 
   // Measure how many recent task buttons fit in one row
