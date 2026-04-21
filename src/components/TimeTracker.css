@@ -364,6 +364,7 @@
   color: var(--text-primary);
   cursor: pointer;
   transition: all var(--transition-fast);
+  max-width: 20ch;
   flex-shrink: 0;
   white-space: nowrap;
 }
