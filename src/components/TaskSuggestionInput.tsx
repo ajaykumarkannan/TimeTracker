@@ -38,7 +38,7 @@ export function TaskSuggestionInput({
   onFocus,
   onBlur,
   onKeyDown,
-  placeholder = 'Task (optional)',
+  placeholder = 'Task',
   autoFocus = false,
   inputRef,
   listRef,
