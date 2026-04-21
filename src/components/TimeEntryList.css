@@ -1083,10 +1083,20 @@
     flex-shrink: 0;
   }
 
-  /* Filter inputs touch targets */
+  /* Prevent iOS zoom on input focus */
   .filter-input,
   .filter-select {
     min-height: 44px;
+  }
+
+  /* Allow card header to wrap at narrow widths */
+  .time-entry-list .card-header {
+    flex-wrap: wrap;
+    gap: 0.375rem;
+  }
+
+  .time-entry-list .header-actions {
+    gap: 0.375rem;
   }
 
   .preset-btn {
