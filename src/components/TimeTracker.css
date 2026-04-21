@@ -365,8 +365,8 @@
   cursor: pointer;
   transition: all var(--transition-fast);
   max-width: 180px;
-  min-width: 0;
-  flex-shrink: 1;
+  min-width: 7.5rem;
+  flex-shrink: 0;
 }
 
 .switch-task-btn:hover {
@@ -846,6 +846,11 @@
   .switch-task-btn,
   .switch-category-btn {
     min-height: 44px;
+  }
+
+  .switch-task-btn {
+    min-width: 5.5rem;
+    flex-shrink: 1;
   }
 
   /* Prevent iOS zoom on input focus */
