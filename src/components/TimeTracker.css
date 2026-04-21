@@ -364,9 +364,9 @@
   color: var(--text-primary);
   cursor: pointer;
   transition: all var(--transition-fast);
-  max-width: 180px;
-  min-width: 0;
-  flex-shrink: 1;
+  max-width: 20ch;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .switch-task-btn:hover {
