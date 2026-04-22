@@ -56,15 +56,21 @@ const validDateArb = fc.tuple(
   return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 });
 
+// Today's date string used to filter arbitraries — setting the end date
+// to today's value won't fire a change event since it matches the default.
+const todayStr = (() => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+})();
+
 // Arbitrary for generating valid times (HH:MM format)
 const validTimeArb = fc.tuple(
   fc.integer({ min: 0, max: 23 }),
   fc.integer({ min: 0, max: 59 })
 ).map(([h, m]) => `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
 
-// Arbitrary for generating a sequence of different dates
-const differentDatesArb = fc.tuple(validDateArb, validDateArb)
-  .filter(([d1, d2]) => d1 !== d2);
+// Arbitrary that excludes today's date (for manual end date tests)
+const notTodayDateArb = validDateArb.filter(d => d !== todayStr);
 
 describe('Date Defaulting Property Tests', () => {
   const mockCategories: Category[] = [
@@ -322,9 +328,10 @@ describe('Date Defaulting Property Tests', () => {
     it('should not modify end date after user manually sets it', async () => {
       await fc.assert(
         fc.asyncProperty(
-          differentDatesArb,
+          notTodayDateArb,
           validDateArb,
-          async ([manualEndDate, newStartDate], subsequentStartDate) => {
+          validDateArb,
+          async (manualEndDate, newStartDate, subsequentStartDate) => {
             vi.clearAllMocks();
             cleanup();
 
@@ -375,7 +382,7 @@ describe('Date Defaulting Property Tests', () => {
     it('should preserve manual end date through multiple start date changes', async () => {
       await fc.assert(
         fc.asyncProperty(
-          validDateArb,
+          notTodayDateArb,
           fc.array(validDateArb, { minLength: 2, maxLength: 5 }),
           async (manualEndDate, startDateSequence) => {
             vi.clearAllMocks();
@@ -419,8 +426,9 @@ describe('Date Defaulting Property Tests', () => {
     it('should reset manual flag when modal is reopened', async () => {
       await fc.assert(
         fc.asyncProperty(
-          differentDatesArb,  // Use differentDatesArb to ensure manualEndDate != newStartDate
-          async ([manualEndDate, newStartDate]) => {
+          notTodayDateArb,
+          validDateArb,
+          async (manualEndDate, newStartDate) => {
             vi.clearAllMocks();
             cleanup();
 
