@@ -669,7 +669,7 @@
     display: none;
   }
 
-  /* Mobile grid: timer+stop on row 1, category+task on row 2 */
+  /* Mobile grid: timer+buttons on row 1, info centered on row 2 */
   .active-tracker {
     display: grid;
     grid-template-columns: 1fr auto;
@@ -687,7 +687,7 @@
     grid-column: 1;
     grid-row: 1;
     font-size: clamp(1.25rem, 5.5vw, 1.75rem);
-    min-width: 0;            /* let 1fr column shrink below content size */
+    min-width: 0;
     overflow: hidden;
   }
 
@@ -704,8 +704,9 @@
     flex-direction: row;
     flex-wrap: wrap;
     gap: 0.375rem;
-    min-width: 0;            /* prevent grid blowout */
+    min-width: 0;
     overflow: hidden;
+    justify-content: center;
   }
 
   .timer-info .category-badge {
@@ -721,7 +722,6 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     min-width: 0;
-    flex: 1;
   }
 
   /* #5: Compact Stop/Schedule buttons */
