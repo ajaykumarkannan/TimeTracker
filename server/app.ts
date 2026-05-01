@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import path from 'path';
 import { logger } from './logger';
 import { config, validateConfig } from './config';
@@ -48,6 +49,7 @@ app.use(cors(corsOptions));
 
 // Body parsing with size limit
 app.use(express.json({ limit: config.maxRequestSize }));
+app.use(cookieParser());
 app.use(sanitizeInput);
 
 // Request logging

@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { User } from '../types';
-import { api, getStoredUser, clearTokens, setStoredUser, onAuthStateChange } from '../api';
+import { api, getStoredUser, clearTokens, setStoredUser, onAuthStateChange, restoreSession } from '../api';
 
 interface AuthContextType {
   user: User | null;
@@ -35,13 +35,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const storedUser = getStoredUser();
     if (storedUser) {
-      // Verify token is still valid
-      api.getMe()
-        .then(setUser)
+      // Try to restore session via HttpOnly refresh cookie
+      restoreSession()
+        .then(data => {
+          if (data) {
+            setUser(data.user);
+          } else {
+            // Cookie-based refresh failed — session is truly expired
+            clearTokens();
+            setUser(null);
+            setSessionExpired(true);
+          }
+        })
         .catch(() => {
           clearTokens();
           setUser(null);
-          // If stored user existed but token is invalid, mark session as expired
           setSessionExpired(true);
         })
         .finally(() => setLoading(false));

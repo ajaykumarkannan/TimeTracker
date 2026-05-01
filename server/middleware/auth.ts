@@ -1,8 +1,38 @@
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response, NextFunction, CookieOptions } from 'express';
 import jwt, { SignOptions } from 'jsonwebtoken';
 import { getProvider } from '../database';
 import { logger } from '../logger';
 import { config } from '../config';
+
+/** Cookie name for the refresh token */
+export const REFRESH_TOKEN_COOKIE = 'refresh_token';
+
+/** Build cookie options for the refresh token */
+export function getRefreshCookieOptions(maxAgeMs: number): CookieOptions {
+  return {
+    httpOnly: true,
+    secure: config.nodeEnv === 'production',
+    sameSite: 'strict',
+    path: '/api/auth',  // Only sent to auth endpoints
+    maxAge: maxAgeMs,
+  };
+}
+
+/** Set refresh token cookie on the response */
+export function setRefreshTokenCookie(res: Response, token: string, rememberMe: boolean): void {
+  const maxAgeMs = getRefreshTokenExpiryMs(rememberMe);
+  res.cookie(REFRESH_TOKEN_COOKIE, token, getRefreshCookieOptions(maxAgeMs));
+}
+
+/** Clear refresh token cookie */
+export function clearRefreshTokenCookie(res: Response): void {
+  res.clearCookie(REFRESH_TOKEN_COOKIE, {
+    httpOnly: true,
+    secure: config.nodeEnv === 'production',
+    sameSite: 'strict',
+    path: '/api/auth',
+  });
+}
 
 export interface AuthRequest extends Request {
   userId?: number;
