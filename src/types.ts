@@ -8,7 +8,7 @@ export interface User {
 export interface AuthResponse {
   user: User;
   accessToken: string;
-  refreshToken: string;
+  refreshToken?: string;  // Now delivered via HttpOnly cookie, not in body
 }
 
 export interface Category {

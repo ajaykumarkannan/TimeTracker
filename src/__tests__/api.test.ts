@@ -39,9 +39,9 @@ describe('api module', () => {
     const { setTokens, clearTokens, setStoredUser, getStoredUser } = await import('../api');
     const storage = getStorage();
 
+    // setTokens now only stores access token in-memory (refresh is in HttpOnly cookie)
     setTokens('access-1', 'refresh-1');
-    expect(storage.setItem).toHaveBeenCalledWith('accessToken', 'access-1');
-    expect(storage.setItem).toHaveBeenCalledWith('refreshToken', 'refresh-1');
+    // No localStorage calls for tokens anymore
 
     setStoredUser({ id: 1, email: 'user@example.com', name: 'User' });
     storage.getItem.mockImplementation((key) => (key === 'user' ? JSON.stringify({ id: 1, email: 'user@example.com', name: 'User' }) : null));
@@ -49,27 +49,24 @@ describe('api module', () => {
     expect(getStoredUser()).toEqual({ id: 1, email: 'user@example.com', name: 'User' });
 
     clearTokens();
-    expect(storage.removeItem).toHaveBeenCalledWith('accessToken');
-    expect(storage.removeItem).toHaveBeenCalledWith('refreshToken');
+    // Only user is removed from localStorage now (tokens are in-memory/cookie)
     expect(storage.removeItem).toHaveBeenCalledWith('user');
   });
 
-  it('registers and stores tokens on success', async () => {
+  it('registers and stores user on success', async () => {
     const { api } = await import('../api');
     const storage = getStorage();
     const fetchMock = globalThis.fetch as unknown as ReturnType<typeof vi.fn>;
 
     const response = makeResponse(200, {
       user: { id: 1, email: 'new@example.com', name: 'New' },
-      accessToken: 'access-2',
-      refreshToken: 'refresh-2'
+      accessToken: 'access-2'
     });
     fetchMock.mockResolvedValue(response);
 
     const data = await api.register('new@example.com', 'New', 'password');
     expect(data.accessToken).toBe('access-2');
-    expect(storage.setItem).toHaveBeenCalledWith('accessToken', 'access-2');
-    expect(storage.setItem).toHaveBeenCalledWith('refreshToken', 'refresh-2');
+    // Only user is persisted to localStorage (access token in-memory, refresh in cookie)
     expect(storage.setItem).toHaveBeenCalledWith('user', JSON.stringify({ id: 1, email: 'new@example.com', name: 'New' }));
   });
 
@@ -117,7 +114,8 @@ describe('api module', () => {
 
     await expect(api.getCategories()).rejects.toThrow('Failed to fetch categories');
     expect(listener).toHaveBeenCalledWith('refresh_failed');
-    expect(storage.removeItem).toHaveBeenCalledWith('accessToken');
+    // clearTokens only removes 'user' from localStorage now
+    expect(storage.removeItem).toHaveBeenCalledWith('user');
   });
 
   it('logs out and clears tokens when authenticated', async () => {
@@ -130,8 +128,8 @@ describe('api module', () => {
 
     await api.logout();
 
-    expect(storage.removeItem).toHaveBeenCalledWith('accessToken');
-    expect(storage.removeItem).toHaveBeenCalledWith('refreshToken');
+    // Only 'user' removed from localStorage (access token cleared in-memory, refresh cookie cleared by server)
+    expect(storage.removeItem).toHaveBeenCalledWith('user');
   });
 
   it('handles deleteCategory error response', async () => {

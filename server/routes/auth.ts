@@ -11,7 +11,10 @@ import {
   AuthRequest,
   createDefaultCategories,
   getRefreshTokenExpiryMs,
-  createTokenPair
+  createTokenPair,
+  setRefreshTokenCookie,
+  clearRefreshTokenCookie,
+  REFRESH_TOKEN_COOKIE
 } from '../middleware/auth';
 
 const router = Router();
@@ -52,10 +55,10 @@ router.post('/register', async (req: Request, res: Response) => {
 
     logger.info('User registered', { userId: user.id, email: user.email });
 
+    setRefreshTokenCookie(res, refreshToken, false);
     res.status(201).json({
       user: { id: user.id, email: user.email, name: user.name },
-      accessToken,
-      refreshToken
+      accessToken
     });
   } catch (error) {
     logger.error('Registration error', { error });
@@ -94,10 +97,10 @@ router.post('/login', async (req: Request, res: Response) => {
 
     logger.info('User logged in', { userId: user.id, rememberMe: !!rememberMe });
 
+    setRefreshTokenCookie(res, refreshToken, !!rememberMe);
     res.json({
       user: { id: user.id, email: user.email, name: user.name },
-      accessToken,
-      refreshToken
+      accessToken
     });
   } catch (error) {
     logger.error('Login error', { error });
@@ -108,7 +111,8 @@ router.post('/login', async (req: Request, res: Response) => {
 // Refresh token
 router.post('/refresh', async (req: Request, res: Response) => {
   try {
-    const { refreshToken } = req.body;
+    // Read refresh token from HttpOnly cookie (preferred) or body (legacy fallback)
+    const refreshToken = req.cookies?.[REFRESH_TOKEN_COOKIE] || req.body?.refreshToken;
 
     if (!refreshToken) {
       return res.status(400).json({ error: 'Refresh token required' });
@@ -116,12 +120,14 @@ router.post('/refresh', async (req: Request, res: Response) => {
 
     const payload = verifyToken(refreshToken);
     if (!payload) {
+      clearRefreshTokenCookie(res);
       return res.status(401).json({ error: 'Invalid refresh token' });
     }
 
     const provider = getProvider();
     const tokenRecord = await provider.findRefreshToken(refreshToken);
     if (!tokenRecord) {
+      clearRefreshTokenCookie(res);
       return res.status(401).json({ error: 'Refresh token not found' });
     }
 
@@ -134,12 +140,14 @@ router.post('/refresh', async (req: Request, res: Response) => {
 
     if (new Date(tokenData.expires_at) < new Date()) {
       await provider.deleteRefreshTokenById(tokenData.id);
+      clearRefreshTokenCookie(res);
       return res.status(401).json({ error: 'Refresh token expired' });
     }
 
     // Get user info
     const userRecord = await provider.findUserById(tokenData.user_id);
     if (!userRecord) {
+      clearRefreshTokenCookie(res);
       return res.status(401).json({ error: 'User not found' });
     }
 
@@ -162,10 +170,10 @@ router.post('/refresh', async (req: Request, res: Response) => {
 
     logger.info('Token refreshed', { userId: user.id, rememberMe: isRememberMe });
 
+    setRefreshTokenCookie(res, newRefreshToken, isRememberMe);
     res.json({
       user,
-      accessToken: newAccessToken,
-      refreshToken: newRefreshToken
+      accessToken: newAccessToken
     });
   } catch (error) {
     logger.error('Token refresh error', { error });
@@ -176,7 +184,8 @@ router.post('/refresh', async (req: Request, res: Response) => {
 // Logout
 router.post('/logout', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
-    const { refreshToken } = req.body;
+    // Read refresh token from cookie (preferred) or body (legacy fallback)
+    const refreshToken = req.cookies?.[REFRESH_TOKEN_COOKIE] || req.body?.refreshToken;
     const provider = getProvider();
 
     if (refreshToken) {
@@ -186,6 +195,7 @@ router.post('/logout', authMiddleware, async (req: AuthRequest, res: Response) =
       await provider.deleteRefreshTokensForUser(req.userId as number);
     }
 
+    clearRefreshTokenCookie(res);
     logger.info('User logged out', { userId: req.userId as number });
     res.json({ message: 'Logged out successfully' });
   } catch (error) {
@@ -260,10 +270,10 @@ router.post('/convert', async (req: Request, res: Response) => {
 
     logger.info('Guest converted to account', { userId: guestUserId, email });
 
+    setRefreshTokenCookie(res, refreshToken, false);
     res.json({
       user: { id: guestUserId, email, name },
-      accessToken,
-      refreshToken
+      accessToken
     });
   } catch (error) {
     logger.error('Convert error', { error });

@@ -13,11 +13,14 @@ const MAX_RETRY_DELAY_MS = 10000;
 // Proactive refresh threshold - refresh token when less than this time remains (5 minutes)
 const PROACTIVE_REFRESH_THRESHOLD_MS = 5 * 60 * 1000;
 
-// Session management
-let accessToken: string | null = localStorage.getItem('accessToken');
-let refreshToken: string | null = localStorage.getItem('refreshToken');
+// Session management - access token is in-memory only (refresh token is in HttpOnly cookie)
+let accessToken: string | null = null;
 let sessionId: string | null = localStorage.getItem('sessionId');
 let refreshPromise: Promise<AuthResponse | null> | null = null; // Prevent concurrent refresh attempts
+
+// Clean up legacy localStorage token entries from previous versions
+localStorage.removeItem('accessToken');
+localStorage.removeItem('refreshToken');
 
 // Auth state change listeners - used to notify when a logged-in user gets logged out unexpectedly
 type AuthStateChangeCallback = (reason: 'session_expired' | 'refresh_failed') => void;
@@ -64,18 +67,14 @@ function getSessionId(): string {
   return sessionId;
 }
 
-export function setTokens(access: string, refresh: string) {
+export function setTokens(access: string, _refresh?: string) {
   accessToken = access;
-  refreshToken = refresh;
-  localStorage.setItem('accessToken', access);
-  localStorage.setItem('refreshToken', refresh);
+  // Refresh token is now managed via HttpOnly cookie - no client-side storage
+  // Legacy _refresh parameter kept for API compatibility but ignored
 }
 
 export function clearTokens() {
   accessToken = null;
-  refreshToken = null;
-  localStorage.removeItem('accessToken');
-  localStorage.removeItem('refreshToken');
   localStorage.removeItem('user');
 }
 
@@ -86,6 +85,11 @@ export function getStoredUser(): User | null {
 
 export function setStoredUser(user: User) {
   localStorage.setItem('user', JSON.stringify(user));
+}
+
+/** Check if we have an active access token (session may be restorable via refresh even if false) */
+export function hasAccessToken(): boolean {
+  return accessToken !== null;
 }
 
 /**
@@ -119,13 +123,12 @@ function isTokenExpiringSoon(): boolean {
 
 /**
  * Perform a token refresh, deduplicating concurrent attempts.
+ * The refresh token is sent automatically via HttpOnly cookie.
  * Both proactive refresh and reactive 401 retry share this function
  * so that only one refresh request is in-flight at a time.
  * Returns the new AuthResponse on success, or null on failure.
  */
 async function performTokenRefresh(): Promise<AuthResponse | null> {
-  if (!refreshToken) return null;
-
   // Prevent concurrent refresh attempts -- reuse in-flight request
   if (refreshPromise) {
     return refreshPromise as Promise<AuthResponse | null>;
@@ -136,12 +139,13 @@ async function performTokenRefresh(): Promise<AuthResponse | null> {
       const refreshRes = await fetchWithTimeout(`${API_BASE}/auth/refresh`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refreshToken })
+        credentials: 'include',  // Send HttpOnly cookie
+        body: JSON.stringify({})  // Empty body - token comes from cookie
       });
 
       if (refreshRes.ok) {
         const data: AuthResponse = await refreshRes.json();
-        setTokens(data.accessToken, data.refreshToken);
+        accessToken = data.accessToken;
         setStoredUser(data.user);
         return data;
       } else {
@@ -162,12 +166,20 @@ async function performTokenRefresh(): Promise<AuthResponse | null> {
  * Returns true if refresh was successful or not needed, false if refresh failed
  */
 async function proactiveRefresh(): Promise<boolean> {
-  if (!refreshToken || !isTokenExpiringSoon()) {
+  if (!accessToken || !isTokenExpiringSoon()) {
     return true; // No refresh needed
   }
   
   const result = await performTokenRefresh();
   return result !== null;
+}
+
+/**
+ * Attempt to restore a session on page load using the HttpOnly refresh cookie.
+ * Returns the user if session was restored, null otherwise.
+ */
+export async function restoreSession(): Promise<AuthResponse | null> {
+  return performTokenRefresh();
 }
 
 /**
@@ -202,7 +214,7 @@ async function apiFetch(url: string, options: RequestInit = {}, { skipProactiveR
   // Mutations can opt out via skipProactiveRefresh so the request isn't blocked by
   // a slow refresh round-trip (e.g. after wake from sleep). The 401 retry path below
   // handles expired tokens as a fallback.
-  if (!skipProactiveRefresh && accessToken && refreshToken) {
+  if (!skipProactiveRefresh && accessToken) {
     await proactiveRefresh();
   }
 
@@ -218,7 +230,7 @@ async function apiFetch(url: string, options: RequestInit = {}, { skipProactiveR
     (headers as Record<string, string>)['X-Session-ID'] = getSessionId();
   }
 
-  let res = await fetchWithTimeout(url, { ...options, headers });
+  let res = await fetchWithTimeout(url, { ...options, headers, credentials: 'include' });
 
   // Handle rate limiting with automatic retry
   // Instead of immediately failing, wait for the rate limit window to reset and retry.
@@ -230,7 +242,7 @@ async function apiFetch(url: string, options: RequestInit = {}, { skipProactiveR
         ? Math.min(MAX_RETRY_DELAY_MS, Math.max(MIN_RETRY_DELAY_MS, (retryAfter - Math.floor(Date.now() / 1000)) * 1000))
         : MIN_RETRY_DELAY_MS * (attempt + 1);
       await new Promise(resolve => setTimeout(resolve, waitMs));
-      res = await fetchWithTimeout(url, { ...options, headers });
+      res = await fetchWithTimeout(url, { ...options, headers, credentials: 'include' });
       if (res.status !== 429) break;
     }
     // If still rate-limited after retries, notify UI and throw
@@ -247,15 +259,14 @@ async function apiFetch(url: string, options: RequestInit = {}, { skipProactiveR
     }
   }
 
-  // If unauthorized and we have a refresh token, try to refresh
-  // Uses the shared performTokenRefresh() to deduplicate concurrent 401 retries
-  if (res.status === 401 && refreshToken) {
+  // If unauthorized, try to refresh via cookie
+  if (res.status === 401 && accessToken) {
     const data = await performTokenRefresh();
 
     if (data) {
       (headers as Record<string, string>)['Authorization'] = `Bearer ${data.accessToken}`;
       delete (headers as Record<string, string>)['X-Session-ID'];
-      res = await fetchWithTimeout(url, { ...options, headers });
+      res = await fetchWithTimeout(url, { ...options, headers, credentials: 'include' });
     } else {
       // User was logged in but refresh failed - notify listeners
       // This prevents falling back to guest mode silently
@@ -301,17 +312,20 @@ async function apiVoid(url: string, method: string, body?: unknown, errorMsg = '
   }
 }
 
-/** Raw POST without apiFetch (no auth headers / token refresh) */
-async function rawPost<T>(url: string, body: unknown, errorMsg: string): Promise<T> {
-  const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-  if (!res.ok) { const error = await res.json().catch(() => ({})); throw new Error((error as Record<string, string>).error || errorMsg); }
-  return res.json();
-}
-
-/** rawPost that also persists the returned auth tokens & user */
+/** Raw POST with credentials (for auth endpoints that set cookies) */
 async function rawPostAuth(url: string, body: unknown, errorMsg: string): Promise<AuthResponse> {
-  const data = await rawPost<AuthResponse>(url, body, errorMsg);
-  setTokens(data.accessToken, data.refreshToken);
+  const res = await fetchWithTimeout(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',  // Receive and store HttpOnly cookie
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({}));
+    throw new Error((error as Record<string, string>).error || errorMsg);
+  }
+  const data: AuthResponse = await res.json();
+  accessToken = data.accessToken;
   setStoredUser(data.user);
   return data;
 }
@@ -327,9 +341,13 @@ export const api = {
   async logout(): Promise<void> {
     if (accessToken) {
       try {
-        await apiFetch(`${API_BASE}/auth/logout`, {
+        await fetchWithTimeout(`${API_BASE}/auth/logout`, {
           method: 'POST',
-          body: JSON.stringify({ refreshToken })
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`
+          },
+          credentials: 'include'  // Send cookie so server can delete the refresh token
         });
       } catch {
         // Ignore logout errors
@@ -424,14 +442,15 @@ export const api = {
 
   async convertGuestToAccount(email: string, name: string, password: string): Promise<AuthResponse> {
     const currentSessionId = getSessionId();
-    const res = await fetch(`${API_BASE}/auth/convert`, {
+    const res = await fetchWithTimeout(`${API_BASE}/auth/convert`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-Session-ID': currentSessionId },
+      credentials: 'include',
       body: JSON.stringify({ email, name, password })
     });
     if (!res.ok) { const error = await res.json().catch(() => ({})); throw new Error((error as Record<string, string>).error || 'Conversion failed'); }
     const data: AuthResponse = await res.json();
-    setTokens(data.accessToken, data.refreshToken);
+    accessToken = data.accessToken;
     setStoredUser(data.user);
     sessionId = null;
     localStorage.removeItem('sessionId');
@@ -451,10 +470,23 @@ export const api = {
     clearTokens();
   },
 
-  forgotPassword: (email: string) =>
-    rawPost<{ message: string; resetToken?: string }>(`${API_BASE}/auth/forgot-password`, { email }, 'Failed to request password reset'),
+  forgotPassword: (email: string) => {
+    return fetchWithTimeout(`${API_BASE}/auth/forgot-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    }).then(async res => {
+      if (!res.ok) { const error = await res.json().catch(() => ({})); throw new Error((error as Record<string, string>).error || 'Failed to request password reset'); }
+      return res.json() as Promise<{ message: string; resetToken?: string }>;
+    });
+  },
 
   async resetPassword(token: string, newPassword: string): Promise<void> {
-    await rawPost<void>(`${API_BASE}/auth/reset-password`, { token, newPassword }, 'Failed to reset password');
+    const res = await fetchWithTimeout(`${API_BASE}/auth/reset-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, newPassword })
+    });
+    if (!res.ok) { const error = await res.json().catch(() => ({})); throw new Error((error as Record<string, string>).error || 'Failed to reset password'); }
   }
 };
