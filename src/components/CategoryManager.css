@@ -82,12 +82,44 @@
   opacity: 1;
 }
 
+.category-item-editing {
+  background: var(--bg-secondary);
+}
+
 .category-info {
   display: flex;
   align-items: center;
   gap: 0.875rem;
   min-width: 0;
   flex: 1;
+}
+
+/* Inline edit form */
+.category-edit-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.category-edit-input {
+  flex: 1;
+  height: 36px;
+  min-width: 0;
+  padding: 0 0.75rem;
+  border: 1.5px solid var(--primary);
+  border-radius: var(--radius-md);
+  background: var(--input-bg);
+  color: var(--text-primary);
+  font-size: 0.9375rem;
+  outline: none;
+  box-shadow: 0 0 0 3px var(--primary-alpha);
+}
+
+.category-edit-actions {
+  display: flex;
+  gap: 0.25rem;
+  flex-shrink: 0;
 }
 
 .category-color {
@@ -171,6 +203,11 @@
   }
 
   .category-name {
+    font-size: 0.875rem;
+  }
+
+  .category-edit-input {
+    height: 32px;
     font-size: 0.875rem;
   }
 }
