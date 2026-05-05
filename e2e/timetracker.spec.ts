@@ -72,9 +72,12 @@ test.describe('Time Tracker E2E', () => {
     const categoryRow = page.locator('.category-item', { has: page.locator('.category-name:has-text("TestCategory")') });
     await categoryRow.locator('button[title="Edit"]').click();
     
-    await expect(page.locator('h2:has-text("Edit Category")')).toBeVisible();
-    await page.fill('input[placeholder="Category name"]', 'RenamedCategory');
-    await page.click('button:has-text("Update")');
+    // Inline edit: the row transforms into an edit form
+    const editingRow = page.locator('.category-item-editing');
+    const editInput = editingRow.locator('.category-edit-input');
+    await expect(editInput).toBeVisible();
+    await editInput.fill('RenamedCategory');
+    await editingRow.locator('button[title="Save"]').click();
     await expect(page.locator('.category-name:has-text("RenamedCategory")')).toBeVisible({ timeout: 10000 });
 
     // Delete category - categories without time entries delete immediately

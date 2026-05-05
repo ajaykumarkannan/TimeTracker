@@ -68,7 +68,7 @@ describe('CategoryManager', () => {
     expect(screen.getByText(/No categories yet/)).toBeInTheDocument();
   });
 
-  it('edits existing category', async () => {
+  it('edits existing category inline', async () => {
     render(
       <CategoryManager 
         categories={mockCategories} 
@@ -80,14 +80,39 @@ describe('CategoryManager', () => {
     const editButtons = screen.getAllByTitle('Edit');
     fireEvent.click(editButtons[0]);
     
-    // Should show edit form with category name
+    // Should show inline edit input with category name
     const input = screen.getByDisplayValue('Development');
     expect(input).toBeInTheDocument();
     
-    // Change name and submit
+    // Change name and click save
     fireEvent.change(input, { target: { value: 'Updated Dev' } });
-    const updateButton = screen.getByRole('button', { name: /update/i });
-    fireEvent.click(updateButton);
+    const saveButton = screen.getByTitle('Save');
+    fireEvent.click(saveButton);
+    
+    await waitFor(() => {
+      expect(api.updateCategory).toHaveBeenCalledWith(1, 'Updated Dev', '#007bff');
+      expect(mockOnCategoryChange).toHaveBeenCalled();
+    });
+  });
+
+  it('edits existing category inline with Enter key', async () => {
+    render(
+      <CategoryManager 
+        categories={mockCategories} 
+        onCategoryChange={mockOnCategoryChange}
+      />
+    );
+    
+    // Click edit button on first category
+    const editButtons = screen.getAllByTitle('Edit');
+    fireEvent.click(editButtons[0]);
+    
+    // Should show inline edit input with category name
+    const input = screen.getByDisplayValue('Development');
+    
+    // Change name and press Enter
+    fireEvent.change(input, { target: { value: 'Updated Dev' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
     
     await waitFor(() => {
       expect(api.updateCategory).toHaveBeenCalledWith(1, 'Updated Dev', '#007bff');
@@ -234,7 +259,7 @@ describe('CategoryManager', () => {
     expect(screen.queryByText(/Delete Category/)).not.toBeInTheDocument();
   });
 
-  it('cancels edit when cancel button clicked', async () => {
+  it('cancels inline edit when cancel button clicked', async () => {
     render(
       <CategoryManager 
         categories={mockCategories} 
@@ -246,20 +271,40 @@ describe('CategoryManager', () => {
     const editButtons = screen.getAllByTitle('Edit');
     fireEvent.click(editButtons[0]);
     
-    // Should show edit form
+    // Should show inline edit form
     expect(screen.getByDisplayValue('Development')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /cancel/i })).toBeInTheDocument();
     
-    // Click cancel
-    const cancelButton = screen.getByRole('button', { name: /cancel/i });
+    // Click the inline cancel button (✕)
+    const cancelButton = screen.getByTitle('Cancel');
     fireEvent.click(cancelButton);
     
-    // Form should reset - input should be empty
-    const input = screen.getByPlaceholderText(/category name/i);
-    expect(input).toHaveValue('');
+    // Should return to display mode - category name should show as text
+    expect(screen.getByText('Development')).toBeInTheDocument();
+    // The inline edit input should be gone
+    expect(screen.queryByDisplayValue('Development')).not.toBeInTheDocument();
+  });
+
+  it('cancels inline edit with Escape key', async () => {
+    render(
+      <CategoryManager 
+        categories={mockCategories} 
+        onCategoryChange={mockOnCategoryChange}
+      />
+    );
     
-    // Should show Add button again (not Update)
-    expect(screen.getByRole('button', { name: /add/i })).toBeInTheDocument();
+    // Click edit button on first category
+    const editButtons = screen.getAllByTitle('Edit');
+    fireEvent.click(editButtons[0]);
+    
+    // Should show inline edit form
+    const input = screen.getByDisplayValue('Development');
+    
+    // Press Escape
+    fireEvent.keyDown(input, { key: 'Escape' });
+    
+    // Should return to display mode
+    expect(screen.getByText('Development')).toBeInTheDocument();
+    expect(screen.queryByDisplayValue('Development')).not.toBeInTheDocument();
   });
 
   it('shows error toast for non-replacement delete errors', async () => {

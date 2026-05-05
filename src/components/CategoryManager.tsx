@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { Category } from '../types';
 import { api } from '../api';
 import { DEFAULT_CATEGORY_COLOR, getNextAvailableColor } from '../utils/colorUtils';
@@ -19,28 +19,32 @@ export function CategoryManager({ categories, onCategoryChange }: Props) {
   const [name, setName] = useState('');
   const [color, setColor] = useState(nextColor);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editColor, setEditColor] = useState('');
   const [deletingCategory, setDeletingCategory] = useState<Category | null>(null);
   const [replacementId, setReplacementId] = useState<number | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const editInputRef = useRef<HTMLInputElement>(null);
 
-  // Update default color when categories change (and not editing)
+  // Update default color when categories change
   useMemo(() => {
-    if (!editingId) {
-      setColor(nextColor);
-    }
-  }, [nextColor, editingId]);
+    setColor(nextColor);
+  }, [nextColor]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Focus the inline edit input when editing starts
+  useEffect(() => {
+    if (editingId && editInputRef.current) {
+      editInputRef.current.focus();
+      editInputRef.current.select();
+    }
+  }, [editingId]);
+
+  const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
 
     try {
-      if (editingId) {
-        await api.updateCategory(editingId, name, color);
-        setEditingId(null);
-      } else {
-        await api.createCategory(name, color);
-      }
+      await api.createCategory(name, color);
       setName('');
       setColor(nextColor);
       onCategoryChange();
@@ -50,9 +54,38 @@ export function CategoryManager({ categories, onCategoryChange }: Props) {
   };
 
   const handleEdit = (category: Category) => {
-    setName(category.name);
-    setColor(category.color || DEFAULT_CATEGORY_COLOR);
     setEditingId(category.id);
+    setEditName(category.name);
+    setEditColor(category.color || DEFAULT_CATEGORY_COLOR);
+  };
+
+  const handleEditSubmit = async (categoryId: number) => {
+    if (!editName.trim()) return;
+
+    try {
+      await api.updateCategory(categoryId, editName, editColor);
+      setEditingId(null);
+      setEditName('');
+      setEditColor('');
+      onCategoryChange();
+    } catch (error) {
+      console.error('Failed to update category:', error);
+    }
+  };
+
+  const handleEditCancel = () => {
+    setEditingId(null);
+    setEditName('');
+    setEditColor('');
+  };
+
+  const handleEditKeyDown = (e: React.KeyboardEvent, categoryId: number) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleEditSubmit(categoryId);
+    } else if (e.key === 'Escape') {
+      handleEditCancel();
+    }
   };
 
   const handleDeleteClick = async (category: Category) => {
@@ -102,21 +135,15 @@ export function CategoryManager({ categories, onCategoryChange }: Props) {
     setReplacementId(null);
   };
 
-  const handleCancel = () => {
-    setName('');
-    setColor(nextColor);
-    setEditingId(null);
-  };
-
   const availableReplacements = categories.filter(c => c.id !== deletingCategory?.id);
 
   return (
     <div className="category-manager">
       <div className="card">
         <div className="card-header">
-          <h2 className="card-title">{editingId ? 'Edit Category' : 'New Category'}</h2>
+          <h2 className="card-title">New Category</h2>
         </div>
-        <form onSubmit={handleSubmit} className="category-form">
+        <form onSubmit={handleCreate} className="category-form">
           <input
             type="text"
             value={name}
@@ -132,13 +159,8 @@ export function CategoryManager({ categories, onCategoryChange }: Props) {
             className="color-picker-small"
           />
           <div className="btn-group">
-            {editingId && (
-              <button type="button" className="btn btn-ghost" onClick={handleCancel}>
-                Cancel
-              </button>
-            )}
             <button type="submit" className="btn btn-primary">
-              {editingId ? 'Update' : 'Add'}
+              Add
             </button>
           </div>
         </form>
@@ -157,30 +179,69 @@ export function CategoryManager({ categories, onCategoryChange }: Props) {
         ) : (
           <div className="categories-list">
             {categories.map(category => (
-              <div key={category.id} className="category-item">
-                <div className="category-info">
-                  <div 
-                    className="category-color" 
-                    style={{ backgroundColor: category.color || DEFAULT_CATEGORY_COLOR }}
-                  />
-                  <span className="category-name">{category.name}</span>
-                </div>
-                <div className="category-actions">
-                  <button 
-                    className="btn-icon" 
-                    onClick={() => handleEdit(category)}
-                    title="Edit"
-                  >
-                    ✏️
-                  </button>
-                  <button 
-                    className="btn-icon" 
-                    onClick={() => handleDeleteClick(category)}
-                    title="Delete"
-                  >
-                    🗑️
-                  </button>
-                </div>
+              <div key={category.id} className={`category-item ${editingId === category.id ? 'category-item-editing' : ''}`}>
+                {editingId === category.id ? (
+                  <div className="category-edit-inline">
+                    <input
+                      type="color"
+                      value={editColor}
+                      onChange={(e) => setEditColor(e.target.value)}
+                      className="color-picker-small"
+                    />
+                    <input
+                      ref={editInputRef}
+                      type="text"
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      onKeyDown={(e) => handleEditKeyDown(e, category.id)}
+                      className="category-edit-input"
+                      placeholder="Category name"
+                    />
+                    <div className="category-edit-actions">
+                      <button
+                        className="btn-icon"
+                        onClick={() => handleEditSubmit(category.id)}
+                        title="Save"
+                        disabled={!editName.trim()}
+                      >
+                        ✓
+                      </button>
+                      <button
+                        className="btn-icon"
+                        onClick={handleEditCancel}
+                        title="Cancel"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="category-info">
+                      <div 
+                        className="category-color" 
+                        style={{ backgroundColor: category.color || DEFAULT_CATEGORY_COLOR }}
+                      />
+                      <span className="category-name">{category.name}</span>
+                    </div>
+                    <div className="category-actions">
+                      <button 
+                        className="btn-icon" 
+                        onClick={() => handleEdit(category)}
+                        title="Edit"
+                      >
+                        ✏️
+                      </button>
+                      <button 
+                        className="btn-icon" 
+                        onClick={() => handleDeleteClick(category)}
+                        title="Delete"
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             ))}
           </div>
