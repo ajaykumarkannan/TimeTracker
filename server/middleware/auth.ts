@@ -12,7 +12,7 @@ export function getRefreshCookieOptions(maxAgeMs: number): CookieOptions {
   return {
     httpOnly: true,
     secure: config.nodeEnv === 'production',
-    sameSite: 'strict',
+    sameSite: 'lax',    // 'lax' required for Safari PWA — 'strict' blocks cookies on PWA launch
     path: '/api/auth',  // Only sent to auth endpoints
     maxAge: maxAgeMs,
   };
@@ -29,7 +29,7 @@ export function clearRefreshTokenCookie(res: Response): void {
   res.clearCookie(REFRESH_TOKEN_COOKIE, {
     httpOnly: true,
     secure: config.nodeEnv === 'production',
-    sameSite: 'strict',
+    sameSite: 'lax',
     path: '/api/auth',
   });
 }
