@@ -307,6 +307,18 @@ export function AppContent({ isLoggedIn, onLogout, onConvertSuccess }: { isLogge
     };
   }, [refreshTrackerData]);
 
+  // Periodic full data pull every 30 minutes as a safety net when SSE sync fails silently
+  useEffect(() => {
+    const POLL_INTERVAL_MS = 30 * 60 * 1000;
+    const intervalId = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        loadData();
+        setEntryRefreshKey(k => k + 1);
+      }
+    }, POLL_INTERVAL_MS);
+    return () => clearInterval(intervalId);
+  }, []);
+
   const handleCategoryChange = async () => {
     const cats = await api.getCategories();
     setCategories(cats);
