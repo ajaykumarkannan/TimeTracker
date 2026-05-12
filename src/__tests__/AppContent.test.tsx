@@ -104,7 +104,7 @@ describe('AppContent refresh behavior', () => {
     vi.clearAllMocks();
   });
 
-  it('does not use setInterval for polling', async () => {
+  it('registers only the 30-minute fallback poll interval', async () => {
     const setIntervalSpy = vi.spyOn(window, 'setInterval');
 
     render(
@@ -119,12 +119,12 @@ describe('AppContent refresh behavior', () => {
       expect(mockApi.getCategories).toHaveBeenCalled();
     });
 
-    // No polling interval should be registered for refresh (intervals > 1s)
-    // Other libraries may use short intervals (e.g. debounce at 50ms)
+    // Only the 30-minute safety-net interval should be registered (no aggressive short polling)
     const pollingCalls = setIntervalSpy.mock.calls.filter(
       ([, ms]) => typeof ms === 'number' && ms >= 1000
     );
-    expect(pollingCalls).toHaveLength(0);
+    expect(pollingCalls).toHaveLength(1);
+    expect(pollingCalls[0][1]).toBe(30 * 60 * 1000);
     setIntervalSpy.mockRestore();
   });
 
