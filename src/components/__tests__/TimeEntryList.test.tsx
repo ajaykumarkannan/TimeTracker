@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { TimeEntryList } from '../TimeEntryList';
 import { ThemeProvider } from '../../contexts/ThemeContext';
@@ -57,6 +57,10 @@ const baseEntry = (overrides: Partial<TimeEntry>): TimeEntry => {
 
 describe('TimeEntryList', () => {
   beforeEach(() => {
+    // Fix Date to a mid-day time so openManualEntry initialises with consistent
+    // same-day start/end values regardless of when CI runs.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-02-10T14:00:00Z'));
     vi.clearAllMocks();
     mockApi.getTaskNameSuggestions.mockResolvedValue([]);
     mockApi.getTimeEntries.mockResolvedValue([]);
@@ -67,6 +71,10 @@ describe('TimeEntryList', () => {
     mockApi.deleteEntriesByDate.mockResolvedValue({});
     vi.spyOn(window, 'confirm').mockReturnValue(true);
     vi.spyOn(window, 'alert').mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('opens manual entry modal and validates required fields', async () => {
