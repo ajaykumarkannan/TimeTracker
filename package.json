@@ -1,6 +1,6 @@
 {
   "name": "chronoflow",
-  "version": "1.5.50",
+  "version": "1.6.1",
   "type": "module",
   "description": "Time tracking webapp - understand where your work hours go",
   "scripts": {
@@ -33,7 +33,7 @@
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
-    "express": "^4.18.2",
+    "express": "^4.22.2",
     "jsonwebtoken": "^9.0.3",
     "mongodb": "^7.1.0",
     "react": "^18.2.0",
