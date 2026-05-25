@@ -246,8 +246,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   const handleForgottenSetEndTime = async () => {
     if (!activeEntry || !forgottenEndTime) return;
     try {
-      await api.updateEntry(activeEntry.id, { end_time: new Date(forgottenEndTime).toISOString() });
-      const stopped = await api.stopEntry(activeEntry.id);
+      const stopped = await api.updateEntry(activeEntry.id, { end_time: new Date(forgottenEndTime).toISOString() });
       setShowForgottenPrompt(false);
       setForgottenEndTime('');
       forgottenDismissedRef.current = true;
