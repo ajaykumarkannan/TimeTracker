@@ -4,6 +4,7 @@ import { api } from '../api';
 import { useTheme } from '../contexts/ThemeContext';
 import { getAdaptiveCategoryColors } from '../hooks/useAdaptiveColors';
 import { useTaskSuggestions } from '../hooks/useTaskSuggestions';
+import { useNotifications } from '../hooks/useNotifications';
 import { getNextAvailableColor } from '../utils/colorUtils';
 import { formatDateTimeLocal } from '../utils/timeUtils';
 import { InlineCategoryForm } from './InlineCategoryForm';
@@ -44,6 +45,7 @@ interface RecentTask {
 export function TimeTracker({ categories, activeEntry, entries, onEntryChange, onCategoryChange }: Props) {
   const { resolvedTheme } = useTheme();
   const isDarkMode = resolvedTheme === 'dark';
+  const { requestPermission, notify } = useNotifications();
 
   const nextColor = useMemo(() => {
     const usedColors = categories.map(c => c.color);
@@ -68,6 +70,9 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
   const [showForgottenPrompt, setShowForgottenPrompt] = useState(false);
   const [forgottenEndTime, setForgottenEndTime] = useState('');
   const forgottenDismissedRef = useRef(false);
+  // Fire the "forgotten timer" notification only once per crossing, since the
+  // interval re-evaluates the 8h threshold every second.
+  const forgottenNotifiedRef = useRef(false);
 
   // Stop-in-progress state for optimistic UI
   const [stopping, setStopping] = useState(false);
@@ -160,6 +165,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
     if (!activeEntry) {
       setElapsed(0);
       forgottenDismissedRef.current = false;
+      forgottenNotifiedRef.current = false;
       setShowForgottenPrompt(false);
       setForgottenEndTime('');
       return;
@@ -174,6 +180,20 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
       // Check for forgotten timer (8+ hours = 28800 seconds)
       if (elapsedSecs >= 28800 && !forgottenDismissedRef.current && !activeEntry.scheduled_end_time) {
         setShowForgottenPrompt(true);
+        // Notify once when first crossing 8h — the user has likely forgotten
+        // this timer and isn't looking at the tab.
+        if (!forgottenNotifiedRef.current) {
+          forgottenNotifiedRef.current = true;
+          const label = [activeEntry.category_name, activeEntry.task_name]
+            .filter(Boolean)
+            .join(' — ');
+          notify(
+            'Timer still running',
+            label
+              ? `Your timer for ${label} has been running over 8 hours. Did you forget to stop it?`
+              : 'A timer has been running over 8 hours. Did you forget to stop it?'
+          );
+        }
         // Default end time to start date at 17:00 (end of typical workday)
         // Use functional update to only set the default when currently empty,
         // without needing forgottenEndTime in the closure (which would go stale).
@@ -194,6 +214,11 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
         // Dismiss prompt if elapsed dropped below 8h or a scheduled stop was set
         setShowForgottenPrompt(false);
         setForgottenEndTime('');
+        // Re-arm the notification if elapsed dropped back below 8h (e.g. the
+        // user edited the start time forward).
+        if (elapsedSecs < 28800) {
+          forgottenNotifiedRef.current = false;
+        }
       }
 
       // Update scheduled remaining time display
@@ -204,6 +229,12 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
           // scheduleStop with a past time is handled server-side as an immediate stop at that time.
           api.scheduleStop(activeEntry.id, activeEntry.scheduled_end_time).then((result) => {
             if (result.end_time) {
+              // Notify the user their scheduled timer ended, since the tab is
+              // often in the background when this fires.
+              const label = [activeEntry.category_name, activeEntry.task_name]
+                .filter(Boolean)
+                .join(' — ');
+              notify('Timer ended', label ? `Your scheduled timer for ${label} has stopped.` : 'Your scheduled timer has stopped.');
               onEntryChange({ active: null, stopped: result });
             }
           }).catch(console.error);
@@ -219,7 +250,7 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
     updateElapsed();
     const interval = setInterval(updateElapsed, 1000);
     return () => clearInterval(interval);
-  }, [activeEntry, onEntryChange]);
+  }, [activeEntry, onEntryChange, notify]);
 
   const handleStop = async () => {
     if (!activeEntry || stopping) return;
@@ -348,6 +379,10 @@ export function TimeTracker({ categories, activeEntry, entries, onEntryChange, o
       if (result.end_time) {
         onEntryChange({ active: null, stopped: result });
       } else {
+        // Ask for notification permission now that a stop is scheduled — this
+        // is the natural opt-in moment, and it lets us alert the user when the
+        // timer fires while the tab is backgrounded.
+        void requestPermission();
         const updated = await api.getActiveEntry();
         onEntryChange({ active: updated });
       }
